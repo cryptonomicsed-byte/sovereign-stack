@@ -35,17 +35,19 @@ use crate::config::NodeConfig;
 use crate::identity::NodeIdentity;
 use crate::jobs::{Job, JobStatus, JobStore};
 use crate::nostr_relay::{spawn_nostr_relay, NostrRelayHandle};
+use crate::receipt_store::{ReceiptRecord, ReceiptStore};
 use crate::vantage::VantageClient;
 
 /// Shared node state visible to all axum handlers.
 #[derive(Clone)]
 pub struct NodeState {
-    pub identity:    Arc<NodeIdentity>,
-    pub config:      Arc<NodeConfig>,
-    pub registry:    DeviceRegistry,
-    pub job_store:   JobStore,
-    pub nostr_relay: Option<NostrRelayHandle>,
-    pub started_at:  u64,
+    pub identity:       Arc<NodeIdentity>,
+    pub config:         Arc<NodeConfig>,
+    pub registry:       DeviceRegistry,
+    pub job_store:      JobStore,
+    pub receipt_store:  ReceiptStore,
+    pub nostr_relay:    Option<NostrRelayHandle>,
+    pub started_at:     u64,
 }
 
 pub struct SovereignNode {
@@ -144,11 +146,14 @@ impl SovereignNode {
         };
 
         // --- 3. HTTP API ---
+        let receipt_store = ReceiptStore::open(&self.config.node.data_dir).await;
+
         let state = NodeState {
-            identity:    self.identity.clone(),
-            config:      self.config.clone(),
+            identity:      self.identity.clone(),
+            config:        self.config.clone(),
             registry,
-            job_store:   JobStore::new(),
+            job_store:     JobStore::new(),
+            receipt_store,
             nostr_relay,
             started_at,
         };
@@ -177,6 +182,7 @@ impl SovereignNode {
 }
 
 fn build_router(state: NodeState) -> Router {
+    use crate::mcp_server::handle_mcp;
     Router::new()
         .route("/health",          get(handle_health))
         .route("/status",          get(handle_status))
@@ -184,6 +190,8 @@ fn build_router(state: NodeState) -> Router {
         .route("/capture/:device", post(handle_capture))
         .route("/jobs",            get(handle_jobs_list))
         .route("/jobs/:job_id",    get(handle_job_get))
+        .route("/mcp",             post(handle_mcp))
+        .route("/receipts",        get(handle_receipts))
         .with_state(state)
 }
 
@@ -194,15 +202,17 @@ async fn handle_health() -> impl IntoResponse {
 
 // GET /status
 async fn handle_status(State(state): State<NodeState>) -> impl IntoResponse {
-    let uptime_secs  = (now_ms() - state.started_at) / 1000;
-    let device_count = state.registry.count().await;
-    let jobs         = state.job_store.all().await;
+    let uptime_secs    = (now_ms() - state.started_at) / 1000;
+    let device_count   = state.registry.count().await;
+    let jobs           = state.job_store.all().await;
+    let receipt_count  = state.receipt_store.count().await;
     Json(json!({
-        "node":         state.config.node.name,
-        "did":          state.identity.did,
-        "uptime_secs":  uptime_secs,
-        "device_count": device_count,
-        "job_count":    jobs.len(),
+        "node":          state.config.node.name,
+        "did":           state.identity.did,
+        "uptime_secs":   uptime_secs,
+        "device_count":  device_count,
+        "job_count":     jobs.len(),
+        "receipt_count": receipt_count,
         "vcp": {
             "scan_interval_secs": state.config.vcp.scan_interval_secs,
             "device_ttl_secs":    state.config.vcp.device_ttl_secs,
@@ -251,6 +261,15 @@ async fn handle_job_get(
     }
 }
 
+// GET /receipts
+async fn handle_receipts(State(state): State<NodeState>) -> impl IntoResponse {
+    let records = state.receipt_store.list().await;
+    Json(json!({
+        "count":    records.len(),
+        "receipts": records,
+    }))
+}
+
 // POST /capture/:device_id
 // Queues a real async capture pipeline task; returns immediately with job_id.
 async fn handle_capture(
@@ -275,116 +294,16 @@ async fn handle_capture(
 
     info!(job_id = %job_id, device_id = %device.device_id, model = %device.model, "capture job queued");
 
-    // Clone what the task needs
-    let identity    = state.identity.clone();
-    let config      = state.config.clone();
-    let job_store   = state.job_store.clone();
-    let nostr_relay = state.nostr_relay.clone();
-    let task_job    = job_id.clone();
-
-    tokio::spawn(async move {
-        job_store.update_status(&task_job, JobStatus::Running).await;
-
-        // Phase A: blocking VCP capture + receipt building
-        let capture_result = {
-            let identity = identity.clone();
-            let config   = config.clone();
-            let dev_id   = device.device_id.clone();
-            let model    = device.model.clone();
-            tokio::task::spawn_blocking(move || {
-                run_capture_pipeline(&identity, &config, &dev_id, &model)
-            }).await
-        };
-
-        let pipeline_output = match capture_result {
-            Err(e) => {
-                error!(job_id = %task_job, error = %e, "capture task panicked");
-                job_store.update_status(&task_job, JobStatus::Failed {
-                    reason: format!("task panicked: {e}")
-                }).await;
-                return;
-            }
-            Ok(Err(e)) => {
-                warn!(job_id = %task_job, error = %e, "capture pipeline failed");
-                job_store.update_status(&task_job, JobStatus::Failed { reason: e }).await;
-                return;
-            }
-            Ok(Ok(output)) => output,
-        };
-
-        let twin_id   = pipeline_output.twin.twin_id.clone();
-        let scene_id  = pipeline_output.scene_receipt.receipt_id.clone();
-        let cap_id    = pipeline_output.capture_receipt.receipt_id.clone();
-
-        // Phase B: async ProofChain (ỌSỌVM → Sui → DIP event bus)
-        let chain_result = {
-            let chain_identity = IdentityChain::new(identity.did.clone(), identity.did.clone());
-            let proof_cfg = ProofChainConfig {
-                osovm_version: config.pipeline.osovm_version.clone(),
-                nostr_npub:    config.dip.nostr_npub.clone(),
-                vantage_did:   config.dip.vantage_did.clone(),
-                scenario: twin_protocol::osovm::SimScenario {
-                    name:                "node_capture".into(),
-                    robot_model:         "Go2".into(),
-                    trajectory_count:    config.pipeline.trajectory_count,
-                    selection_objective: config.pipeline.selection_objective.clone(),
-                    params:              None,
-                },
-                ..Default::default()
-            };
-            let chain = ProofChain::new(proof_cfg, &identity.private_key, chain_identity);
-
-            // Stub witnesses — real impl: registered validators from the node's peer list
-            use sovereign_types::crypto::generate_keypair;
-            let (w1, _) = generate_keypair();
-            let (w2, _) = generate_keypair();
-            let witnesses = [
-                ("did:witness:node01", w1.as_str()),
-                ("did:witness:node02", w2.as_str()),
-            ];
-            chain.run(pipeline_output, &witnesses).await
-        };
-
-        match chain_result {
-            Err(e) => {
-                warn!(job_id = %task_job, error = %e, "proof chain failed — saving partial result");
-                // Still count the job as completed: capture succeeded, proof failed
-                job_store.update_status(&task_job, JobStatus::Completed {
-                    twin_id, scene_receipt_id: scene_id, capture_receipt_id: cap_id,
-                    sui_object_id: None, dip_message_count: 0,
-                }).await;
-            }
-            Ok(proof_output) => {
-                info!(
-                    job_id   = %task_job,
-                    twin_id  = %twin_id,
-                    sui_id   = ?proof_output.pipeline.twin.sui_object_id,
-                    dip_msgs = %proof_output.dip_message_ids.len(),
-                    "proof chain complete"
-                );
-
-                // Publish SceneReceipt to live Nostr relay if configured
-                if let Some(relay) = &nostr_relay {
-                    let scene_dip = dip_receipt_envelope(
-                        &identity,
-                        &config,
-                        &proof_output.pipeline.scene_receipt.receipt_id,
-                    );
-                    if let Some(env) = scene_dip {
-                        relay.publish(env).await;
-                    }
-                }
-
-                job_store.update_status(&task_job, JobStatus::Completed {
-                    twin_id:            proof_output.pipeline.twin.twin_id,
-                    scene_receipt_id:   proof_output.pipeline.scene_receipt.receipt_id,
-                    capture_receipt_id: proof_output.pipeline.capture_receipt.receipt_id,
-                    sui_object_id:      proof_output.pipeline.twin.sui_object_id,
-                    dip_message_count:  proof_output.dip_message_ids.len(),
-                }).await;
-            }
-        }
-    });
+    tokio::spawn(run_capture_job(
+        job_id.clone(),
+        device.device_id.clone(),
+        device.model.clone(),
+        state.identity.clone(),
+        state.config.clone(),
+        state.job_store.clone(),
+        state.receipt_store.clone(),
+        state.nostr_relay.clone(),
+    ));
 
     Json(json!({
         "job_id":    job_id,
@@ -392,6 +311,131 @@ async fn handle_capture(
         "status":    "queued",
         "poll":      format!("/jobs/{job_id}"),
     }))
+}
+
+/// The full capture job — spawned as a tokio task by both handle_capture and the MCP server.
+pub async fn run_capture_job(
+    job_id:        String,
+    device_id:     String,
+    model:         String,
+    identity:      Arc<NodeIdentity>,
+    config:        Arc<NodeConfig>,
+    job_store:     crate::jobs::JobStore,
+    receipts:      ReceiptStore,
+    nostr:         Option<crate::nostr_relay::NostrRelayHandle>,
+) {
+    job_store.update_status(&job_id, JobStatus::Running).await;
+
+    // Phase A: blocking VCP capture
+    let capture_result = {
+        let identity2 = identity.clone();
+        let config2   = config.clone();
+        let dev_id2   = device_id.clone();
+        let model2    = model.clone();
+        tokio::task::spawn_blocking(move || {
+            run_capture_pipeline(&identity2, &config2, &dev_id2, &model2)
+        }).await
+    };
+
+    let pipeline_output = match capture_result {
+        Err(e) => {
+            error!(job_id = %job_id, error = %e, "capture task panicked");
+            job_store.update_status(&job_id, JobStatus::Failed {
+                reason: format!("task panicked: {e}")
+            }).await;
+            return;
+        }
+        Ok(Err(e)) => {
+            warn!(job_id = %job_id, error = %e, "capture pipeline failed");
+            job_store.update_status(&job_id, JobStatus::Failed { reason: e }).await;
+            return;
+        }
+        Ok(Ok(output)) => output,
+    };
+
+    let twin_id  = pipeline_output.twin.twin_id.clone();
+    let scene_id = pipeline_output.scene_receipt.receipt_id.clone();
+    let cap_id   = pipeline_output.capture_receipt.receipt_id.clone();
+
+    // Phase B: async ProofChain
+    let chain_identity = IdentityChain::new(identity.did.clone(), identity.did.clone());
+    let proof_cfg = ProofChainConfig {
+        osovm_version: config.pipeline.osovm_version.clone(),
+        nostr_npub:    config.dip.nostr_npub.clone(),
+        vantage_did:   config.dip.vantage_did.clone(),
+        scenario: twin_protocol::osovm::SimScenario {
+            name:                "node_capture".into(),
+            robot_model:         "Go2".into(),
+            trajectory_count:    config.pipeline.trajectory_count,
+            selection_objective: config.pipeline.selection_objective.clone(),
+            params:              None,
+        },
+        ..Default::default()
+    };
+    let chain = ProofChain::new(proof_cfg, &identity.private_key, chain_identity);
+
+    use sovereign_types::crypto::generate_keypair;
+    let (w1, _) = generate_keypair();
+    let (w2, _) = generate_keypair();
+    let witnesses = [
+        ("did:witness:node01", w1.as_str()),
+        ("did:witness:node02", w2.as_str()),
+    ];
+
+    match chain.run(pipeline_output, &witnesses).await {
+        Err(e) => {
+            warn!(job_id = %job_id, error = %e, "proof chain failed — saving partial result");
+            job_store.update_status(&job_id, JobStatus::Completed {
+                twin_id, scene_receipt_id: scene_id, capture_receipt_id: cap_id,
+                sui_object_id: None, dip_message_count: 0,
+            }).await;
+        }
+        Ok(proof_output) => {
+            info!(
+                job_id   = %job_id,
+                twin_id  = %twin_id,
+                sui_id   = ?proof_output.pipeline.twin.sui_object_id,
+                dip_msgs = %proof_output.dip_message_ids.len(),
+                "proof chain complete"
+            );
+
+            if let Some(relay) = &nostr {
+                if let Some(env) = dip_receipt_envelope(
+                    &identity, &config,
+                    &proof_output.pipeline.scene_receipt.receipt_id,
+                ) {
+                    relay.publish(env).await;
+                }
+            }
+
+            let dip_count  = proof_output.dip_message_ids.len();
+            let p_twin_id  = proof_output.pipeline.twin.twin_id.clone();
+            let p_scene_id = proof_output.pipeline.scene_receipt.receipt_id.clone();
+            let p_cap_id   = proof_output.pipeline.capture_receipt.receipt_id.clone();
+            let p_sui      = proof_output.pipeline.twin.sui_object_id.clone();
+
+            job_store.update_status(&job_id, JobStatus::Completed {
+                twin_id:            p_twin_id.clone(),
+                scene_receipt_id:   p_scene_id.clone(),
+                capture_receipt_id: p_cap_id.clone(),
+                sui_object_id:      p_sui.clone(),
+                dip_message_count:  dip_count,
+            }).await;
+
+            // Persist receipt to disk for restart survival
+            receipts.save(ReceiptRecord {
+                kind:               31030,
+                receipt_id:         p_scene_id.clone(),
+                twin_id:            p_twin_id,
+                device_id:          device_id.clone(),
+                scene_receipt_id:   p_scene_id,
+                capture_receipt_id: p_cap_id,
+                sui_object_id:      p_sui,
+                dip_message_count:  dip_count,
+                completed_at:       now_ms(),
+            }).await;
+        }
+    }
 }
 
 /// Blocking capture pipeline run — called via spawn_blocking.
