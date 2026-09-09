@@ -241,9 +241,10 @@ async fn tool_capture(state: &NodeState, args: &Value) -> Result<Value, String> 
     let dev_id     = device.device_id.clone();
     let model      = device.model.clone();
 
-    let receipts = state.receipt_store.clone();
+    let receipts  = state.receipt_store.clone();
+    let witnesses = state.witnesses.clone();
     tokio::spawn(crate::node::run_capture_job(
-        task_job, dev_id, model, identity, config, job_store, receipts, nostr,
+        task_job, dev_id, model, identity, config, job_store, receipts, witnesses, nostr,
     ));
 
     let result = json!({

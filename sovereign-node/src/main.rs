@@ -1,4 +1,5 @@
 mod config;
+mod dip_gateway;
 mod identity;
 mod jobs;
 mod mcp_server;
@@ -6,6 +7,7 @@ mod node;
 mod nostr_relay;
 mod receipt_store;
 mod vantage;
+mod witness_registry;
 
 use clap::Parser;
 use std::path::PathBuf;

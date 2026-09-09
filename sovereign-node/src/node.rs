@@ -32,22 +32,25 @@ use sovereign_pipeline::{
 };
 
 use crate::config::NodeConfig;
+use crate::dip_gateway::DipGateway;
 use crate::identity::NodeIdentity;
 use crate::jobs::{Job, JobStatus, JobStore};
 use crate::nostr_relay::{spawn_nostr_relay, NostrRelayHandle};
 use crate::receipt_store::{ReceiptRecord, ReceiptStore};
 use crate::vantage::VantageClient;
+use crate::witness_registry::WitnessRegistry;
 
 /// Shared node state visible to all axum handlers.
 #[derive(Clone)]
 pub struct NodeState {
-    pub identity:       Arc<NodeIdentity>,
-    pub config:         Arc<NodeConfig>,
-    pub registry:       DeviceRegistry,
-    pub job_store:      JobStore,
-    pub receipt_store:  ReceiptStore,
-    pub nostr_relay:    Option<NostrRelayHandle>,
-    pub started_at:     u64,
+    pub identity:        Arc<NodeIdentity>,
+    pub config:          Arc<NodeConfig>,
+    pub registry:        DeviceRegistry,
+    pub job_store:       JobStore,
+    pub receipt_store:   ReceiptStore,
+    pub witnesses:       WitnessRegistry,
+    pub nostr_relay:     Option<NostrRelayHandle>,
+    pub started_at:      u64,
 }
 
 pub struct SovereignNode {
@@ -148,12 +151,15 @@ impl SovereignNode {
         // --- 3. HTTP API ---
         let receipt_store = ReceiptStore::open(&self.config.node.data_dir).await;
 
+        let witnesses = crate::witness_registry::dev_registry();
+
         let state = NodeState {
             identity:      self.identity.clone(),
             config:        self.config.clone(),
             registry,
             job_store:     JobStore::new(),
             receipt_store,
+            witnesses,
             nostr_relay,
             started_at,
         };
@@ -302,6 +308,7 @@ async fn handle_capture(
         state.config.clone(),
         state.job_store.clone(),
         state.receipt_store.clone(),
+        state.witnesses.clone(),
         state.nostr_relay.clone(),
     ));
 
@@ -315,14 +322,15 @@ async fn handle_capture(
 
 /// The full capture job — spawned as a tokio task by both handle_capture and the MCP server.
 pub async fn run_capture_job(
-    job_id:        String,
-    device_id:     String,
-    model:         String,
-    identity:      Arc<NodeIdentity>,
-    config:        Arc<NodeConfig>,
-    job_store:     crate::jobs::JobStore,
-    receipts:      ReceiptStore,
-    nostr:         Option<crate::nostr_relay::NostrRelayHandle>,
+    job_id:    String,
+    device_id: String,
+    model:     String,
+    identity:  Arc<NodeIdentity>,
+    config:    Arc<NodeConfig>,
+    job_store: crate::jobs::JobStore,
+    receipts:  ReceiptStore,
+    witnesses: WitnessRegistry,
+    nostr:     Option<crate::nostr_relay::NostrRelayHandle>,
 ) {
     job_store.update_status(&job_id, JobStatus::Running).await;
 
@@ -374,15 +382,12 @@ pub async fn run_capture_job(
     };
     let chain = ProofChain::new(proof_cfg, &identity.private_key, chain_identity);
 
-    use sovereign_types::crypto::generate_keypair;
-    let (w1, _) = generate_keypair();
-    let (w2, _) = generate_keypair();
-    let witnesses = [
-        ("did:witness:node01", w1.as_str()),
-        ("did:witness:node02", w2.as_str()),
-    ];
+    let witness_pairs = witnesses.get_witnesses_for_proof(2).await;
+    let witness_refs: Vec<(&str, &str)> = witness_pairs.iter()
+        .map(|(d, k)| (d.as_str(), k.as_str()))
+        .collect();
 
-    match chain.run(pipeline_output, &witnesses).await {
+    match chain.run(pipeline_output, &witness_refs).await {
         Err(e) => {
             warn!(job_id = %job_id, error = %e, "proof chain failed — saving partial result");
             job_store.update_status(&job_id, JobStatus::Completed {
