@@ -17,7 +17,7 @@ use futures_util::{SinkExt, StreamExt};
 use serde_json::{json, Value};
 use tokio::sync::mpsc;
 use tokio_tungstenite::{connect_async, tungstenite::Message};
-use tracing::{debug, info, warn, error};
+use tracing::{debug, info, warn};
 
 use dip::adapters::{NostrAdapter, NostrEvent};
 use dip::envelope::DipEnvelope;
