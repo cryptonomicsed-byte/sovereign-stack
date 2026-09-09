@@ -3,28 +3,43 @@
 //! Subsystems started by SovereignNode::start():
 //!   1. VCP DiscoveryDaemon — BLE/mDNS scan loop
 //!   2. DIP Router — envelope routing with Vantage + Nostr adapters
-//!   3. API server (axum) — /health /status /devices /capture/:id
+//!   3. API server (axum) — /health /status /devices /capture/:id /jobs/:id
 //!   4. Graceful shutdown on SIGTERM / SIGINT
 
 use std::sync::Arc;
 use std::net::SocketAddr;
 
-use axum::{Router, routing::get, routing::post, extract::{State, Path}, Json, response::IntoResponse};
-use serde_json::{json, Value};
-use tokio::sync::RwLock;
+use axum::{
+    Router,
+    routing::{get, post},
+    extract::{State, Path},
+    Json,
+    response::IntoResponse,
+    http::StatusCode,
+};
+use serde_json::json;
 use tracing::{info, warn, error};
 
-use vcp::{DiscoveryDaemon, DeviceRegistry};
+use vcp::{DiscoveryDaemon, DeviceRegistry, VcpSession};
+use vcp::adapters::{Go2Adapter, Go2ConnectionMode};
+use vcp::handshake::{VcpCapabilityRequest, VcpDuration};
+use vcp::grant::VcpCapabilityGrant;
 use dip::{DipRouter, address::DipNetwork};
+use sovereign_types::IdentityChain;
+use sovereign_pipeline::{CapturePipeline, PipelineConfig, Go2CaptureDriver};
+
 use crate::config::NodeConfig;
 use crate::identity::NodeIdentity;
+use crate::jobs::{Job, JobStatus, JobStore};
+use crate::vantage::VantageClient;
 
 /// Shared node state visible to all axum handlers.
 #[derive(Clone)]
 pub struct NodeState {
-    pub identity: Arc<NodeIdentity>,
-    pub config:   Arc<NodeConfig>,
-    pub registry: DeviceRegistry,
+    pub identity:   Arc<NodeIdentity>,
+    pub config:     Arc<NodeConfig>,
+    pub registry:   DeviceRegistry,
+    pub job_store:  JobStore,
     pub started_at: u64,
 }
 
@@ -60,27 +75,43 @@ impl SovereignNode {
         );
 
         if let Some(vantage) = &self.config.vantage {
-            // Production: daemon.with_vantage(vantage.base_url.clone())
             info!(url = %vantage.base_url, "Vantage heartbeat configured");
         }
 
         let registry = daemon.registry.clone();
         daemon.clone().spawn();
         info!(
-            scan_secs  = self.config.vcp.scan_interval_secs,
-            ttl_secs   = self.config.vcp.device_ttl_secs,
+            scan_secs = self.config.vcp.scan_interval_secs,
+            ttl_secs  = self.config.vcp.device_ttl_secs,
             "VCP discovery daemon started"
         );
+
+        // --- 1b. Vantage heartbeat loop ---
+        if let Some(vantage_cfg) = &self.config.vantage {
+            let hb_client  = VantageClient::new(&vantage_cfg.base_url, &vantage_cfg.api_token);
+            let hb_registry = registry.clone();
+            let hb_name    = self.config.node.name.clone();
+            let hb_did     = self.identity.did.clone();
+            let hb_interval = self.config.vcp.scan_interval_secs;
+            info!(url = %vantage_cfg.base_url, "Vantage heartbeat loop starting");
+            tokio::spawn(async move {
+                let mut tick = tokio::time::interval(
+                    std::time::Duration::from_secs(hb_interval)
+                );
+                loop {
+                    tick.tick().await;
+                    let summary = hb_registry.heartbeat_summary().await;
+                    hb_client.post_heartbeat(&hb_name, &hb_did, summary).await;
+                }
+            });
+        }
 
         // --- 2. DIP Router ---
         let mut dip_router = DipRouter::new(self.identity.did.clone());
         dip_router.register_adapter(DipNetwork::Vantage);
         if self.config.dip.nostr_enabled {
             dip_router.register_adapter(DipNetwork::Nostr);
-            info!(
-                relay = ?self.config.dip.nostr_relay,
-                "Nostr adapter registered"
-            );
+            info!(relay = ?self.config.dip.nostr_relay, "Nostr adapter registered");
         }
         info!(did = %self.identity.did, "DIP router initialized");
 
@@ -88,7 +119,8 @@ impl SovereignNode {
         let state = NodeState {
             identity:   self.identity.clone(),
             config:     self.config.clone(),
-            registry:   registry.clone(),
+            registry,
+            job_store:  JobStore::new(),
             started_at,
         };
 
@@ -103,7 +135,6 @@ impl SovereignNode {
             let listener = tokio::net::TcpListener::bind(addr).await
                 .expect("failed to bind API port");
 
-            // Spawn API server — it runs until process exits
             tokio::spawn(async move {
                 axum::serve(listener, app).await
                     .unwrap_or_else(|e| error!("API server error: {e}"));
@@ -122,6 +153,8 @@ fn build_router(state: NodeState) -> Router {
         .route("/status",          get(handle_status))
         .route("/devices",         get(handle_devices))
         .route("/capture/:device", post(handle_capture))
+        .route("/jobs",            get(handle_jobs_list))
+        .route("/jobs/:job_id",    get(handle_job_get))
         .with_state(state)
 }
 
@@ -132,13 +165,15 @@ async fn handle_health() -> impl IntoResponse {
 
 // GET /status
 async fn handle_status(State(state): State<NodeState>) -> impl IntoResponse {
-    let uptime_secs = (now_ms() - state.started_at) / 1000;
+    let uptime_secs  = (now_ms() - state.started_at) / 1000;
     let device_count = state.registry.count().await;
+    let jobs         = state.job_store.all().await;
     Json(json!({
         "node":         state.config.node.name,
         "did":          state.identity.did,
         "uptime_secs":  uptime_secs,
         "device_count": device_count,
+        "job_count":    jobs.len(),
         "vcp": {
             "scan_interval_secs": state.config.vcp.scan_interval_secs,
             "device_ttl_secs":    state.config.vcp.device_ttl_secs,
@@ -160,37 +195,193 @@ async fn handle_devices(State(state): State<NodeState>) -> impl IntoResponse {
     }))
 }
 
+// GET /jobs
+async fn handle_jobs_list(State(state): State<NodeState>) -> impl IntoResponse {
+    let mut jobs = state.job_store.all().await;
+    jobs.sort_by_key(|j| j.created_at);
+    Json(json!({
+        "count": jobs.len(),
+        "jobs":  jobs,
+    }))
+}
+
+// GET /jobs/:job_id
+async fn handle_job_get(
+    State(state): State<NodeState>,
+    Path(job_id): Path<String>,
+) -> impl IntoResponse {
+    match state.job_store.get(&job_id).await {
+        Some(job) => (StatusCode::OK, Json(serde_json::to_value(job).unwrap_or_default())),
+        None => (
+            StatusCode::NOT_FOUND,
+            Json(json!({
+                "error":  "job_not_found",
+                "job_id": job_id,
+            })),
+        ),
+    }
+}
+
 // POST /capture/:device_id
-// Triggers a capture pipeline run for the named device.
-// Returns immediately with job_id; production impl should stream progress.
+// Queues a real async capture pipeline task; returns immediately with job_id.
 async fn handle_capture(
     State(state): State<NodeState>,
     Path(device_id): Path<String>,
 ) -> impl IntoResponse {
-    match state.registry.get(&device_id).await {
-        None => Json(json!({
-            "error":     "device_not_found",
-            "device_id": device_id,
-            "hint":      "check /devices for available devices",
-        })),
-        Some(device) => {
-            info!(
-                device_id = %device.device_id,
-                model      = %device.model,
-                "capture pipeline triggered"
-            );
-            // Production: spawn CapturePipeline::run() in a tokio task,
-            // store progress in shared state, return job_id for polling.
-            let job_id = format!("job:{}", uuid::Uuid::new_v4());
-            Json(json!({
-                "job_id":    job_id,
-                "device_id": device.device_id,
-                "model":     device.model,
-                "status":    "queued",
-                "note":      "full pipeline runs async — check /jobs/:id for progress",
+    // Verify device is known
+    let device = match state.registry.get(&device_id).await {
+        None => {
+            return Json(json!({
+                "error":     "device_not_found",
+                "device_id": device_id,
+                "hint":      "check /devices for available devices",
             }))
         }
-    }
+        Some(d) => d,
+    };
+
+    let job_id  = format!("job:{}", uuid::Uuid::new_v4());
+    let job     = Job::new(job_id.clone(), device_id.clone());
+    state.job_store.insert(job).await;
+
+    info!(job_id = %job_id, device_id = %device.device_id, model = %device.model, "capture job queued");
+
+    // Clone what the task needs
+    let identity   = state.identity.clone();
+    let config     = state.config.clone();
+    let job_store  = state.job_store.clone();
+    let task_job   = job_id.clone();
+
+    tokio::spawn(async move {
+        job_store.update_status(&task_job, JobStatus::Running).await;
+
+        let result = tokio::task::spawn_blocking(move || {
+            run_capture_pipeline(&identity, &config, &device.device_id, &device.model)
+        }).await;
+
+        let status = match result {
+            Ok(Ok(output)) => {
+                info!(
+                    job_id    = %task_job,
+                    twin_id   = %output.0,
+                    scene_id  = %output.1,
+                    "capture pipeline completed"
+                );
+                JobStatus::Completed {
+                    twin_id:            output.0,
+                    scene_receipt_id:   output.1,
+                    capture_receipt_id: output.2,
+                }
+            }
+            Ok(Err(e)) => {
+                warn!(job_id = %task_job, error = %e, "capture pipeline failed");
+                JobStatus::Failed { reason: e }
+            }
+            Err(e) => {
+                error!(job_id = %task_job, error = %e, "capture task panicked");
+                JobStatus::Failed { reason: format!("task panicked: {e}") }
+            }
+        };
+
+        job_store.update_status(&task_job, status).await;
+    });
+
+    Json(json!({
+        "job_id":    job_id,
+        "device_id": device_id,
+        "status":    "queued",
+        "poll":      format!("/jobs/{job_id}"),
+    }))
+}
+
+/// Blocking capture pipeline run — called via spawn_blocking.
+/// Returns (twin_id, scene_receipt_id, capture_receipt_id) on success.
+fn run_capture_pipeline(
+    identity:  &NodeIdentity,
+    config:    &NodeConfig,
+    device_id: &str,
+    model:     &str,
+) -> Result<(String, String, String), String> {
+    use vcp::manifest::{VcpCapabilityDecl, VcpSafetyConfig, VcpTransport, VcpDeviceIdentity, AgentDeviceManifest};
+    use sovereign_types::SafetyLevel;
+
+    // Build a minimal manifest so we can issue a stub grant.
+    // Production: this comes from the real VCP handshake (device signs grant).
+    let manifest = if model.to_lowercase().contains("go2") {
+        let adapter = Go2Adapter::new(device_id, Go2ConnectionMode::default());
+        adapter.manifest(&identity.public_key)
+    } else {
+        // Generic fallback for non-Go2 devices
+        AgentDeviceManifest {
+            device_id:        device_id.into(),
+            manufacturer:     "Unknown".into(),
+            model:            model.into(),
+            protocol_version: "vcp/1".into(),
+            firmware_version: "1.0".into(),
+            dip_identity:     format!("did:device:{device_id}"),
+            capabilities: vec![
+                VcpCapabilityDecl {
+                    id: "camera".into(), description: "camera capture".into(),
+                    params: None, requires_grant: true,
+                    safety_level: SafetyLevel::None, ungrantable: false,
+                },
+                VcpCapabilityDecl {
+                    id: "lidar".into(), description: "lidar capture".into(),
+                    params: None, requires_grant: true,
+                    safety_level: SafetyLevel::None, ungrantable: false,
+                },
+                VcpCapabilityDecl {
+                    id: "telemetry".into(), description: "telemetry polling".into(),
+                    params: None, requires_grant: true,
+                    safety_level: SafetyLevel::None, ungrantable: false,
+                },
+            ],
+            safety: VcpSafetyConfig {
+                emergency_stop: true,
+                geofence: false,
+                collision_avoidance: None,
+                max_speed_ms: None,
+                ungrantable: vec![],
+            },
+            transport: vec![VcpTransport::Wifi],
+            identity: VcpDeviceIdentity {
+                public_key: identity.public_key.clone(),
+                cert_chain: None,
+            },
+            timestamp: 0, merkle_root: String::new(), signature: String::new(),
+        }
+    };
+
+    let chain = IdentityChain::new(identity.did.clone(), identity.did.clone());
+
+    let request = VcpCapabilityRequest::new(
+        chain.clone(),
+        vec!["camera".into(), "lidar".into(), "telemetry".into()],
+        "twin_capture",
+        VcpDuration::minutes(60),
+        &identity.private_key,
+    ).map_err(|e| e.to_string())?;
+
+    // Node signs as both agent and device (stub — real: device signs during handshake)
+    let grant = VcpCapabilityGrant::issue(&manifest, &request, &identity.private_key)
+        .map_err(|e| e.to_string())?;
+
+    let session = VcpSession::new(grant);
+
+    let pipeline_cfg = PipelineConfig {
+        owner_did:             identity.did.clone(),
+        reconstruction_engine: config.pipeline.reconstruction_engine.clone(),
+        ..Default::default()
+    };
+
+    let pipeline = CapturePipeline::new(pipeline_cfg, &identity.private_key, chain);
+    let output   = pipeline.run(session, &Go2CaptureDriver).map_err(|e| e.to_string())?;
+
+    Ok((
+        output.twin.twin_id,
+        output.scene_receipt.receipt_id,
+        output.capture_receipt.receipt_id,
+    ))
 }
 
 async fn shutdown_signal() {

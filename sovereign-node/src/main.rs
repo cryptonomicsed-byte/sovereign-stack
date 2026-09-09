@@ -1,6 +1,8 @@
 mod config;
 mod identity;
+mod jobs;
 mod node;
+mod vantage;
 
 use clap::Parser;
 use std::path::PathBuf;
