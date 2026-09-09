@@ -18,6 +18,8 @@ pub enum JobStatus {
         twin_id:            String,
         scene_receipt_id:   String,
         capture_receipt_id: String,
+        sui_object_id:      Option<String>,
+        dip_message_count:  usize,
     },
     Failed {
         reason: String,

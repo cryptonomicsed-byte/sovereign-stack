@@ -118,7 +118,10 @@ impl SovereignNode {
             dip_router.register_adapter(DipNetwork::Nostr);
             info!(relay = ?self.config.dip.nostr_relay, "Nostr adapter registered");
         }
-        info!(did = %self.identity.did, "DIP router initialized");
+        // Meshtastic always registered — provides offline mesh fallback when
+        // Vantage + Nostr are unreachable (airgapped or rural deployment).
+        dip_router.register_adapter(DipNetwork::Meshtastic);
+        info!(did = %self.identity.did, "DIP router initialized (Vantage + Meshtastic offline mesh)");
 
         // --- 2b. Nostr relay WebSocket connection ---
         let nostr_relay = if self.config.dip.nostr_enabled {
@@ -348,6 +351,7 @@ async fn handle_capture(
                 // Still count the job as completed: capture succeeded, proof failed
                 job_store.update_status(&task_job, JobStatus::Completed {
                     twin_id, scene_receipt_id: scene_id, capture_receipt_id: cap_id,
+                    sui_object_id: None, dip_message_count: 0,
                 }).await;
             }
             Ok(proof_output) => {
@@ -375,6 +379,8 @@ async fn handle_capture(
                     twin_id:            proof_output.pipeline.twin.twin_id,
                     scene_receipt_id:   proof_output.pipeline.scene_receipt.receipt_id,
                     capture_receipt_id: proof_output.pipeline.capture_receipt.receipt_id,
+                    sui_object_id:      proof_output.pipeline.twin.sui_object_id,
+                    dip_message_count:  proof_output.dip_message_ids.len(),
                 }).await;
             }
         }
