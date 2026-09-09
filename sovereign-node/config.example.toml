@@ -44,3 +44,13 @@ enabled = true
 # rpc_url  = "https://fullnode.mainnet.sui.io"
 # address  = "0xyour_sui_address"
 # key_file = "/var/lib/sovereign-node/sui.key"
+
+# Witness peers — co-sign ỌSỌVM simulation proofs.
+# Requires >= 2 to avoid ephemeral stub witnesses.
+# [[witnesses]]
+# did        = "did:vantage:node:peer01"
+# public_key = "base64url_ed25519_verifying_key"
+#
+# [[witnesses]]
+# did        = "did:vantage:node:peer02"
+# public_key = "base64url_ed25519_verifying_key"

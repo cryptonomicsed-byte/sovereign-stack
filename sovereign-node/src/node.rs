@@ -151,7 +151,21 @@ impl SovereignNode {
         // --- 3. HTTP API ---
         let receipt_store = ReceiptStore::open(&self.config.node.data_dir).await;
 
-        let witnesses = crate::witness_registry::dev_registry();
+        // Load witnesses from config
+        let witnesses = WitnessRegistry::new();
+        for w in &self.config.witnesses {
+            witnesses.register(crate::witness_registry::WitnessPeer {
+                did:         w.did.clone(),
+                public_key:  w.public_key.clone(),
+                private_key: None, // remote witness — signs via DIP exchange in production
+            }).await;
+        }
+        if self.config.witnesses.is_empty() {
+            warn!("no witnesses configured — stub witnesses will be used for proof chain");
+            info!("add [[witnesses]] entries to config.toml to register real witnesses");
+        } else {
+            info!(count = self.config.witnesses.len(), "witnesses loaded from config");
+        }
 
         let state = NodeState {
             identity:      self.identity.clone(),

@@ -20,6 +20,14 @@ pub struct NodeConfig {
     pub api:        ApiSection,
     pub vantage:    Option<VantageSection>,
     pub sui:        Option<SuiSection>,
+    #[serde(default)]
+    pub witnesses:  Vec<WitnessConfig>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WitnessConfig {
+    pub did:        String,
+    pub public_key: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -134,8 +142,9 @@ impl Default for NodeConfig {
                 bind:    "127.0.0.1:7779".into(),
                 enabled: true,
             },
-            vantage: None,
-            sui:     None,
+            vantage:   None,
+            sui:       None,
+            witnesses: vec![],
         }
     }
 }
