@@ -29,6 +29,9 @@ osovm_version         = "osovm/2.0"
 trajectory_count      = 6
 selection_objective   = "balanced"
 min_witnesses         = 2
+# Optional real ỌSỌVM engine:
+# osovm_endpoint = "http://localhost:9000"     # HTTP JSON bridge
+# osovm_endpoint = "/usr/local/bin/osovm"      # binary exec (JSON stdin/stdout)
 
 [api]
 bind    = "127.0.0.1:7779"

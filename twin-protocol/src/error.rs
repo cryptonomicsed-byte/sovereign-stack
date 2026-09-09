@@ -22,10 +22,10 @@ pub enum TspError {
     LicenseViolation(String),
     #[error("validation: {0}")]
     Validation(String),
+    #[error("simulation engine error: {0}")]
+    SimulationError(String),
     #[error("json: {0}")]
-    Json(serde_json::Error),
-    #[error("serialization: {0}")]
-    Serialization(#[from] serde_json::Error),
+    Json(#[from] serde_json::Error),
     #[error("sovereign: {0}")]
     Sovereign(#[from] sovereign_types::SovereignError),
 }

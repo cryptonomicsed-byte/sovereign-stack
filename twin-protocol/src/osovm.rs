@@ -81,9 +81,20 @@ impl OsovmEngine {
 
     /// Run a simulation scenario against a TwinAsset.
     ///
-    /// Stub implementation: generates synthetic candidate policies from the twin's
-    /// f1_score and the scenario parameters. Production impl calls the real VM.
+    /// If `endpoint` is set: tries the real ỌSỌVM engine first.
+    ///   • "http(s)://…" → POST JSON to that URL, expect OsovmRunResult JSON back.
+    ///   • Any other path → exec as a binary with JSON on stdin, read result from stdout.
+    /// Falls back to the stub if the real engine fails (with a warning).
     pub fn run(&self, twin: &TwinAsset, scenario: &SimScenario) -> TspResult<OsovmRunResult> {
+        if let Some(endpoint) = &self.endpoint {
+            match self.run_real(twin, scenario, endpoint) {
+                Ok(result) => return Ok(result),
+                Err(e) => {
+                    tracing::warn!(endpoint = %endpoint, error = %e, "real ỌSỌVM engine failed — falling back to stub");
+                }
+            }
+        }
+
         let f1 = twin.quality.f1_score;
         let run_id = format!("osovm:run:{}", uuid::Uuid::new_v4());
         let n_traj = scenario.trajectory_count.max(2);
@@ -147,6 +158,66 @@ impl OsovmEngine {
             run_id,
             wall_ms: 0,
         })
+    }
+
+    /// Call the real ỌSỌVM engine.
+    fn run_real(&self, twin: &TwinAsset, scenario: &SimScenario, endpoint: &str) -> TspResult<OsovmRunResult> {
+        let payload = serde_json::json!({ "twin": twin, "scenario": scenario });
+
+        if endpoint.starts_with("http://") || endpoint.starts_with("https://") {
+            // HTTP JSON-RPC: POST to {endpoint}/run
+            let url = format!("{endpoint}/run");
+            let client = reqwest::blocking::Client::builder()
+                .timeout(std::time::Duration::from_secs(120))
+                .build()
+                .map_err(|e| TspError::SimulationError(e.to_string()))?;
+
+            let resp = client.post(&url)
+                .json(&payload)
+                .send()
+                .map_err(|e| TspError::SimulationError(format!("HTTP POST failed: {e}")))?;
+
+            if !resp.status().is_success() {
+                return Err(TspError::SimulationError(
+                    format!("ỌSỌVM endpoint returned {}", resp.status())
+                ));
+            }
+
+            resp.json::<OsovmRunResult>()
+                .map_err(|e| TspError::SimulationError(format!("response parse failed: {e}")))
+        } else {
+            // Binary exec: write JSON to stdin, read OsovmRunResult from stdout
+            use std::process::{Command, Stdio};
+            use std::io::Write;
+
+            let input = serde_json::to_string(&payload)
+                .map_err(TspError::Json)?;
+
+            let mut child = Command::new(endpoint)
+                .stdin(Stdio::piped())
+                .stdout(Stdio::piped())
+                .stderr(Stdio::piped())
+                .spawn()
+                .map_err(|e| TspError::SimulationError(format!("spawn {endpoint}: {e}")))?;
+
+            if let Some(stdin) = child.stdin.as_mut() {
+                stdin.write_all(input.as_bytes())
+                    .map_err(|e| TspError::SimulationError(format!("stdin write: {e}")))?;
+            }
+
+            let output = child.wait_with_output()
+                .map_err(|e| TspError::SimulationError(format!("wait: {e}")))?;
+
+            if !output.status.success() {
+                let stderr = String::from_utf8_lossy(&output.stderr);
+                return Err(TspError::SimulationError(
+                    format!("ỌSỌVM binary exited with {}; stderr: {}", output.status, stderr)
+                ));
+            }
+
+            serde_json::from_slice::<OsovmRunResult>(&output.stdout)
+                .map_err(|e| TspError::SimulationError(format!("stdout parse: {e}")))
+        }
     }
 
     fn select_policy(&self, policies: &[SimPolicy], objective: &str) -> String {

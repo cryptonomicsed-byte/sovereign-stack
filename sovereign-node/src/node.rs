@@ -52,6 +52,7 @@ pub struct NodeState {
     pub receipt_store:   ReceiptStore,
     pub witnesses:       WitnessRegistry,
     pub dip_gateway:     Arc<DipGateway>,
+    pub inbound_ctx:     InboundDipContext,
     pub nostr_relay:     Option<NostrRelayHandle>,
     pub started_at:      u64,
 }
@@ -62,11 +63,23 @@ pub struct SovereignNode {
 }
 
 /// Context passed to the inbound DIP envelope dispatcher.
-struct InboundDipContext {
-    local_did: String,
-    identity:  Arc<NodeIdentity>,
-    witnesses: WitnessRegistry,
-    gateway:   Arc<DipGateway>,
+#[derive(Clone)]
+pub struct InboundDipContext {
+    pub local_did: String,
+    pub identity:  Arc<NodeIdentity>,
+    pub witnesses: WitnessRegistry,
+    pub gateway:   Arc<DipGateway>,
+}
+
+impl InboundDipContext {
+    fn from_state(state: &NodeState) -> Self {
+        Self {
+            local_did: state.identity.did.clone(),
+            identity:  state.identity.clone(),
+            witnesses: state.witnesses.clone(),
+            gateway:   state.dip_gateway.clone(),
+        }
+    }
 }
 
 impl SovereignNode {
@@ -182,14 +195,42 @@ impl SovereignNode {
             info!(count = self.config.witnesses.len(), "witnesses loaded from config");
         }
 
+        // Build inbound context before state so it can be cloned into the dispatch task
+        let inbound_ctx = InboundDipContext {
+            local_did: self.identity.did.clone(),
+            identity:  self.identity.clone(),
+            witnesses: witnesses.clone(),
+            gateway:   dip_gateway.clone(),
+        };
+
+        // Load manual devices from config (USB-connected, pre-configured)
+        for manifest_path in &self.config.vcp.manual_devices {
+            match std::fs::read_to_string(manifest_path) {
+                Ok(text) => match serde_json::from_str::<vcp::manifest::AgentDeviceManifest>(&text) {
+                    Ok(manifest) => {
+                        info!(path = %manifest_path, device_id = %manifest.device_id, "manual device loaded");
+                        registry.upsert(
+                            vcp::discovery::DiscoveredDevice::from_manifest(
+                                &manifest, None,
+                                vcp::discovery::DiscoveryMethod::Manual,
+                            )
+                        ).await;
+                    }
+                    Err(e) => warn!(path = %manifest_path, error = %e, "invalid device manifest JSON"),
+                },
+                Err(e) => warn!(path = %manifest_path, error = %e, "cannot read device manifest"),
+            }
+        }
+
         let state = NodeState {
-            identity:      self.identity.clone(),
-            config:        self.config.clone(),
+            identity:    self.identity.clone(),
+            config:      self.config.clone(),
             registry,
-            job_store:     JobStore::new(),
+            job_store:   JobStore::new(),
             receipt_store,
             witnesses,
             dip_gateway,
+            inbound_ctx,
             nostr_relay,
             started_at,
         };
@@ -202,12 +243,7 @@ impl SovereignNode {
 
         // --- 3c. Inbound DIP dispatch (Nostr + Meshtastic → single handler) ---
         {
-            let ctx = InboundDipContext {
-                local_did: self.identity.did.clone(),
-                identity:  self.identity.clone(),
-                witnesses: state.witnesses.clone(),
-                gateway:   state.dip_gateway.clone(),
-            };
+            let ctx = state.inbound_ctx.clone();
             tokio::spawn(async move {
                 while let Some(envelope) = dip_inbound_rx.recv().await {
                     handle_inbound_dip(envelope, &ctx).await;
@@ -244,12 +280,14 @@ fn build_router(state: NodeState) -> Router {
         .route("/health",              get(handle_health))
         .route("/status",              get(handle_status))
         .route("/devices",             get(handle_devices))
+        .route("/devices/register",    post(handle_device_register))
         .route("/capture/:device",     post(handle_capture))
         .route("/jobs",                get(handle_jobs_list))
         .route("/jobs/:job_id",        get(handle_job_get))
         .route("/mcp",                 post(handle_mcp))
         .route("/receipts",            get(handle_receipts))
         .route("/receipts/:twin_id",   get(handle_receipt_get))
+        .route("/dip/inbound",         post(handle_dip_inbound))
         .with_state(state)
 }
 
@@ -343,6 +381,34 @@ async fn handle_receipt_get(
             Json(json!({ "error": "receipt_not_found", "twin_id": twin_id })),
         ),
     }
+}
+
+// POST /devices/register — accept a manifest JSON body and upsert into the registry.
+async fn handle_device_register(
+    State(state): State<NodeState>,
+    Json(manifest): Json<vcp::manifest::AgentDeviceManifest>,
+) -> impl IntoResponse {
+    let device_id = manifest.device_id.clone();
+    info!(device_id = %device_id, model = %manifest.model, "manual device registered via API");
+    state.registry.upsert(
+        vcp::discovery::DiscoveredDevice::from_manifest(
+            &manifest, None,
+            vcp::discovery::DiscoveryMethod::Manual,
+        )
+    ).await;
+    Json(json!({ "ok": true, "device_id": device_id }))
+}
+
+// POST /dip/inbound — Vantage (or any peer) pushes a DIP envelope to this node.
+async fn handle_dip_inbound(
+    State(state): State<NodeState>,
+    Json(envelope): Json<dip::DipEnvelope>,
+) -> impl IntoResponse {
+    let msg_id = envelope.message_id.clone();
+    let kind   = format!("{:?}", envelope.kind);
+    info!(msg_id = %msg_id, kind = %kind, "DIP envelope received via HTTP inbound");
+    handle_inbound_dip(envelope, &state.inbound_ctx).await;
+    Json(json!({ "ok": true, "message_id": msg_id }))
 }
 
 // POST /capture/:device_id
@@ -443,7 +509,10 @@ pub async fn run_capture_job(
         params:              None,
     };
 
-    let engine = OsovmEngine::new(&config.pipeline.osovm_version);
+    let mut engine = OsovmEngine::new(&config.pipeline.osovm_version);
+    if let Some(ep) = &config.pipeline.osovm_endpoint {
+        engine = engine.with_endpoint(ep.clone());
+    }
     let proof  = ProofOfSimulation::new(engine);
 
     // Phase B1: run ỌSỌVM and get the commitment hash
@@ -689,7 +758,14 @@ fn run_capture_pipeline(
     };
 
     let pipeline = CapturePipeline::new(pipeline_cfg, &identity.private_key, chain);
-    pipeline.run(session, &Go2CaptureDriver).map_err(|e| e.to_string())
+    // Use real WebSocket driver if the device_id looks like a live Go2 address
+    let live_id = if device_id.starts_with("unitree:go2:") {
+        Some(device_id.to_string())
+    } else {
+        None
+    };
+    let driver = Go2CaptureDriver { live_device_id: live_id };
+    pipeline.run(session, &driver).map_err(|e| e.to_string())
 }
 
 /// Build a DIP Receipt envelope wrapping a scene receipt for Nostr publication.

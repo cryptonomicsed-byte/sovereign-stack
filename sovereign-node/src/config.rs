@@ -85,6 +85,12 @@ pub struct PipelineSection {
     pub selection_objective:   String,
     /// Minimum number of witnesses for simulation proofs.
     pub min_witnesses:         usize,
+    /// Optional ỌSỌVM engine endpoint.
+    ///   "http://localhost:9000" → POST to /run (JSON body: twin + scenario)
+    ///   "/usr/local/bin/osovm" → exec as binary (JSON on stdin, result on stdout)
+    /// Omit to use the built-in stub engine.
+    #[serde(default)]
+    pub osovm_endpoint:        Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -152,6 +158,7 @@ impl Default for NodeConfig {
                 trajectory_count:      6,
                 selection_objective:   "balanced".into(),
                 min_witnesses:         2,
+                osovm_endpoint:        None,
             },
             api: ApiSection {
                 bind:    "127.0.0.1:7779".into(),

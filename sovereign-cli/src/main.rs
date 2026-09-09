@@ -58,10 +58,29 @@ enum Cmd {
         /// Tool arguments as JSON object (optional)
         args: Option<String>,
     },
+    /// Device management subcommands
+    Device {
+        #[command(subcommand)]
+        sub: DeviceCmd,
+    },
+    /// Send a DIP envelope to this node via the inbound webhook
+    DipSend {
+        /// JSON file containing a DIP envelope, or '-' to read from stdin
+        file: String,
+    },
+}
+
+#[derive(Subcommand, Debug)]
+enum DeviceCmd {
+    /// Register a device from a manifest JSON file
+    Register {
+        /// Path to the AgentDeviceManifest JSON file
+        manifest: String,
+    },
 }
 
 #[tokio::main]
-async fn main() {
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let cli = Cli::parse();
     let client = reqwest::Client::builder()
         .timeout(std::time::Duration::from_secs(30))
@@ -106,6 +125,48 @@ async fn main() {
                 Err(e) => Err(e.to_string()),
             }
         }
+
+        Cmd::Device { sub } => match sub {
+            DeviceCmd::Register { manifest } => {
+                let text = if manifest == "-" {
+                    let mut buf = String::new();
+                    use std::io::Read;
+                    std::io::stdin().read_to_string(&mut buf).map_err(|e| e.to_string())?;
+                    buf
+                } else {
+                    std::fs::read_to_string(manifest).map_err(|e| e.to_string())?
+                };
+
+                let manifest_val: Value = serde_json::from_str(&text)
+                    .map_err(|e| format!("invalid manifest JSON: {e}"))?;
+
+                let url = format!("{}/devices/register", cli.url);
+                match client.post(&url).json(&manifest_val).send().await {
+                    Ok(r)  => r.json::<Value>().await.map_err(|e| e.to_string()),
+                    Err(e) => Err(e.to_string()),
+                }
+            }
+        },
+
+        Cmd::DipSend { file } => {
+            let text = if file == "-" {
+                let mut buf = String::new();
+                use std::io::Read;
+                std::io::stdin().read_to_string(&mut buf).map_err(|e| e.to_string())?;
+                buf
+            } else {
+                std::fs::read_to_string(file).map_err(|e| e.to_string())?
+            };
+
+            let envelope_val: Value = serde_json::from_str(&text)
+                .map_err(|e| format!("invalid DIP envelope JSON: {e}"))?;
+
+            let url = format!("{}/dip/inbound", cli.url);
+            match client.post(&url).json(&envelope_val).send().await {
+                Ok(r)  => r.json::<Value>().await.map_err(|e| e.to_string()),
+                Err(e) => Err(e.to_string()),
+            }
+        }
     };
 
     match result {
@@ -117,6 +178,7 @@ async fn main() {
             std::process::exit(1);
         }
     }
+    Ok(())
 }
 
 async fn get(client: &reqwest::Client, base: &str, path: &str) -> Result<Value, String> {

@@ -63,45 +63,63 @@ impl RawCapture {
     }
 }
 
-/// Stub capture driver — issues VCP commands and returns synthetic raw data.
-/// In production: sends to Go2 WebSocket, runs nerfstudio, returns real bytes.
-pub struct Go2CaptureDriver;
+/// Go2 capture driver — tries a real WebSocket connection first, falls back to stub.
+///
+/// Set `live_device_id` to a device_id of the form "unitree:go2:{host}" or
+/// "unitree:go2:{host}:{port}" to attempt a real capture.
+/// Leave it as `None` (default) to always use the stub (CI / dev mode).
+pub struct Go2CaptureDriver {
+    pub live_device_id: Option<String>,
+}
+
+impl Default for Go2CaptureDriver {
+    fn default() -> Self {
+        Self { live_device_id: None }
+    }
+}
 
 impl Go2CaptureDriver {
+    /// Attempt a real WebSocket capture; fall back to stub on any error.
     pub fn capture(
         &self,
         grant:     &VcpCapabilityGrant,
         agent_key: &str,
     ) -> PipelineResult<(RawCapture, Vec<(&'static str, bool)>)> {
-        let start = now_ms();
+        // Issue VCP command stubs for session-level tracking (always runs)
+        let _cam_cmd   = VcpCommand::new(grant, "camera",    "capture_frame",      serde_json::json!({}), agent_key)?;
+        let _lidar_cmd = VcpCommand::new(grant, "lidar",     "capture_pointcloud", serde_json::json!({}), agent_key)?;
+        let _telem_cmd = VcpCommand::new(grant, "telemetry", "poll",               serde_json::json!({}), agent_key)?;
 
-        // Issue Go2 commands (stubs — production sends to WebSocket)
-        let _cam_cmd  = VcpCommand::new(grant, "camera",    "capture_frame",    serde_json::json!({}), agent_key)?;
-        let _lidar_cmd = VcpCommand::new(grant, "lidar",    "capture_pointcloud", serde_json::json!({}), agent_key)?;
-        let _telem_cmd = VcpCommand::new(grant, "telemetry","poll",             serde_json::json!({}), agent_key)?;
+        let recorded = vec![("camera", true), ("lidar", true), ("telemetry", true)];
 
-        let end = now_ms();
+        // Try real WebSocket if we have a live device ID
+        if let Some(device_id) = &self.live_device_id {
+            use crate::go2_driver::{Go2CaptureConfig, capture_from_go2};
+            let cfg = Go2CaptureConfig::from_device_id(device_id);
+            match capture_from_go2(&cfg) {
+                Ok(raw) => {
+                    tracing::info!(device_id = %device_id, "real Go2 capture succeeded");
+                    return Ok((raw, recorded));
+                }
+                Err(e) => {
+                    tracing::warn!(device_id = %device_id, error = %e, "real Go2 capture failed — using stub");
+                }
+            }
+        }
 
+        // Stub fallback
         let raw = RawCapture {
-            rgb_frames:    Some(b"STUB_RGB_FRAME_DATA".to_vec()),
-            lidar_cloud:   Some(b"STUB_LIDAR_PCD_DATA".to_vec()),
-            imu_log:       Some(b"STUB_IMU_LOG_DATA".to_vec()),
-            splat:         Some(b"STUB_SPLAT_PLY_DATA".to_vec()),
-            frame_count:   120,
-            duration_ms:   end.saturating_sub(start).max(1),
-            f1_score:      0.832,
-            coverage_pct:  78.4,
-            novelty_score: 0.61,
+            rgb_frames:     Some(b"STUB_RGB_FRAME_DATA".to_vec()),
+            lidar_cloud:    Some(b"STUB_LIDAR_PCD_DATA".to_vec()),
+            imu_log:        Some(b"STUB_IMU_LOG_DATA".to_vec()),
+            splat:          Some(b"STUB_SPLAT_PLY_DATA".to_vec()),
+            frame_count:    120,
+            duration_ms:    1,
+            f1_score:       0.832,
+            coverage_pct:   78.4,
+            novelty_score:  0.61,
             delta_coverage: 12.3,
         };
-
-        // (capability, success) pairs for session tracking
-        let recorded = vec![
-            ("camera", true),
-            ("lidar", true),
-            ("telemetry", true),
-        ];
-
         Ok((raw, recorded))
     }
 }

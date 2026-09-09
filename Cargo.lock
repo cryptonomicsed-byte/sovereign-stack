@@ -1583,6 +1583,8 @@ dependencies = [
  "sovereign-types",
  "thiserror",
  "tokio",
+ "tracing",
+ "tungstenite",
  "twin-protocol",
  "uuid",
  "vcp",
@@ -2012,11 +2014,13 @@ name = "twin-protocol"
 version = "0.1.0"
 dependencies = [
  "async-trait",
+ "reqwest",
  "serde",
  "serde_json",
  "sovereign-types",
  "thiserror",
  "tokio",
+ "tracing",
  "uuid",
 ]
 
