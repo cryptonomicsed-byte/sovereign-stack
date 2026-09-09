@@ -232,19 +232,17 @@ async fn tool_capture(state: &NodeState, args: &Value) -> Result<Value, String> 
 
     info!(job_id = %job_id, device_id = %device_id, source = "mcp", "capture job queued via MCP");
 
-    // Clone for the background task
-    let identity   = state.identity.clone();
-    let config     = state.config.clone();
-    let job_store  = state.job_store.clone();
-    let nostr      = state.nostr_relay.clone();
     let task_job   = job_id.clone();
     let dev_id     = device.device_id.clone();
     let model      = device.model.clone();
-
-    let receipts  = state.receipt_store.clone();
-    let witnesses = state.witnesses.clone();
     tokio::spawn(crate::node::run_capture_job(
-        task_job, dev_id, model, identity, config, job_store, receipts, witnesses, nostr,
+        task_job, dev_id, model,
+        state.identity.clone(),
+        state.config.clone(),
+        state.job_store.clone(),
+        state.receipt_store.clone(),
+        state.witnesses.clone(),
+        state.dip_gateway.clone(),
     ));
 
     let result = json!({

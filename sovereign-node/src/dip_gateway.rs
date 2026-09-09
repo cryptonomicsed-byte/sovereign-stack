@@ -16,11 +16,12 @@ use tokio::sync::RwLock;
 use tracing::{debug, info, warn};
 
 use dip::{DipEnvelope, DipRouter, RouteDecision, address::DipNetwork};
-use dip::adapters::{NostrAdapter, MeshtasticAdapter};
+use dip::adapters::{MeshtasticAdapter, MeshPacket};
 
 use crate::nostr_relay::NostrRelayHandle;
 use crate::vantage::VantageClient;
 use crate::identity::NodeIdentity;
+use crate::config::MeshtasticSection;
 
 /// A registered local handler — called when an envelope is addressed to this node.
 pub type LocalHandler = Arc<dyn Fn(DipEnvelope) + Send + Sync>;
@@ -30,15 +31,18 @@ pub struct DipGateway {
     vantage:          Option<VantageClient>,
     nostr:            Option<NostrRelayHandle>,
     mesh_adapter:     Option<Arc<RwLock<MeshtasticAdapter>>>,
+    mesh_http:        Option<String>,   // device_url for HTTP toRadio bridge
+    http_client:      reqwest::Client,
     local_handlers:   Vec<LocalHandler>,
 }
 
 impl DipGateway {
     pub fn new(
-        local_did: String,
-        vantage:   Option<VantageClient>,
-        nostr:     Option<NostrRelayHandle>,
-        identity:  &NodeIdentity,
+        local_did:  String,
+        vantage:    Option<VantageClient>,
+        nostr:      Option<NostrRelayHandle>,
+        identity:   &NodeIdentity,
+        meshtastic: Option<&MeshtasticSection>,
     ) -> Self {
         let mut router = DipRouter::new(local_did.clone());
         router.register_adapter(DipNetwork::Vantage);
@@ -47,15 +51,21 @@ impl DipGateway {
             router.register_adapter(DipNetwork::Nostr);
         }
 
-        // Meshtastic adapter — node ID derived from last 4 bytes of public key hash
         let node_id = derive_mesh_node_id(&identity.public_key);
         let mesh    = MeshtasticAdapter::new(node_id, local_did);
+
+        let http_client = reqwest::Client::builder()
+            .timeout(std::time::Duration::from_secs(5))
+            .build()
+            .unwrap_or_default();
 
         Self {
             router:         Arc::new(RwLock::new(router)),
             vantage,
             nostr,
             mesh_adapter:   Some(Arc::new(RwLock::new(mesh))),
+            mesh_http:      meshtastic.map(|m| m.device_url.clone()),
+            http_client,
             local_handlers: vec![],
         }
     }
@@ -112,15 +122,18 @@ impl DipGateway {
                     match adapter.wrap(&envelope) {
                         Err(e) => warn!(error = %e, msg_id = %envelope.message_id, "Meshtastic wrap failed"),
                         Ok(pkt) => {
-                            // Production: send via Meshtastic HTTP API or serial port.
-                            // Stub: log the packet so it's visible in journalctl.
                             info!(
-                                msg_id    = %envelope.message_id,
-                                from      = pkt.from,
-                                to        = pkt.to,
-                                channel   = pkt.channel,
-                                "DIP → Meshtastic (offline mesh)"
+                                msg_id  = %envelope.message_id,
+                                from    = pkt.from,
+                                to      = pkt.to,
+                                channel = pkt.channel,
+                                "DIP → Meshtastic"
                             );
+                            if let Some(device_url) = &self.mesh_http {
+                                self.forward_meshtastic(device_url, &pkt).await;
+                            } else {
+                                debug!(msg_id = %envelope.message_id, "Meshtastic HTTP bridge not configured — logged only");
+                            }
                         }
                     }
                 }
@@ -133,17 +146,30 @@ impl DipGateway {
     }
 
     async fn forward_vantage(&self, client: &VantageClient, envelope: &DipEnvelope) {
-        // Vantage DIP ingest endpoint: POST /api/dip/inbound
-        // The envelope JSON is posted directly; Vantage routes to the destination DID.
-        // VantageClient currently only has post_heartbeat; we call the raw reqwest client.
-        // Production: add a dedicated VantageClient::post_dip() method.
-        info!(
-            msg_id = %envelope.message_id,
-            kind   = ?envelope.kind,
-            "DIP → Vantage (stub)"
-        );
-        // Stub: in production call POST {base_url}/api/dip/inbound with bearer token.
-        let _ = client; // suppress unused warning
+        info!(msg_id = %envelope.message_id, kind = ?envelope.kind, "DIP → Vantage");
+        client.post_dip(envelope).await;
+    }
+
+    /// POST the mesh packet to the Meshtastic device HTTP API.
+    /// Endpoint: POST {device_url}/api/v1/toRadio
+    /// Body: JSON-encoded MeshPacket (Meshtastic firmware accepts JSON via HTTP API).
+    async fn forward_meshtastic(&self, device_url: &str, pkt: &MeshPacket) {
+        let url = format!("{device_url}/api/v1/toRadio");
+        match self.http_client.post(&url).json(pkt).send().await {
+            Ok(resp) if resp.status().is_success() => {
+                debug!(to = pkt.to, channel = pkt.channel, "Meshtastic toRadio OK");
+            }
+            Ok(resp) => {
+                warn!(
+                    to      = pkt.to,
+                    status  = %resp.status(),
+                    "Meshtastic toRadio non-2xx"
+                );
+            }
+            Err(e) => {
+                warn!(error = %e, "Meshtastic toRadio POST failed");
+            }
+        }
     }
 }
 

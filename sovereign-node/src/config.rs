@@ -20,6 +20,7 @@ pub struct NodeConfig {
     pub api:        ApiSection,
     pub vantage:    Option<VantageSection>,
     pub sui:        Option<SuiSection>,
+    pub meshtastic: Option<MeshtasticSection>,
     #[serde(default)]
     pub witnesses:  Vec<WitnessConfig>,
 }
@@ -107,6 +108,20 @@ pub struct SuiSection {
     pub key_file:   PathBuf,
 }
 
+/// Meshtastic device HTTP bridge.
+/// When set, DIP envelopes destined for the mesh are POSTed to
+/// `{device_url}/api/v1/toRadio` as base64url-encoded protobuf.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MeshtasticSection {
+    /// HTTP URL of the Meshtastic device (e.g. "http://192.168.4.1")
+    pub device_url: String,
+    /// Channel index for encrypted DIP traffic (default 1)
+    #[serde(default = "default_mesh_channel")]
+    pub dip_channel: u32,
+}
+
+fn default_mesh_channel() -> u32 { 1 }
+
 impl Default for NodeConfig {
     fn default() -> Self {
         let home = std::env::var("HOME").unwrap_or_else(|_| "/root".into());
@@ -142,9 +157,10 @@ impl Default for NodeConfig {
                 bind:    "127.0.0.1:7779".into(),
                 enabled: true,
             },
-            vantage:   None,
-            sui:       None,
-            witnesses: vec![],
+            vantage:    None,
+            sui:        None,
+            meshtastic: None,
+            witnesses:  vec![],
         }
     }
 }

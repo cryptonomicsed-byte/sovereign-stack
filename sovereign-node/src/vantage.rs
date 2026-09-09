@@ -1,13 +1,16 @@
-//! Vantage heartbeat client.
+//! Vantage HTTP client.
 //!
-//! Posts POST /api/me/heartbeat on each VCP scan cycle so the Vantage
-//! guild dashboard knows this node is alive and what devices are nearby.
+//! post_heartbeat: POST /api/me/heartbeat on each VCP scan cycle.
+//! post_dip:       POST /api/dip/inbound — forward DIP envelopes to Vantage routing.
+//! post_receipt:   POST /api/receipts    — publish scene receipts for explorer indexing.
 //!
 //! Auth: Bearer token from config.vantage.api_token.
-//! Body: { work_state, intent, details: { node_name, node_did, ...vcp_summary } }
+//! All methods are non-fatal: log warn on failure, return immediately.
 
 use serde_json::{json, Value};
-use tracing::{debug, warn};
+use tracing::{debug, info, warn};
+
+use dip::DipEnvelope;
 
 pub struct VantageClient {
     base_url:  String,
@@ -27,8 +30,69 @@ impl VantageClient {
         }
     }
 
+    /// POST /api/dip/inbound — forward a DIP envelope to Vantage for destination routing.
+    pub async fn post_dip(&self, envelope: &DipEnvelope) {
+        let url = format!("{}/api/dip/inbound", self.base_url);
+        match self.client
+            .post(&url)
+            .bearer_auth(&self.api_token)
+            .json(envelope)
+            .send()
+            .await
+        {
+            Ok(resp) if resp.status().is_success() => {
+                debug!(msg_id = %envelope.message_id, "DIP envelope forwarded to Vantage");
+            }
+            Ok(resp) => {
+                warn!(
+                    msg_id = %envelope.message_id,
+                    status = %resp.status(),
+                    "Vantage DIP ingest non-2xx"
+                );
+            }
+            Err(e) => {
+                warn!(msg_id = %envelope.message_id, error = %e, "Vantage DIP ingest failed");
+            }
+        }
+    }
+
+    /// POST /api/receipts — publish a scene receipt for explorer indexing.
+    pub async fn post_receipt(
+        &self,
+        twin_id:    &str,
+        receipt_id: &str,
+        device_id:  &str,
+        kind:       u32,
+        sui_object_id: Option<&str>,
+    ) {
+        let body = json!({
+            "receipt_id":    receipt_id,
+            "twin_id":       twin_id,
+            "device_id":     device_id,
+            "kind":          kind,
+            "sui_object_id": sui_object_id,
+        });
+        let url = format!("{}/api/receipts", self.base_url);
+        match self.client
+            .post(&url)
+            .bearer_auth(&self.api_token)
+            .json(&body)
+            .send()
+            .await
+        {
+            Ok(resp) if resp.status().is_success() => {
+                info!(receipt_id = %receipt_id, twin_id = %twin_id, "receipt published to Vantage");
+            }
+            Ok(resp) => {
+                warn!(receipt_id = %receipt_id, status = %resp.status(), "Vantage receipt non-2xx");
+            }
+            Err(e) => {
+                warn!(receipt_id = %receipt_id, error = %e, "Vantage receipt publish failed");
+            }
+        }
+    }
+
     /// POST /api/me/heartbeat with VCP device context.
-    /// Non-fatal: logs a warning on failure and returns Ok(()).
     pub async fn post_heartbeat(
         &self,
         node_name: &str,

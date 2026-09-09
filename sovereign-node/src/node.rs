@@ -24,7 +24,7 @@ use vcp::{DiscoveryDaemon, DeviceRegistry, VcpSession};
 use vcp::adapters::{Go2Adapter, Go2ConnectionMode};
 use vcp::handshake::{VcpCapabilityRequest, VcpDuration};
 use vcp::grant::VcpCapabilityGrant;
-use dip::{DipRouter, address::DipNetwork};
+use dip;
 use sovereign_types::IdentityChain;
 use sovereign_pipeline::{
     CapturePipeline, PipelineConfig, Go2CaptureDriver, PipelineOutput,
@@ -49,6 +49,7 @@ pub struct NodeState {
     pub job_store:       JobStore,
     pub receipt_store:   ReceiptStore,
     pub witnesses:       WitnessRegistry,
+    pub dip_gateway:     Arc<DipGateway>,
     pub nostr_relay:     Option<NostrRelayHandle>,
     pub started_at:      u64,
 }
@@ -116,19 +117,10 @@ impl SovereignNode {
             });
         }
 
-        // --- 2. DIP Router ---
-        let mut dip_router = DipRouter::new(self.identity.did.clone());
-        dip_router.register_adapter(DipNetwork::Vantage);
-        if self.config.dip.nostr_enabled {
-            dip_router.register_adapter(DipNetwork::Nostr);
-            info!(relay = ?self.config.dip.nostr_relay, "Nostr adapter registered");
-        }
-        // Meshtastic always registered — provides offline mesh fallback when
-        // Vantage + Nostr are unreachable (airgapped or rural deployment).
-        dip_router.register_adapter(DipNetwork::Meshtastic);
-        info!(did = %self.identity.did, "DIP router initialized (Vantage + Meshtastic offline mesh)");
+        // --- 2. Nostr relay WebSocket connection ---
+        let (nostr_inbound_tx, mut nostr_inbound_rx) =
+            tokio::sync::mpsc::channel::<dip::DipEnvelope>(64);
 
-        // --- 2b. Nostr relay WebSocket connection ---
         let nostr_relay = if self.config.dip.nostr_enabled {
             if let (Some(relay_url), Some(npub)) = (
                 &self.config.dip.nostr_relay,
@@ -139,6 +131,7 @@ impl SovereignNode {
                     relay_url.clone(),
                     npub.clone(),
                     self.identity.private_key.clone(),
+                    Some(nostr_inbound_tx),
                 ))
             } else {
                 warn!("nostr_enabled=true but nostr_relay or nostr_npub not configured");
@@ -148,7 +141,19 @@ impl SovereignNode {
             None
         };
 
-        // --- 3. HTTP API ---
+        // --- 3. DIP Gateway ---
+        let vantage_client = self.config.vantage.as_ref()
+            .map(|v| VantageClient::new(&v.base_url, &v.api_token));
+
+        let dip_gateway = Arc::new(DipGateway::new(
+            self.identity.did.clone(),
+            vantage_client,
+            nostr_relay.clone(),
+            &self.identity,
+            self.config.meshtastic.as_ref(),
+        ));
+
+        // --- 3b. HTTP API ---
         let receipt_store = ReceiptStore::open(&self.config.node.data_dir).await;
 
         // Load witnesses from config
@@ -174,9 +179,20 @@ impl SovereignNode {
             job_store:     JobStore::new(),
             receipt_store,
             witnesses,
+            dip_gateway,
             nostr_relay,
             started_at,
         };
+
+        // --- 3b. Inbound DIP dispatch (from Nostr) ---
+        {
+            let did = self.identity.did.clone();
+            tokio::spawn(async move {
+                while let Some(envelope) = nostr_inbound_rx.recv().await {
+                    handle_inbound_dip(envelope, &did);
+                }
+            });
+        }
 
         if self.config.api.enabled {
             let addr: SocketAddr = self.config.api.bind
@@ -323,7 +339,7 @@ async fn handle_capture(
         state.job_store.clone(),
         state.receipt_store.clone(),
         state.witnesses.clone(),
-        state.nostr_relay.clone(),
+        state.dip_gateway.clone(),
     ));
 
     Json(json!({
@@ -336,15 +352,15 @@ async fn handle_capture(
 
 /// The full capture job — spawned as a tokio task by both handle_capture and the MCP server.
 pub async fn run_capture_job(
-    job_id:    String,
-    device_id: String,
-    model:     String,
-    identity:  Arc<NodeIdentity>,
-    config:    Arc<NodeConfig>,
-    job_store: crate::jobs::JobStore,
-    receipts:  ReceiptStore,
-    witnesses: WitnessRegistry,
-    nostr:     Option<crate::nostr_relay::NostrRelayHandle>,
+    job_id:      String,
+    device_id:   String,
+    model:       String,
+    identity:    Arc<NodeIdentity>,
+    config:      Arc<NodeConfig>,
+    job_store:   crate::jobs::JobStore,
+    receipts:    ReceiptStore,
+    witnesses:   WitnessRegistry,
+    dip_gateway: Arc<DipGateway>,
 ) {
     job_store.update_status(&job_id, JobStatus::Running).await;
 
@@ -418,13 +434,24 @@ pub async fn run_capture_job(
                 "proof chain complete"
             );
 
-            if let Some(relay) = &nostr {
-                if let Some(env) = dip_receipt_envelope(
-                    &identity, &config,
+            // Route the DIP receipt envelope through all adapters (Nostr, Vantage, Mesh)
+            if let Some(env) = dip_receipt_envelope(
+                &identity, &config,
+                &proof_output.pipeline.scene_receipt.receipt_id,
+            ) {
+                dip_gateway.send(env).await;
+            }
+
+            // Publish structured receipt to Vantage explorer if configured
+            if let Some(vantage_cfg) = &config.vantage {
+                let vc = VantageClient::new(&vantage_cfg.base_url, &vantage_cfg.api_token);
+                vc.post_receipt(
+                    &proof_output.pipeline.twin.twin_id,
                     &proof_output.pipeline.scene_receipt.receipt_id,
-                ) {
-                    relay.publish(env).await;
-                }
+                    &device_id,
+                    31030,
+                    proof_output.pipeline.twin.sui_object_id.as_deref(),
+                ).await;
             }
 
             let dip_count  = proof_output.dip_message_ids.len();
@@ -583,6 +610,42 @@ async fn shutdown_signal() {
     tokio::select! {
         _ = ctrl_c    => info!("received SIGINT"),
         _ = terminate => info!("received SIGTERM"),
+    }
+}
+
+/// Dispatch an inbound DIP envelope received from an external transport (Nostr, Mesh).
+fn handle_inbound_dip(envelope: dip::DipEnvelope, local_did: &str) {
+    use dip::DipKind;
+    let addressed_here = envelope.destination.did.as_deref() == Some(local_did)
+        || envelope.destination.address == local_did;
+
+    match envelope.kind {
+        DipKind::Receipt => {
+            if addressed_here {
+                info!(
+                    msg_id  = %envelope.message_id,
+                    payload = %envelope.payload,
+                    "inbound DIP Receipt delivered"
+                );
+            }
+        }
+        DipKind::Message => {
+            if addressed_here {
+                info!(
+                    msg_id  = %envelope.message_id,
+                    payload = %envelope.payload,
+                    "inbound DIP Message delivered"
+                );
+            }
+        }
+        _ => {
+            // Capability, Heartbeat, etc. — log and drop; no local consumers yet
+            info!(
+                msg_id = %envelope.message_id,
+                kind   = ?envelope.kind,
+                "inbound DIP envelope (no local handler)"
+            );
+        }
     }
 }
 

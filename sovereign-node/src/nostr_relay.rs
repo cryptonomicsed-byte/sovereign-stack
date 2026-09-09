@@ -48,12 +48,13 @@ impl NostrRelayHandle {
 
 /// Spawn the Nostr relay background task.
 ///
-/// Returns a handle for sending commands.  The task reconnects automatically
-/// on WS errors with exponential backoff capped at 60 s.
+/// `inbound_tx`: if Some, received DIP envelopes are forwarded here for local dispatch.
+/// Reconnects automatically on WS errors with exponential backoff capped at 60 s.
 pub fn spawn_nostr_relay(
     relay_url:    String,
     our_npub:     String,
     our_nprivkey: String,
+    inbound_tx:   Option<mpsc::Sender<dip::DipEnvelope>>,
 ) -> NostrRelayHandle {
     let (tx, mut rx) = mpsc::channel::<RelayCommand>(64);
 
@@ -95,7 +96,7 @@ pub fn spawn_nostr_relay(
                     debug!(sub_id = %sub_id, "subscribed to DIP events");
 
                     // Drive the WS connection until error or shutdown
-                    let done = relay_loop(&mut ws, &mut rx, &adapter).await;
+                    let done = relay_loop(&mut ws, &mut rx, &adapter, &inbound_tx).await;
                     if done {
                         info!("Nostr relay task shutting down");
                         let _ = ws.close(None).await;
@@ -113,12 +114,12 @@ pub fn spawn_nostr_relay(
 }
 
 /// Run the main send/receive loop for one WS connection.
-/// Returns `true` if a Shutdown command was received (caller should exit),
-/// `false` if the WS died and we should reconnect.
+/// Returns `true` if a Shutdown command was received, `false` if WS died (reconnect).
 async fn relay_loop(
-    ws:      &mut (impl SinkExt<Message, Error = tokio_tungstenite::tungstenite::Error> + StreamExt<Item = Result<Message, tokio_tungstenite::tungstenite::Error>> + Unpin),
-    rx:      &mut mpsc::Receiver<RelayCommand>,
-    adapter: &NostrAdapter,
+    ws:         &mut (impl SinkExt<Message, Error = tokio_tungstenite::tungstenite::Error> + StreamExt<Item = Result<Message, tokio_tungstenite::tungstenite::Error>> + Unpin),
+    rx:         &mut mpsc::Receiver<RelayCommand>,
+    adapter:    &NostrAdapter,
+    inbound_tx: &Option<mpsc::Sender<dip::DipEnvelope>>,
 ) -> bool {
     loop {
         tokio::select! {
@@ -154,7 +155,7 @@ async fn relay_loop(
                         return false;
                     }
                     Some(Ok(Message::Text(txt))) => {
-                        handle_relay_message(&txt, adapter);
+                        handle_relay_message(&txt, adapter, inbound_tx).await;
                     }
                     Some(Ok(Message::Ping(payload))) => {
                         let _ = ws.send(Message::Pong(payload)).await;
@@ -170,9 +171,12 @@ async fn relay_loop(
     }
 }
 
-/// Parse and log a relay message.  Inbound DIP envelopes are logged;
-/// production would route them through the DipRouter.
-fn handle_relay_message(text: &str, adapter: &NostrAdapter) {
+/// Parse a relay message. Inbound DIP envelopes are forwarded to `inbound_tx` if set.
+async fn handle_relay_message(
+    text:       &str,
+    adapter:    &NostrAdapter,
+    inbound_tx: &Option<mpsc::Sender<dip::DipEnvelope>>,
+) {
     let Ok(val): Result<Value, _> = serde_json::from_str(text) else { return };
     let Some(arr) = val.as_array() else { return };
     if arr.is_empty() { return }
@@ -188,9 +192,11 @@ fn handle_relay_message(text: &str, adapter: &NostrAdapter) {
                         info!(
                             msg_id = %envelope.message_id,
                             kind   = ?envelope.kind,
-                            "received inbound DIP envelope via Nostr"
+                            "inbound DIP envelope via Nostr"
                         );
-                        // Production: route through DipRouter + local handler
+                        if let Some(tx) = inbound_tx {
+                            let _ = tx.send(envelope).await;
+                        }
                     }
                 }
             }
