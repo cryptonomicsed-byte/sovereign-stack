@@ -30,6 +30,8 @@ use sovereign_pipeline::{
     CapturePipeline, PipelineConfig, Go2CaptureDriver, PipelineOutput,
     ProofChain, ProofChainConfig,
 };
+use twin_protocol::osovm::{OsovmEngine, ProofOfSimulation, SimScenario};
+use sovereign_types::WitnessAttestation;
 
 use crate::config::NodeConfig;
 use crate::dip_gateway::DipGateway;
@@ -57,6 +59,14 @@ pub struct NodeState {
 pub struct SovereignNode {
     pub identity: Arc<NodeIdentity>,
     pub config:   Arc<NodeConfig>,
+}
+
+/// Context passed to the inbound DIP envelope dispatcher.
+struct InboundDipContext {
+    local_did: String,
+    identity:  Arc<NodeIdentity>,
+    witnesses: WitnessRegistry,
+    gateway:   Arc<DipGateway>,
 }
 
 impl SovereignNode {
@@ -117,9 +127,9 @@ impl SovereignNode {
             });
         }
 
-        // --- 2. Nostr relay WebSocket connection ---
-        let (nostr_inbound_tx, mut nostr_inbound_rx) =
-            tokio::sync::mpsc::channel::<dip::DipEnvelope>(64);
+        // --- 2. Unified inbound DIP channel (Nostr + Meshtastic both push here) ---
+        let (dip_inbound_tx, mut dip_inbound_rx) =
+            tokio::sync::mpsc::channel::<dip::DipEnvelope>(128);
 
         let nostr_relay = if self.config.dip.nostr_enabled {
             if let (Some(relay_url), Some(npub)) = (
@@ -131,7 +141,7 @@ impl SovereignNode {
                     relay_url.clone(),
                     npub.clone(),
                     self.identity.private_key.clone(),
-                    Some(nostr_inbound_tx),
+                    Some(dip_inbound_tx.clone()),
                 ))
             } else {
                 warn!("nostr_enabled=true but nostr_relay or nostr_npub not configured");
@@ -184,12 +194,23 @@ impl SovereignNode {
             started_at,
         };
 
-        // --- 3b. Inbound DIP dispatch (from Nostr) ---
+        // --- 3b. Meshtastic inbound poll (feeds dip_inbound_tx) ---
+        if let Some(mesh_cfg) = &self.config.meshtastic {
+            info!(url = %mesh_cfg.device_url, "starting Meshtastic inbound poll");
+            state.dip_gateway.spawn_mesh_inbound(&mesh_cfg.device_url, dip_inbound_tx);
+        }
+
+        // --- 3c. Inbound DIP dispatch (Nostr + Meshtastic → single handler) ---
         {
-            let did = self.identity.did.clone();
+            let ctx = InboundDipContext {
+                local_did: self.identity.did.clone(),
+                identity:  self.identity.clone(),
+                witnesses: state.witnesses.clone(),
+                gateway:   state.dip_gateway.clone(),
+            };
             tokio::spawn(async move {
-                while let Some(envelope) = nostr_inbound_rx.recv().await {
-                    handle_inbound_dip(envelope, &did);
+                while let Some(envelope) = dip_inbound_rx.recv().await {
+                    handle_inbound_dip(envelope, &ctx).await;
                 }
             });
         }
@@ -220,14 +241,15 @@ impl SovereignNode {
 fn build_router(state: NodeState) -> Router {
     use crate::mcp_server::handle_mcp;
     Router::new()
-        .route("/health",          get(handle_health))
-        .route("/status",          get(handle_status))
-        .route("/devices",         get(handle_devices))
-        .route("/capture/:device", post(handle_capture))
-        .route("/jobs",            get(handle_jobs_list))
-        .route("/jobs/:job_id",    get(handle_job_get))
-        .route("/mcp",             post(handle_mcp))
-        .route("/receipts",        get(handle_receipts))
+        .route("/health",              get(handle_health))
+        .route("/status",              get(handle_status))
+        .route("/devices",             get(handle_devices))
+        .route("/capture/:device",     post(handle_capture))
+        .route("/jobs",                get(handle_jobs_list))
+        .route("/jobs/:job_id",        get(handle_job_get))
+        .route("/mcp",                 post(handle_mcp))
+        .route("/receipts",            get(handle_receipts))
+        .route("/receipts/:twin_id",   get(handle_receipt_get))
         .with_state(state)
 }
 
@@ -304,6 +326,23 @@ async fn handle_receipts(State(state): State<NodeState>) -> impl IntoResponse {
         "count":    records.len(),
         "receipts": records,
     }))
+}
+
+// GET /receipts/:twin_id
+async fn handle_receipt_get(
+    State(state): State<NodeState>,
+    Path(twin_id): Path<String>,
+) -> impl IntoResponse {
+    match state.receipt_store.get_by_twin(&twin_id).await {
+        Some(record) => (
+            StatusCode::OK,
+            Json(serde_json::to_value(record).unwrap_or_default()),
+        ),
+        None => (
+            StatusCode::NOT_FOUND,
+            Json(json!({ "error": "receipt_not_found", "twin_id": twin_id })),
+        ),
+    }
 }
 
 // POST /capture/:device_id
@@ -395,29 +434,115 @@ pub async fn run_capture_job(
     let scene_id = pipeline_output.scene_receipt.receipt_id.clone();
     let cap_id   = pipeline_output.capture_receipt.receipt_id.clone();
 
-    // Phase B: async ProofChain
+    // Phase B: two-phase witness collection + ProofChain
+    let scenario = SimScenario {
+        name:                "node_capture".into(),
+        robot_model:         "Go2".into(),
+        trajectory_count:    config.pipeline.trajectory_count,
+        selection_objective: config.pipeline.selection_objective.clone(),
+        params:              None,
+    };
+
+    let engine = OsovmEngine::new(&config.pipeline.osovm_version);
+    let proof  = ProofOfSimulation::new(engine);
+
+    // Phase B1: run ỌSỌVM and get the commitment hash
+    let (osovm_run, commitment) = match proof.run_and_commitment(&pipeline_output.twin, &scenario) {
+        Ok(pair) => pair,
+        Err(e) => {
+            warn!(job_id = %job_id, error = %e, "ỌSỌVM run failed");
+            job_store.update_status(&job_id, JobStatus::Failed {
+                reason: format!("osovm: {e}")
+            }).await;
+            return;
+        }
+    };
+
+    // Phase B2: collect witness attestations
+    // Local witnesses sign immediately; remote witnesses sign via DIP (30s timeout).
+    let mut attestations: Vec<WitnessAttestation> = vec![];
+
+    let local_signers = witnesses.local_signers().await;
+    for w in &local_signers {
+        if let Some(key) = &w.private_key {
+            let sig = sovereign_types::crypto::sign(&commitment, key)
+                .unwrap_or_else(|_| "invalid".into());
+            attestations.push(WitnessAttestation {
+                witness_id:        w.did.clone(),
+                merkle_commitment:  commitment.clone(),
+                timestamp:         now_ms(),
+                signature:         sig,
+            });
+        }
+    }
+
+    // Request remote witnesses (those without a local private key)
+    let remote_witnesses: Vec<_> = witnesses.inner_peers().await
+        .into_iter()
+        .filter(|w| w.private_key.is_none())
+        .collect();
+
+    for remote in &remote_witnesses {
+        let req_job_id = format!("{job_id}:{}", remote.did);
+        if let Some(att) = witnesses.request_remote_signature(
+            &req_job_id, &commitment, remote,
+            &dip_gateway, &identity,
+            std::time::Duration::from_secs(30),
+        ).await {
+            attestations.push(att);
+        }
+    }
+
+    // Pad to >= 2 with ephemeral stubs if still short
+    if attestations.len() < config.pipeline.min_witnesses {
+        let needed = config.pipeline.min_witnesses.saturating_sub(attestations.len());
+        warn!(
+            have  = attestations.len(),
+            need  = config.pipeline.min_witnesses,
+            stubs = needed,
+            "using ephemeral stub witnesses"
+        );
+        for i in 0..needed {
+            let (stub_key, _) = sovereign_types::crypto::generate_keypair();
+            let stub_did = format!("did:witness:stub:{i:02}");
+            let sig = sovereign_types::crypto::sign(&commitment, &stub_key)
+                .unwrap_or_else(|_| "invalid".into());
+            attestations.push(WitnessAttestation {
+                witness_id:        stub_did,
+                merkle_commitment:  commitment.clone(),
+                timestamp:         now_ms(),
+                signature:         sig,
+            });
+        }
+    }
+
+    // Phase B3: build SimulationReceipt from pre-collected attestations
     let chain_identity = IdentityChain::new(identity.did.clone(), identity.did.clone());
+    let simulation_receipt = match proof.prove_with_attestations(
+        osovm_run, &twin_id, chain_identity.clone(), &identity.private_key, attestations,
+    ) {
+        Ok(r) => r,
+        Err(e) => {
+            warn!(job_id = %job_id, error = %e, "SimulationReceipt build failed");
+            job_store.update_status(&job_id, JobStatus::Failed {
+                reason: format!("sim_receipt: {e}")
+            }).await;
+            return;
+        }
+    };
+
+    // Phase B4: Sui anchor + DIP event bus via ProofChain
     let proof_cfg = ProofChainConfig {
         osovm_version: config.pipeline.osovm_version.clone(),
         nostr_npub:    config.dip.nostr_npub.clone(),
         vantage_did:   config.dip.vantage_did.clone(),
-        scenario: twin_protocol::osovm::SimScenario {
-            name:                "node_capture".into(),
-            robot_model:         "Go2".into(),
-            trajectory_count:    config.pipeline.trajectory_count,
-            selection_objective: config.pipeline.selection_objective.clone(),
-            params:              None,
-        },
+        scenario:      scenario.clone(),
         ..Default::default()
     };
     let chain = ProofChain::new(proof_cfg, &identity.private_key, chain_identity);
 
-    let witness_pairs = witnesses.get_witnesses_for_proof(2).await;
-    let witness_refs: Vec<(&str, &str)> = witness_pairs.iter()
-        .map(|(d, k)| (d.as_str(), k.as_str()))
-        .collect();
-
-    match chain.run(pipeline_output, &witness_refs).await {
+    // Inject the pre-built simulation receipt — use run_with_simulation
+    match chain.run_with_simulation(pipeline_output, simulation_receipt).await {
         Err(e) => {
             warn!(job_id = %job_id, error = %e, "proof chain failed — saving partial result");
             job_store.update_status(&job_id, JobStatus::Completed {
@@ -614,38 +739,117 @@ async fn shutdown_signal() {
 }
 
 /// Dispatch an inbound DIP envelope received from an external transport (Nostr, Mesh).
-fn handle_inbound_dip(envelope: dip::DipEnvelope, local_did: &str) {
-    use dip::DipKind;
-    let addressed_here = envelope.destination.did.as_deref() == Some(local_did)
-        || envelope.destination.address == local_did;
+async fn handle_inbound_dip(envelope: dip::DipEnvelope, ctx: &InboundDipContext) {
+    use dip::{DipKind, DipEnvelope, DipAddress};
+
+    let addressed_here = envelope.destination.did.as_deref() == Some(&ctx.local_did)
+        || envelope.destination.address == ctx.local_did;
+
+    if !addressed_here {
+        return; // not for us
+    }
 
     match envelope.kind {
+        DipKind::Capability => {
+            // Could be a witness sign request from a peer node
+            if let Some(req_type) = envelope.payload.get("type").and_then(|v| v.as_str()) {
+                if req_type == "witness_sign_request" {
+                    handle_witness_sign_request(&envelope, ctx).await;
+                    return;
+                }
+            }
+            info!(msg_id = %envelope.message_id, "inbound DIP Capability (no handler)");
+        }
+
         DipKind::Receipt => {
-            if addressed_here {
-                info!(
-                    msg_id  = %envelope.message_id,
-                    payload = %envelope.payload,
-                    "inbound DIP Receipt delivered"
-                );
+            // Could be a witness sign response completing a pending request
+            if let Some(req_type) = envelope.payload.get("type").and_then(|v| v.as_str()) {
+                if req_type == "witness_sign_response" {
+                    ctx.witnesses.complete_pending_signature(&envelope.payload).await;
+                    return;
+                }
             }
+            info!(
+                msg_id  = %envelope.message_id,
+                payload = %envelope.payload,
+                "inbound DIP Receipt delivered"
+            );
         }
+
         DipKind::Message => {
-            if addressed_here {
-                info!(
-                    msg_id  = %envelope.message_id,
-                    payload = %envelope.payload,
-                    "inbound DIP Message delivered"
-                );
-            }
+            info!(
+                msg_id  = %envelope.message_id,
+                payload = %envelope.payload,
+                "inbound DIP Message delivered"
+            );
         }
+
         _ => {
-            // Capability, Heartbeat, etc. — log and drop; no local consumers yet
             info!(
                 msg_id = %envelope.message_id,
                 kind   = ?envelope.kind,
                 "inbound DIP envelope (no local handler)"
             );
         }
+    }
+}
+
+/// Handle an inbound witness sign request: sign the commitment and reply via DIP.
+async fn handle_witness_sign_request(
+    envelope: &dip::DipEnvelope,
+    ctx:      &InboundDipContext,
+) {
+    use dip::{DipEnvelope, DipKind, DipAddress};
+    use sovereign_types::{IdentityChain, crypto::sign};
+
+    let payload = &envelope.payload;
+    let job_id     = payload.get("job_id").and_then(|v| v.as_str()).unwrap_or("");
+    let commitment = payload.get("commitment").and_then(|v| v.as_str()).unwrap_or("");
+    let requester  = payload.get("requester_did").and_then(|v| v.as_str()).unwrap_or("");
+
+    if job_id.is_empty() || commitment.is_empty() || requester.is_empty() {
+        warn!(msg_id = %envelope.message_id, "malformed witness_sign_request");
+        return;
+    }
+
+    // Check if this node has a witness private key to sign with
+    let signers = ctx.witnesses.local_signers().await;
+    let Some(signer) = signers.into_iter().find(|w| w.private_key.is_some()) else {
+        info!(
+            job_id = %job_id,
+            "received witness sign request but no local signing key available"
+        );
+        return;
+    };
+
+    let signer_key = signer.private_key.unwrap();
+    let signature  = sign(commitment, &signer_key).unwrap_or_else(|_| "invalid".into());
+
+    info!(
+        job_id    = %job_id,
+        signer    = %signer.did,
+        "signed witness commitment — replying via DIP"
+    );
+
+    let response_payload = serde_json::json!({
+        "type":       "witness_sign_response",
+        "job_id":     job_id,
+        "signer_did": signer.did,
+        "signature":  signature,
+        "public_key": signer.public_key,
+    });
+
+    let chain  = IdentityChain::new(ctx.identity.did.clone(), ctx.identity.did.clone());
+    let origin = dip::DipAddress::vantage(&ctx.identity.did);
+    let dest   = dip::DipAddress {
+        network: dip::address::DipNetwork::Vantage,
+        address: requester.into(),
+        did:     Some(requester.into()),
+    };
+
+    match DipEnvelope::build(origin, dest, chain, DipKind::Receipt, response_payload, 120, &ctx.identity.private_key) {
+        Ok(reply) => ctx.gateway.send(reply).await,
+        Err(e)    => warn!(error = %e, "failed to build witness sign response envelope"),
     }
 }
 

@@ -145,6 +145,64 @@ impl DipGateway {
         }
     }
 
+    /// Spawn a background task that polls `{device_url}/api/v1/fromRadio` every 200 ms
+    /// and forwards any received DIP envelopes to `inbound_tx`.
+    pub fn spawn_mesh_inbound(
+        &self,
+        device_url: &str,
+        inbound_tx: tokio::sync::mpsc::Sender<DipEnvelope>,
+    ) {
+        let Some(mesh) = self.mesh_adapter.clone() else {
+            warn!("spawn_mesh_inbound called but no mesh adapter available");
+            return;
+        };
+
+        let url    = format!("{device_url}/api/v1/fromRadio");
+        let client = self.http_client.clone();
+
+        tokio::spawn(async move {
+            info!(url = %url, "Meshtastic inbound poll started");
+            let mut interval = tokio::time::interval(std::time::Duration::from_millis(200));
+
+            loop {
+                interval.tick().await;
+
+                let resp = match client.get(&url).send().await {
+                    Ok(r)  => r,
+                    Err(e) => {
+                        warn!(error = %e, "Meshtastic fromRadio poll error — retrying in 2s");
+                        tokio::time::sleep(std::time::Duration::from_secs(2)).await;
+                        continue;
+                    }
+                };
+
+                if !resp.status().is_success() {
+                    debug!(status = %resp.status(), "Meshtastic fromRadio non-2xx");
+                    continue;
+                }
+
+                let pkt: dip::adapters::MeshPacket = match resp.json().await {
+                    Ok(p)  => p,
+                    Err(_) => continue, // empty body or non-DIP packet — skip silently
+                };
+
+                let mut adapter = mesh.write().await;
+                match adapter.unwrap(&pkt) {
+                    Ok(envelope) => {
+                        info!(
+                            msg_id = %envelope.message_id,
+                            kind   = ?envelope.kind,
+                            from   = pkt.from,
+                            "inbound DIP envelope via Meshtastic"
+                        );
+                        let _ = inbound_tx.send(envelope).await;
+                    }
+                    Err(_) => {} // non-DIP or invalid — skip silently
+                }
+            }
+        });
+    }
+
     async fn forward_vantage(&self, client: &VantageClient, envelope: &DipEnvelope) {
         info!(msg_id = %envelope.message_id, kind = ?envelope.kind, "DIP → Vantage");
         client.post_dip(envelope).await;

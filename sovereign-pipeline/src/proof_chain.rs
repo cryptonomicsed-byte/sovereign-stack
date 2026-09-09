@@ -157,6 +157,54 @@ impl ProofChain {
             dip_message_ids,
         })
     }
+
+    /// Skip the ỌSỌVM run and witness collection — use a pre-built SimulationReceipt.
+    ///
+    /// Called by sovereign-node after the two-phase witness protocol completes:
+    /// local signers sign immediately, remote witnesses sign via DIP exchange,
+    /// then this method handles Sui anchoring and DIP event bus broadcasting.
+    pub async fn run_with_simulation(
+        &self,
+        mut pipeline_output: PipelineOutput,
+        simulation: SimulationReceipt,
+    ) -> PipelineResult<ProofChainOutput> {
+        // Sui anchor
+        let anchor = SuiAnchor::new(
+            &self.config.sui_rpc,
+            &self.config.sui_address,
+            &self.config.sui_key,
+        );
+        let sui_mint = anchor.mint_twin(&mut pipeline_output.scene_receipt).await?;
+        pipeline_output.twin.sui_object_id = pipeline_output.scene_receipt.sui_object_id.clone();
+
+        // DIP event bus
+        let mut bus = PipelineEventBus::new(
+            self.identity.agent_id.clone(),
+            self.config.vantage_did.clone(),
+            self.agent_key.clone(),
+            self.identity.clone(),
+        );
+        if let Some(npub) = &self.config.nostr_npub {
+            bus = bus.with_nostr(npub.clone());
+        }
+
+        let mut dip_message_ids = vec![];
+        let events = bus.emit_pipeline_output(
+            &pipeline_output.capture_receipt,
+            &pipeline_output.scene_receipt,
+            &pipeline_output.session_receipt,
+        ).map_err(|e| PipelineError::CaptureFailed(e.to_string()))?;
+        for ev in events {
+            dip_message_ids.push(ev.envelope.message_id.clone());
+        }
+        if self.config.nostr_npub.is_some() {
+            let nostr_ev = bus.cross_post_to_nostr(&pipeline_output.scene_receipt)
+                .map_err(|e| PipelineError::CaptureFailed(e.to_string()))?;
+            dip_message_ids.push(nostr_ev.envelope.message_id);
+        }
+
+        Ok(ProofChainOutput { pipeline: pipeline_output, simulation, sui_mint, dip_message_ids })
+    }
 }
 
 #[cfg(test)]

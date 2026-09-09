@@ -233,6 +233,61 @@ impl ProofOfSimulation {
             private_key,
         )
     }
+
+    /// Phase 1 of the two-phase witness protocol:
+    /// Run ỌSỌVM and compute the merkle commitment that witnesses must sign.
+    ///
+    /// Returns (run_result, commitment_hash) — send the commitment to remote
+    /// witnesses via DIP, collect their WitnessAttestations, then call
+    /// `prove_with_attestations()` to build the final SimulationReceipt.
+    pub fn run_and_commitment(
+        &self,
+        twin:     &TwinAsset,
+        scenario: &SimScenario,
+    ) -> TspResult<(OsovmRunResult, String)> {
+        let run = self.engine.run(twin, scenario)?;
+
+        let policies_json = serde_json::to_string(&run.candidate_policies)
+            .map_err(TspError::Json)?;
+        let all_policies_hash = hash_str(&policies_json);
+
+        let mut fields = BTreeMap::new();
+        fields.insert("all_policies_hash",  serde_json::json!(&all_policies_hash));
+        fields.insert("robot_model",        serde_json::json!(&run.scenario.robot_model));
+        fields.insert("sim_engine",         serde_json::json!(&run.engine_version));
+        fields.insert("trajectory_count",   serde_json::json!(run.scenario.trajectory_count));
+        fields.insert("twin_id",            serde_json::json!(&twin.twin_id));
+        let commitment = merkle_root(&fields);
+
+        Ok((run, commitment))
+    }
+
+    /// Phase 2 of the two-phase witness protocol:
+    /// Build the SimulationReceipt from a pre-computed run result and pre-collected attestations.
+    pub fn prove_with_attestations(
+        &self,
+        run:          OsovmRunResult,
+        twin_id:      &str,
+        identity:     IdentityChain,
+        private_key:  &str,
+        attestations: Vec<WitnessAttestation>,
+    ) -> TspResult<SimulationReceipt> {
+        if attestations.len() < 2 {
+            return Err(TspError::InsufficientWitnesses(attestations.len()));
+        }
+        SimulationReceipt::build(
+            identity,
+            twin_id.to_string(),
+            &run.engine_version,
+            &run.scenario.robot_model,
+            run.scenario.trajectory_count,
+            run.candidate_policies,
+            run.selected_policy_id,
+            &run.scenario.selection_objective,
+            attestations,
+            private_key,
+        )
+    }
 }
 
 fn now_ms() -> u64 {

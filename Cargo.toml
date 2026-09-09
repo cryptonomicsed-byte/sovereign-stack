@@ -7,4 +7,5 @@ members = [
     "twin-protocol",
     "sovereign-pipeline",
     "sovereign-node",
+    "sovereign-cli",
 ]
