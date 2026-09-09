@@ -31,16 +31,18 @@ use sovereign_pipeline::{CapturePipeline, PipelineConfig, Go2CaptureDriver};
 use crate::config::NodeConfig;
 use crate::identity::NodeIdentity;
 use crate::jobs::{Job, JobStatus, JobStore};
+use crate::nostr_relay::{spawn_nostr_relay, NostrRelayHandle};
 use crate::vantage::VantageClient;
 
 /// Shared node state visible to all axum handlers.
 #[derive(Clone)]
 pub struct NodeState {
-    pub identity:   Arc<NodeIdentity>,
-    pub config:     Arc<NodeConfig>,
-    pub registry:   DeviceRegistry,
-    pub job_store:  JobStore,
-    pub started_at: u64,
+    pub identity:    Arc<NodeIdentity>,
+    pub config:      Arc<NodeConfig>,
+    pub registry:    DeviceRegistry,
+    pub job_store:   JobStore,
+    pub nostr_relay: Option<NostrRelayHandle>,
+    pub started_at:  u64,
 }
 
 pub struct SovereignNode {
@@ -115,12 +117,33 @@ impl SovereignNode {
         }
         info!(did = %self.identity.did, "DIP router initialized");
 
+        // --- 2b. Nostr relay WebSocket connection ---
+        let nostr_relay = if self.config.dip.nostr_enabled {
+            if let (Some(relay_url), Some(npub)) = (
+                &self.config.dip.nostr_relay,
+                &self.config.dip.nostr_npub,
+            ) {
+                info!(url = %relay_url, npub = %npub, "Nostr relay connecting");
+                Some(spawn_nostr_relay(
+                    relay_url.clone(),
+                    npub.clone(),
+                    self.identity.private_key.clone(),
+                ))
+            } else {
+                warn!("nostr_enabled=true but nostr_relay or nostr_npub not configured");
+                None
+            }
+        } else {
+            None
+        };
+
         // --- 3. HTTP API ---
         let state = NodeState {
-            identity:   self.identity.clone(),
-            config:     self.config.clone(),
+            identity:    self.identity.clone(),
+            config:      self.config.clone(),
             registry,
-            job_store:  JobStore::new(),
+            job_store:   JobStore::new(),
+            nostr_relay,
             started_at,
         };
 

@@ -2,6 +2,7 @@ mod config;
 mod identity;
 mod jobs;
 mod node;
+mod nostr_relay;
 mod vantage;
 
 use clap::Parser;
