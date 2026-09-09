@@ -1,0 +1,33 @@
+[Unit]
+Description=Sovereign Node — DIP + VCP + TSP daemon
+Documentation=https://github.com/yourorg/sovereign-node
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=sovereign
+Group=sovereign
+ExecStart=/usr/local/bin/sovereign-node --config /etc/sovereign-node/config.toml
+Restart=on-failure
+RestartSec=5s
+
+# Logging — goes to systemd journal (journalctl -u sovereign-node -f)
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=sovereign-node
+
+# Security hardening (Arch default systemd best practices)
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=/var/lib/sovereign-node
+PrivateTmp=true
+PrivateDevices=true
+
+# Allow BLE access (needed for VCP device discovery via btleplug)
+# Remove if running without BLE hardware
+SupplementaryGroups=bluetooth
+
+[Install]
+WantedBy=multi-user.target

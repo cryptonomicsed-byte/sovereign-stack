@@ -1,0 +1,10 @@
+[workspace]
+resolver = "2"
+members = [
+    "sovereign-types",
+    "dip",
+    "vcp",
+    "twin-protocol",
+    "sovereign-pipeline",
+    "sovereign-node",
+]

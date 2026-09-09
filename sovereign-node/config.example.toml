@@ -1,0 +1,46 @@
+# sovereign-node configuration
+# Copy to /etc/sovereign-node/config.toml and edit.
+
+[node]
+name      = "my-sovereign-node"
+data_dir  = "/var/lib/sovereign-node"
+log_level = "info"
+
+[identity]
+key_file = "/var/lib/sovereign-node/node.key"
+did_file = "/var/lib/sovereign-node/node.did"
+
+[vcp]
+scan_interval_secs = 30
+device_ttl_secs    = 120
+# Paths to JSON manifests for USB-connected devices:
+# manual_devices = ["/etc/sovereign-node/devices/go2.json"]
+manual_devices = []
+
+[dip]
+nostr_enabled = false
+# nostr_relay = "wss://relay.damus.io"
+# nostr_npub  = "npub1..."
+vantage_did   = "did:vantage:api:receipts"
+
+[pipeline]
+reconstruction_engine = "nerfstudio/gaussian-splatting"
+osovm_version         = "osovm/2.0"
+trajectory_count      = 6
+selection_objective   = "balanced"
+min_witnesses         = 2
+
+[api]
+bind    = "127.0.0.1:7779"
+enabled = true
+
+# Optional: Vantage backend integration
+# [vantage]
+# base_url  = "https://your-vantage-instance.example.com"
+# api_token = "your-token-here"
+
+# Optional: Sui blockchain anchor
+# [sui]
+# rpc_url  = "https://fullnode.mainnet.sui.io"
+# address  = "0xyour_sui_address"
+# key_file = "/var/lib/sovereign-node/sui.key"
