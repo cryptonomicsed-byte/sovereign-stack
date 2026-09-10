@@ -24,6 +24,7 @@ pub enum TwinEvent {
         message: String,
     },
     /// Àṣẹ tokens minted after proof evaluation cleared the eligibility gate.
+    /// The 3.69% Éṣù tithe routes through the Elegbára router → 8 sub-wallets.
     MintApproved {
         proof_id:      String,
         proof_domain:  String,  // "simulation" | "spatial" | "physical"
@@ -32,7 +33,7 @@ pub enum TwinEvent {
         tokens_minted: u64,     // gross micro-Àṣẹ
         net_minted:    u64,     // after 3.69% Éṣù tithe
         owner_fee:     u64,     // to tile owner
-        eshu_tithe:    u64,     // routed to AIO
+        eshu_tithe:    u64,     // total tithe routed to Elegbára router
         tx_digest:     Option<String>,
         stub:          bool,
     },

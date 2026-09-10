@@ -683,7 +683,7 @@ async fn handle_proof_simulation_submit(
                     tokens_minted: mint_result.tokens_minted,
                     net_minted:    mint_result.net_minted,
                     owner_fee:     mint_result.owner_fee,
-                    eshu_tithe:    mint_result.eshu_tithe,
+                    eshu_tithe:    mint_result.elegbara.tithe_total,
                     tx_digest:     mint_result.tx_digest.clone(),
                     stub:          mint_result.stub,
                 });
@@ -864,7 +864,7 @@ async fn handle_proof_gaussian_submit(
                     tokens_minted: mint_result.tokens_minted,
                     net_minted:    mint_result.net_minted,
                     owner_fee:     mint_result.owner_fee,
-                    eshu_tithe:    mint_result.eshu_tithe,
+                    eshu_tithe:    mint_result.elegbara.tithe_total,
                     tx_digest:     mint_result.tx_digest.clone(),
                     stub:          mint_result.stub,
                 });
@@ -905,7 +905,7 @@ async fn handle_proof_physical_submit(
                     tokens_minted: mint_result.tokens_minted,
                     net_minted:    mint_result.net_minted,
                     owner_fee:     mint_result.owner_fee,
-                    eshu_tithe:    mint_result.eshu_tithe,
+                    eshu_tithe:    mint_result.elegbara.tithe_total,
                     tx_digest:     mint_result.tx_digest.clone(),
                     stub:          mint_result.stub,
                 });
@@ -1776,7 +1776,7 @@ pub async fn run_capture_job(
                 tile_id       = %derived_tile_id,
                 tokens_minted = mint_result.tokens_minted,
                 net_minted    = mint_result.net_minted,
-                eshu_tithe    = mint_result.eshu_tithe,
+                eshu_tithe    = mint_result.elegbara.tithe_total,
                 owner_fee     = mint_result.owner_fee,
                 stub          = mint_result.stub,
                 "Àṣẹ tokens minted for receipt"
@@ -1933,7 +1933,7 @@ async fn mint_eligible_to_ase(
         domain      = %proof_domain,
         tokens      = result.tokens_minted,
         net         = result.net_minted,
-        eshu_tithe  = result.eshu_tithe,
+        eshu_tithe  = result.elegbara.tithe_total,
         owner_fee   = result.owner_fee,
         "Àṣẹ minted via proof evaluation"
     );
