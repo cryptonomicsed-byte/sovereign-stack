@@ -14,3 +14,6 @@ serde_json = "1"
 clap = { version = "4", features = ["derive"] }
 glob = "0.3"
 sha2 = "0.10"
+
+[dev-dependencies]
+tempfile = "3"

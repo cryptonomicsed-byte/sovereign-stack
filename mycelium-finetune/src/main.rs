@@ -1,4 +1,4 @@
-use clap::{Parser, Subcommand};
+use clap::{Parser, Subcommand, ValueEnum};
 use glob::glob;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -13,10 +13,22 @@ use std::path::PathBuf;
 // ---------------------------------------------------------------------------
 
 #[derive(Parser)]
-#[command(name = "mycelium-finetune", about = "Convert Claude Code sessions → QLoRA training data")]
+#[command(name = "mycelium-finetune", about = "Convert conversation logs → QLoRA training data (supports claude/openai/generic formats)")]
 struct Cli {
     #[command(subcommand)]
     command: Commands,
+}
+
+/// Input format variants supported by Extract and Stats subcommands.
+#[derive(Debug, Clone, ValueEnum, Default)]
+enum InputFormat {
+    /// Claude Code JSONL sessions (~/.claude/projects/); uses parentUuid/type schema
+    #[default]
+    Claude,
+    /// ChatGPT export format with a top-level `mapping` field
+    Openai,
+    /// Simple JSONL with `role` and `content` fields (most OSS tools)
+    Generic,
 }
 
 #[derive(Subcommand)]
@@ -24,8 +36,13 @@ enum Commands {
     /// Scan JSONL files and produce QLoRA instruction-tuning data
     Extract {
         /// Directory to scan for *.jsonl files
-        #[arg(long, default_value = "~/.claude/projects/")]
+        /// (Claude users: pass ~/.claude/projects/)
+        #[arg(long, default_value = ".")]
         input_dir: String,
+
+        /// Input format: claude | openai | generic
+        #[arg(long, value_enum, default_value_t = InputFormat::Claude)]
+        format: InputFormat,
 
         /// Output JSONL file
         #[arg(long, default_value = "sovereign-brain-training.jsonl")]
@@ -43,8 +60,13 @@ enum Commands {
     /// Print dataset statistics
     Stats {
         /// Directory to scan for *.jsonl files
-        #[arg(long, default_value = "~/.claude/projects/")]
+        /// (Claude users: pass ~/.claude/projects/)
+        #[arg(long, default_value = ".")]
         input_dir: String,
+
+        /// Input format: claude | openai | generic
+        #[arg(long, value_enum, default_value_t = InputFormat::Claude)]
+        format: InputFormat,
     },
 
     /// Print the QLoRA training shell script to stdout
@@ -71,6 +93,7 @@ enum Commands {
 // Data types
 // ---------------------------------------------------------------------------
 
+/// Claude Code JSONL line schema.
 #[derive(Debug, Deserialize)]
 struct ConvLine {
     #[serde(rename = "parentUuid", default)]
@@ -82,6 +105,15 @@ struct ConvLine {
     uuid: String,
     #[serde(default)]
     message: Value,
+}
+
+/// Generic JSONL line schema (role + content).
+#[derive(Debug, Deserialize)]
+struct GenericLine {
+    #[serde(default)]
+    role: String,
+    #[serde(default)]
+    content: Value,
 }
 
 #[derive(Debug, Serialize)]
@@ -167,7 +199,7 @@ fn dedup_hash(instruction: &str, output: &str) -> String {
 }
 
 // ---------------------------------------------------------------------------
-// Parsed message node
+// Parsed message node (common internal representation)
 // ---------------------------------------------------------------------------
 
 #[derive(Debug, Clone)]
@@ -178,8 +210,12 @@ struct MsgNode {
     text: String,
 }
 
-/// Parse a single JSONL file into a list of MsgNode, preserving order.
-fn parse_file(path: &PathBuf) -> Vec<MsgNode> {
+// ---------------------------------------------------------------------------
+// Format-specific parsers → Vec<(human_turn, assistant_turn)>
+// ---------------------------------------------------------------------------
+
+/// Parse a Claude Code JSONL file into MsgNodes (preserves original logic).
+fn parse_file_claude(path: &PathBuf) -> Vec<MsgNode> {
     let file = match File::open(path) {
         Ok(f) => f,
         Err(e) => {
@@ -226,7 +262,200 @@ fn parse_file(path: &PathBuf) -> Vec<MsgNode> {
     nodes
 }
 
-/// Given an ordered list of nodes from one file, build (user, assistant) adjacent pairs
+/// Parse a ChatGPT export JSON/JSONL file (top-level `mapping` field).
+/// Each file may be a single JSON object (not line-delimited).
+fn parse_file_openai(path: &PathBuf) -> Vec<(String, String)> {
+    let file = match File::open(path) {
+        Ok(f) => f,
+        Err(e) => {
+            eprintln!("Warning: cannot open {:?}: {}", path, e);
+            return Vec::new();
+        }
+    };
+    let reader = BufReader::new(file);
+    let mut pairs: Vec<(String, String)> = Vec::new();
+
+    // ChatGPT export can be either a JSON array of conversations or a single conversation object.
+    // We try to parse the whole file as a Value first.
+    let mut raw = String::new();
+    for line in reader.lines().flatten() {
+        raw.push_str(&line);
+        raw.push('\n');
+    }
+
+    // Try as array of conversation objects
+    let root: Value = match serde_json::from_str(&raw) {
+        Ok(v) => v,
+        Err(_) => {
+            eprintln!("Warning: {:?} is not valid JSON (openai format)", path);
+            return Vec::new();
+        }
+    };
+
+    let conversations: Vec<&Value> = match &root {
+        Value::Array(arr) => arr.iter().collect(),
+        Value::Object(_) => vec![&root],
+        _ => return Vec::new(),
+    };
+
+    for conv in conversations {
+        if let Some(mapping) = conv.get("mapping").and_then(Value::as_object) {
+            // Build ordered list of (role, text) by following parent links
+            // Collect all nodes keyed by id
+            let mut nodes: HashMap<String, (String, String, String)> = HashMap::new(); // id → (parent_id, role, text)
+            for (id, node) in mapping {
+                let parent_id = node
+                    .get("parent")
+                    .and_then(Value::as_str)
+                    .map(str::to_string);
+                let msg = node.get("message");
+                let role = msg
+                    .and_then(|m| m.get("author"))
+                    .and_then(|a| a.get("role"))
+                    .and_then(Value::as_str)
+                    .unwrap_or("")
+                    .to_owned();
+                let content_val = msg
+                    .and_then(|m| m.get("content"))
+                    .cloned()
+                    .unwrap_or(Value::Null);
+                // content may be {"content_type": "text", "parts": [...]}
+                let text = match &content_val {
+                    Value::Object(obj) => {
+                        if let Some(Value::Array(parts)) = obj.get("parts") {
+                            parts
+                                .iter()
+                                .filter_map(|p| p.as_str())
+                                .collect::<Vec<_>>()
+                                .join("\n")
+                        } else {
+                            extract_text(&content_val)
+                        }
+                    }
+                    _ => extract_text(&content_val),
+                };
+                nodes.insert(id.clone(), (parent_id.unwrap_or_default(), role, text));
+            }
+
+            // Reconstruct conversation order: find root, walk children
+            // Build children map
+            let mut children: HashMap<String, Vec<String>> = HashMap::new();
+            let mut root_id = String::new();
+            for (id, (parent_id, _, _)) in &nodes {
+                if parent_id.is_empty() || !nodes.contains_key(parent_id.as_str()) {
+                    root_id = id.clone();
+                } else {
+                    children
+                        .entry(parent_id.clone())
+                        .or_default()
+                        .push(id.clone());
+                }
+            }
+
+            // DFS to get ordered messages
+            let mut ordered: Vec<(String, String)> = Vec::new(); // (role, text)
+            let mut stack = vec![root_id.clone()];
+            while let Some(cur) = stack.pop() {
+                if let Some((_, role, text)) = nodes.get(&cur) {
+                    if (role == "user" || role == "assistant") && !text.is_empty() {
+                        ordered.push((role.clone(), text.clone()));
+                    }
+                }
+                if let Some(kids) = children.get(&cur) {
+                    // Push in reverse to maintain order
+                    for kid in kids.iter().rev() {
+                        stack.push(kid.clone());
+                    }
+                }
+            }
+
+            // Build adjacent pairs
+            let mut i = 0;
+            while i + 1 < ordered.len() {
+                if ordered[i].0 == "user" && ordered[i + 1].0 == "assistant" {
+                    pairs.push((ordered[i].1.clone(), ordered[i + 1].1.clone()));
+                    i += 2;
+                } else {
+                    i += 1;
+                }
+            }
+        }
+    }
+
+    pairs
+}
+
+/// Parse a generic JSONL file where each line has `role` and `content` fields.
+/// Produces adjacent (user, assistant) pairs.
+fn parse_file_generic(path: &PathBuf) -> Vec<(String, String)> {
+    let file = match File::open(path) {
+        Ok(f) => f,
+        Err(e) => {
+            eprintln!("Warning: cannot open {:?}: {}", path, e);
+            return Vec::new();
+        }
+    };
+    let reader = BufReader::new(file);
+    let mut messages: Vec<(String, String)> = Vec::new(); // (role, text)
+
+    for (lineno, line_result) in reader.lines().enumerate() {
+        let line = match line_result {
+            Ok(l) => l,
+            Err(e) => {
+                eprintln!("Warning: read error at {:?}:{}: {}", path, lineno + 1, e);
+                continue;
+            }
+        };
+        let trimmed = line.trim();
+        if trimmed.is_empty() {
+            continue;
+        }
+        let parsed: GenericLine = match serde_json::from_str(trimmed) {
+            Ok(v) => v,
+            Err(_) => continue,
+        };
+        let role = parsed.role.clone();
+        if role != "user" && role != "assistant" {
+            continue;
+        }
+        let text = extract_text(&parsed.content);
+        messages.push((role, text));
+    }
+
+    // Build adjacent pairs
+    let mut pairs: Vec<(String, String)> = Vec::new();
+    let mut i = 0;
+    while i + 1 < messages.len() {
+        if messages[i].0 == "user" && messages[i + 1].0 == "assistant" {
+            pairs.push((messages[i].1.clone(), messages[i + 1].1.clone()));
+            i += 2;
+        } else {
+            i += 1;
+        }
+    }
+    pairs
+}
+
+// ---------------------------------------------------------------------------
+// Unified pair extraction
+// ---------------------------------------------------------------------------
+
+/// Extract (human_turn, assistant_turn) pairs from a file, dispatching by format.
+fn extract_pairs_from_file(path: &PathBuf, format: &InputFormat) -> Vec<(String, String)> {
+    match format {
+        InputFormat::Claude => {
+            let nodes = parse_file_claude(path);
+            build_pairs(&nodes)
+                .into_iter()
+                .map(|(u, a)| (u.text, a.text))
+                .collect()
+        }
+        InputFormat::Openai => parse_file_openai(path),
+        InputFormat::Generic => parse_file_generic(path),
+    }
+}
+
+/// Given an ordered list of Claude nodes from one file, build (user, assistant) adjacent pairs
 /// following the parent_uuid chain.
 fn build_pairs(nodes: &[MsgNode]) -> Vec<(MsgNode, MsgNode)> {
     // Map uuid → index for O(1) lookup
@@ -277,6 +506,7 @@ fn build_pairs(nodes: &[MsgNode]) -> Vec<(MsgNode, MsgNode)> {
 
 fn cmd_extract(
     input_dir: &str,
+    format: &InputFormat,
     output: &str,
     min_text_len: usize,
     max_tokens_est: usize,
@@ -308,14 +538,13 @@ fn cmd_extract(
             .unwrap_or("unknown")
             .to_owned();
 
-        let nodes = parse_file(path);
-        let pairs = build_pairs(&nodes);
+        let pairs = extract_pairs_from_file(path, format);
 
-        for (user_node, asst_node) in pairs {
+        for (instruction_raw, asst_raw) in pairs {
             total_pairs += 1;
 
-            let instruction = user_node.text.trim().to_owned();
-            let asst_text = asst_node.text.trim().to_owned();
+            let instruction = instruction_raw.trim().to_owned();
+            let asst_text = asst_raw.trim().to_owned();
 
             // Skip skippable user messages
             if is_skippable(&instruction) {
@@ -346,7 +575,7 @@ fn cmd_extract(
                 input: String::new(),
                 output: asst_text,
                 source: source.clone(),
-                uuid: asst_node.uuid.clone(),
+                uuid: String::new(),
             };
 
             let line = match serde_json::to_string(&record) {
@@ -373,7 +602,7 @@ fn cmd_extract(
 // Subcommand: stats
 // ---------------------------------------------------------------------------
 
-fn cmd_stats(input_dir: &str) {
+fn cmd_stats(input_dir: &str, format: &InputFormat) {
     let files = collect_jsonl_files(input_dir);
     let file_count = files.len();
 
@@ -387,28 +616,26 @@ fn cmd_stats(input_dir: &str) {
     let mut instructions: Vec<(usize, String)> = Vec::new();
 
     for path in &files {
-        let nodes = parse_file(path);
-        let pairs = build_pairs(&nodes);
-
         // Count raw lines
         if let Ok(f) = File::open(path) {
             total_lines += BufReader::new(f).lines().count();
         }
 
-        for node in &nodes {
-            if node.role == "user" {
+        let pairs = extract_pairs_from_file(path, format);
+
+        for (human, asst) in &pairs {
+            if !human.is_empty() {
                 user_count += 1;
-            } else {
-                asst_count += 1;
-            }
-            if !node.text.is_empty() {
-                total_text_len += node.text.len();
+                total_text_len += human.len();
                 text_len_samples += 1;
             }
-        }
+            if !asst.is_empty() {
+                asst_count += 1;
+                total_text_len += asst.len();
+                text_len_samples += 1;
+            }
 
-        for (user_node, _) in pairs {
-            let instruction = user_node.text.trim().to_owned();
+            let instruction = human.trim().to_owned();
             if !instruction.is_empty() && !is_skippable(&instruction) {
                 instructions.push((instruction.len(), instruction));
             }
@@ -580,17 +807,18 @@ fn main() {
     match cli.command {
         Commands::Extract {
             input_dir,
+            format,
             output,
             min_text_len,
             max_tokens_est,
         } => {
-            if let Err(e) = cmd_extract(&input_dir, &output, min_text_len, max_tokens_est) {
+            if let Err(e) = cmd_extract(&input_dir, &format, &output, min_text_len, max_tokens_est) {
                 eprintln!("Error: {}", e);
                 std::process::exit(1);
             }
         }
-        Commands::Stats { input_dir } => {
-            cmd_stats(&input_dir);
+        Commands::Stats { input_dir, format } => {
+            cmd_stats(&input_dir, &format);
         }
         Commands::Script {
             model,
@@ -654,5 +882,64 @@ mod tests {
         assert!(seen.insert(dedup_hash(instruction, output)));
         assert!(!seen.insert(dedup_hash(instruction, output)), "Duplicate should not be inserted");
         assert_eq!(seen.len(), 1);
+    }
+
+    #[test]
+    fn test_parse_file_generic_pairs() {
+        use std::io::Write;
+        use tempfile::NamedTempFile;
+
+        let mut tmp = NamedTempFile::new().unwrap();
+        writeln!(tmp, r#"{{"role":"user","content":"Hello there"}}"#).unwrap();
+        writeln!(tmp, r#"{{"role":"assistant","content":"Hi! How can I help?"}}"#).unwrap();
+        writeln!(tmp, r#"{{"role":"user","content":"What is 2+2?"}}"#).unwrap();
+        writeln!(tmp, r#"{{"role":"assistant","content":"It is 4."}}"#).unwrap();
+
+        let path = PathBuf::from(tmp.path());
+        let pairs = parse_file_generic(&path);
+        assert_eq!(pairs.len(), 2);
+        assert_eq!(pairs[0].0, "Hello there");
+        assert_eq!(pairs[0].1, "Hi! How can I help?");
+        assert_eq!(pairs[1].0, "What is 2+2?");
+        assert_eq!(pairs[1].1, "It is 4.");
+    }
+
+    #[test]
+    fn test_parse_file_openai_pairs() {
+        use std::io::Write;
+        use tempfile::NamedTempFile;
+
+        // Minimal ChatGPT-style export: single conversation object with a mapping
+        let json_data = r#"{
+            "mapping": {
+                "root": {
+                    "parent": null,
+                    "message": null
+                },
+                "msg1": {
+                    "parent": "root",
+                    "message": {
+                        "author": {"role": "user"},
+                        "content": {"content_type": "text", "parts": ["Tell me about Rust."]}
+                    }
+                },
+                "msg2": {
+                    "parent": "msg1",
+                    "message": {
+                        "author": {"role": "assistant"},
+                        "content": {"content_type": "text", "parts": ["Rust is a systems language."]}
+                    }
+                }
+            }
+        }"#;
+
+        let mut tmp = NamedTempFile::new().unwrap();
+        write!(tmp, "{}", json_data).unwrap();
+
+        let path = PathBuf::from(tmp.path());
+        let pairs = parse_file_openai(&path);
+        assert_eq!(pairs.len(), 1);
+        assert_eq!(pairs[0].0, "Tell me about Rust.");
+        assert_eq!(pairs[0].1, "Rust is a systems language.");
     }
 }
