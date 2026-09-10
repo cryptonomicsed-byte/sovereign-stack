@@ -35,7 +35,8 @@ use sovereign_pipeline::{
     ProofChain, ProofChainConfig,
 };
 use twin_protocol::osovm::{OsovmEngine, ProofOfSimulation, SimScenario};
-use twin_protocol::ase::{AseMintRequest, mint_ase};
+use twin_protocol::ase::{AseMintRequest, mint_ase, AseMintResult};
+use sovereign_types::OduCoordinate;
 use crate::tile_economy_store::TileEconomyStore;
 use sovereign_types::WitnessAttestation;
 use sovereign_runtime::chain::{
@@ -664,6 +665,29 @@ async fn handle_proof_simulation_submit(
                 proof_value   = %format!("{:.3}", eval.proof_value),
                 "SimulationProof evaluated"
             );
+            if eval.mint_eligible {
+                let tile_id = "odu:00".to_string(); // sim proofs are not yet tile-scoped
+                let mint_result = mint_eligible_to_ase(
+                    &eval.proof_id, "simulation", &tile_id,
+                    &state.identity.did,
+                    eval.proof_value as f32,
+                    eval.novelty as f32,
+                    state.config.vantage.as_ref().map(|v| v.base_url.as_str()),
+                    &state.tile_economy_store,
+                ).await;
+                let _ = state.twin_events.send(crate::events::TwinEvent::MintApproved {
+                    proof_id:      eval.proof_id.clone(),
+                    proof_domain:  "simulation".into(),
+                    tile_id,
+                    minter_did:    state.identity.did.clone(),
+                    tokens_minted: mint_result.tokens_minted,
+                    net_minted:    mint_result.net_minted,
+                    owner_fee:     mint_result.owner_fee,
+                    eshu_tithe:    mint_result.eshu_tithe,
+                    tx_digest:     mint_result.tx_digest.clone(),
+                    stub:          mint_result.stub,
+                });
+            }
             (StatusCode::OK, Json(serde_json::to_value(&eval).unwrap()))
         }
         Err(e) => (
@@ -822,6 +846,29 @@ async fn handle_proof_gaussian_submit(
                 proof_value   = %format!("{:.3}", eval.proof_value),
                 "GaussianProof evaluated"
             );
+            if eval.mint_eligible {
+                let tile_id = proof.odu_tile.clone().unwrap_or_else(|| "odu:00".into());
+                let mint_result = mint_eligible_to_ase(
+                    &eval.proof_id, "spatial", &tile_id,
+                    &state.identity.did,
+                    eval.proof_value as f32,
+                    eval.novelty as f32,
+                    state.config.vantage.as_ref().map(|v| v.base_url.as_str()),
+                    &state.tile_economy_store,
+                ).await;
+                let _ = state.twin_events.send(crate::events::TwinEvent::MintApproved {
+                    proof_id:      eval.proof_id.clone(),
+                    proof_domain:  "spatial".into(),
+                    tile_id,
+                    minter_did:    state.identity.did.clone(),
+                    tokens_minted: mint_result.tokens_minted,
+                    net_minted:    mint_result.net_minted,
+                    owner_fee:     mint_result.owner_fee,
+                    eshu_tithe:    mint_result.eshu_tithe,
+                    tx_digest:     mint_result.tx_digest.clone(),
+                    stub:          mint_result.stub,
+                });
+            }
             (StatusCode::OK, Json(serde_json::to_value(&eval).unwrap()))
         }
         Err(e) => (StatusCode::UNPROCESSABLE_ENTITY, Json(json!({"error": e}))),
@@ -840,6 +887,29 @@ async fn handle_proof_physical_submit(
                 mint_eligible = eval.mint_eligible,
                 "PhysicalProof evaluated"
             );
+            if eval.mint_eligible {
+                let tile_id = "odu:00".to_string(); // physical proof has no tile_id yet
+                let mint_result = mint_eligible_to_ase(
+                    &eval.proof_id, "physical", &tile_id,
+                    &state.identity.did,
+                    eval.proof_value as f32,
+                    eval.novelty as f32,
+                    state.config.vantage.as_ref().map(|v| v.base_url.as_str()),
+                    &state.tile_economy_store,
+                ).await;
+                let _ = state.twin_events.send(crate::events::TwinEvent::MintApproved {
+                    proof_id:      eval.proof_id.clone(),
+                    proof_domain:  "physical".into(),
+                    tile_id,
+                    minter_did:    state.identity.did.clone(),
+                    tokens_minted: mint_result.tokens_minted,
+                    net_minted:    mint_result.net_minted,
+                    owner_fee:     mint_result.owner_fee,
+                    eshu_tithe:    mint_result.eshu_tithe,
+                    tx_digest:     mint_result.tx_digest.clone(),
+                    stub:          mint_result.stub,
+                });
+            }
             (StatusCode::OK, Json(serde_json::to_value(&eval).unwrap()))
         }
         Err(e) => (StatusCode::UNPROCESSABLE_ENTITY, Json(json!({"error": e}))),
@@ -1124,6 +1194,7 @@ async fn handle_sse_receipts(State(state): State<NodeState>) -> impl IntoRespons
                             crate::events::TwinEvent::CaptureComplete { .. } => "capture_complete",
                             crate::events::TwinEvent::CaptureFailed { .. }  => "capture_failed",
                             crate::events::TwinEvent::StatusUpdate { .. }   => "status_update",
+                            crate::events::TwinEvent::MintApproved { .. }   => "mint_approved",
                         })
                         .data(json);
                     return Some((Ok::<_, Infallible>(sse_event), rx));
@@ -1158,6 +1229,7 @@ async fn handle_sse_jobs(State(state): State<NodeState>) -> impl IntoResponse {
                         crate::events::TwinEvent::CaptureComplete { .. } => "capture_complete",
                         crate::events::TwinEvent::CaptureFailed   { .. } => "capture_failed",
                         crate::events::TwinEvent::StatusUpdate    { .. } => "status_update",
+                        crate::events::TwinEvent::MintApproved    { .. } => "mint_approved",
                     };
                     let sse_event = Event::default()
                         .event(event_type)
@@ -1652,6 +1724,13 @@ pub async fn run_capture_job(
             let p_cap_id   = proof_output.pipeline.capture_receipt.receipt_id.clone();
             let p_sui      = proof_output.pipeline.twin.sui_object_id.clone();
 
+            // Derive tile_id from GPS center of the twin's region.
+            let region    = &proof_output.pipeline.twin.region;
+            let center_lat = (region.min_lat + region.max_lat) / 2.0;
+            let center_lon = (region.min_lon + region.max_lon) / 2.0;
+            let tile_coord = OduCoordinate::from_gps(center_lat, center_lon);
+            let derived_tile_id = tile_coord.tile_id();
+
             job_store.update_status(&job_id, JobStatus::Completed {
                 twin_id:            p_twin_id.clone(),
                 scene_receipt_id:   p_scene_id.clone(),
@@ -1671,25 +1750,34 @@ pub async fn run_capture_job(
                 sui_object_id:      p_sui,
                 dip_message_count:  dip_count,
                 completed_at:       now_ms(),
-                odu_tile:           None, // populated by GPS-aware capture in future
+                odu_tile:           Some(derived_tile_id.clone()),
             }).await;
+
+            // Novelty from the proof engine — quality-proportional for captures
+            // (proper VeilSim novelty oracle wires in via proof_engine in production).
+            let novelty_score = proof_output.pipeline.twin.quality.f1_score;
 
             // Mint Àṣẹ tokens for this SceneReceipt.
             let sui_url = config.vantage.as_ref().map(|v| v.base_url.as_str());
+            let tile_econ = tile_economy.get(&derived_tile_id).await;
             let ase_req = AseMintRequest {
                 receipt_id:  p_scene_id.clone(),
                 twin_id:     p_twin_id.clone(),
-                tile_id:     "odu:00".into(), // default tile — GPS refinement in future
+                tile_id:     derived_tile_id.clone(),
                 minter_did:  identity.did.clone(),
                 quality:     proof_output.pipeline.twin.quality.f1_score,
-                novelty:     0.5, // novelty oracle not yet wired; default mid-range
+                novelty:     novelty_score,
                 sui_address: identity.did.clone(),
             };
-            let mint_result = mint_ase(&ase_req, sui_url).await;
-            tile_economy.apply_mint(&ase_req.tile_id, &mint_result).await;
+            let mint_result = mint_ase(&ase_req, sui_url, tile_econ.as_ref()).await;
+            tile_economy.apply_mint(&derived_tile_id, &mint_result).await;
             info!(
                 job_id        = %job_id,
+                tile_id       = %derived_tile_id,
                 tokens_minted = mint_result.tokens_minted,
+                net_minted    = mint_result.net_minted,
+                eshu_tithe    = mint_result.eshu_tithe,
+                owner_fee     = mint_result.owner_fee,
                 stub          = mint_result.stub,
                 "Àṣẹ tokens minted for receipt"
             );
@@ -1815,6 +1903,45 @@ pub async fn run_capture_job(
             });
         }
     }
+}
+
+/// Mint Àṣẹ for a proof-eligible evaluation result.
+/// Called from proof handlers when mint_eligible=true.
+async fn mint_eligible_to_ase(
+    proof_id:       &str,
+    proof_domain:   &str,
+    tile_id:        &str,
+    minter_did:     &str,
+    quality:        f32,
+    novelty:        f32,
+    sui_url:        Option<&str>,
+    tile_store:     &crate::tile_economy_store::TileEconomyStore,
+) -> AseMintResult {
+    let tile_economy = tile_store.get(tile_id).await;
+    let req = AseMintRequest {
+        receipt_id:  format!("{proof_domain}:{proof_id}"),
+        twin_id:     proof_id.to_string(),
+        tile_id:     tile_id.to_string(),
+        minter_did:  minter_did.to_string(),
+        quality,
+        novelty,
+        sui_address: minter_did.to_string(),
+    };
+    let result = mint_ase(&req, sui_url, tile_economy.as_ref()).await;
+    info!(
+        proof_id    = %proof_id,
+        domain      = %proof_domain,
+        tokens      = result.tokens_minted,
+        net         = result.net_minted,
+        eshu_tithe  = result.eshu_tithe,
+        owner_fee   = result.owner_fee,
+        "Àṣẹ minted via proof evaluation"
+    );
+    if let Some(mut economy) = tile_economy {
+        twin_protocol::ase::update_tile_economy(&mut economy, &result);
+        tile_store.upsert(economy).await;
+    }
+    result
 }
 
 /// Blocking capture pipeline run — called via spawn_blocking.

@@ -30,8 +30,8 @@ osovm_version         = "osovm/2.0"
 trajectory_count      = 6
 selection_objective   = "balanced"
 min_witnesses         = 2
-# Optional real ỌSỌVM engine:
-# osovm_endpoint = "http://localhost:9000"     # HTTP JSON bridge
+# Real ỌSỌVM engine — VeilSim Studio (run: ./veilsim-studio/bootstrap.sh):
+# osovm_endpoint = "http://localhost:8788"     # VeilSim Studio FastAPI endpoint
 # osovm_endpoint = "/usr/local/bin/osovm"      # binary exec (JSON stdin/stdout)
 
 # Optional Gaussian splatting engine:

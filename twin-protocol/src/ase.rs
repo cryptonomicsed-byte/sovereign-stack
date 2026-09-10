@@ -23,6 +23,19 @@ pub const MAX_QUALITY_BONUS: f32 = 3.0;
 /// Default usage fee percentage charged by the tile owner.
 pub const DEFAULT_USAGE_FEE_PCT: f32 = 5.0;
 
+/// Éṣù tithe: 3.69% skimmed from every mint and settlement.
+pub const ESHU_TITHE_BPS: u64 = 369; // basis points (369 / 10_000 = 3.69%)
+
+/// Fraction of the tithe that self-burns (10%).
+pub const ESHU_SELF_BURN_BPS: u64 = 1_000; // 10% of tithe
+
+/// Sacred Split ratios (immutable): [treasury, inheritance, council, shrine]
+/// Applied to daily emission AND external offerings.
+pub const SACRED_SPLIT: [u64; 4] = [50, 25, 15, 10]; // percentages
+
+/// Daily emission: 1,440 Àṣẹ/day (one per minute).
+pub const DAILY_EMISSION_MICRO: u64 = 1_440 * 1_000_000;
+
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 /// Per-tile economy state for an Odù spatial tile.
@@ -53,10 +66,47 @@ pub struct AseMintRequest {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AseMintResult {
     pub receipt_id:    String,
-    pub tokens_minted: u64,         // micro-Àṣẹ
+    pub tokens_minted: u64,         // micro-Àṣẹ (gross, pre-tithe)
+    pub net_minted:    u64,         // micro-Àṣẹ after Éṣù tithe
     pub owner_fee:     u64,         // portion to tile owner (0 if unclaimed)
+    pub eshu_tithe:    u64,         // 3.69% routed to AIO
+    pub eshu_burn:     u64,         // 10% of tithe self-burns
     pub tx_digest:     Option<String>, // Sui tx digest, or None for stub
     pub stub:          bool,
+}
+
+// ─── Sacred Split + Éṣù tithe ────────────────────────────────────────────────
+
+/// Result of applying the Sacred Split to an emission amount.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SacredSplitResult {
+    pub total:            u64,
+    pub treasury:         u64,  // 50% — work rewards
+    pub inheritance_pool: u64,  // 25% — 1440 wallets
+    pub council:          u64,  // 15% — 12 members
+    pub shrine:           u64,  // 10% — Ọbàtálá
+}
+
+/// Apply the immutable Sacred Split to any emission amount.
+pub fn sacred_split(amount_micro: u64) -> SacredSplitResult {
+    let treasury         = amount_micro * SACRED_SPLIT[0] / 100;
+    let inheritance_pool = amount_micro * SACRED_SPLIT[1] / 100;
+    let council          = amount_micro * SACRED_SPLIT[2] / 100;
+    let shrine           = amount_micro * SACRED_SPLIT[3] / 100;
+    SacredSplitResult { total: amount_micro, treasury, inheritance_pool, council, shrine }
+}
+
+/// Apply the Éṣù tithe (3.69%) to a token amount.
+/// Returns (net_amount, tithe_to_aio, burn_amount).
+///
+/// burn_amount = tithe × 10% (self-burns immediately)
+/// tithe_to_aio = tithe × 90% (routes to Universal Work Economy)
+pub fn eshu_tithe(amount_micro: u64) -> (u64, u64, u64) {
+    let tithe     = amount_micro * ESHU_TITHE_BPS / 10_000;
+    let burn      = tithe * ESHU_SELF_BURN_BPS / 10_000;
+    let to_aio    = tithe.saturating_sub(burn);
+    let net       = amount_micro.saturating_sub(tithe);
+    (net, to_aio, burn)
 }
 
 // ─── Token calculation ────────────────────────────────────────────────────────
@@ -90,7 +140,7 @@ pub fn calculate_owner_fee(tokens: u64, fee_pct: f32) -> u64 {
 /// - Sets `last_capture` to the current unix millisecond timestamp.
 pub fn update_tile_economy(economy: &mut TileEconomy, result: &AseMintResult) {
     economy.capture_count += 1;
-    economy.earned_tokens += result.tokens_minted.saturating_sub(result.owner_fee);
+    economy.earned_tokens += result.net_minted.saturating_sub(result.owner_fee);
     let now_ms = SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .map(|d| d.as_millis() as u64)
@@ -108,13 +158,21 @@ pub fn update_tile_economy(economy: &mut TileEconomy, result: &AseMintResult) {
 /// falls through to the deterministic stub path.
 ///
 /// Returns `stub: true` unless a real Sui transaction was executed.
-pub async fn mint_ase(req: &AseMintRequest, sui_rpc_url: Option<&str>) -> AseMintResult {
+pub async fn mint_ase(
+    req: &AseMintRequest,
+    sui_rpc_url: Option<&str>,
+    tile: Option<&TileEconomy>,
+) -> AseMintResult {
     let tokens_minted = calculate_mint_amount(req);
 
-    // Determine owner fee — always zero in this stub because we don't have a
-    // live TileEconomy reference here; callers should use calculate_owner_fee()
-    // when they have the tile context.
-    let owner_fee = 0u64;
+    // Apply Éṣù tithe (3.69%) — 10% of tithe self-burns, rest routes to AIO
+    let (net_minted, eshu_tithe_amt, eshu_burn) = eshu_tithe(tokens_minted);
+
+    // Owner fee comes from the tile economy; 0 if tile is unclaimed
+    let owner_fee = tile
+        .filter(|t| t.owner_did.is_some())
+        .map(|t| calculate_owner_fee(net_minted, t.usage_fee_pct))
+        .unwrap_or(0);
 
     // Decide whether to attempt a real Sui call.
     let attempt_real = sui_rpc_url
@@ -136,11 +194,14 @@ pub async fn mint_ase(req: &AseMintRequest, sui_rpc_url: Option<&str>) -> AseMin
     let stub_digest = stub_ase_digest(&req.receipt_id);
 
     AseMintResult {
-        receipt_id:    req.receipt_id.clone(),
+        receipt_id: req.receipt_id.clone(),
         tokens_minted,
+        net_minted,
         owner_fee,
-        tx_digest:     Some(stub_digest),
-        stub:          true,
+        eshu_tithe:  eshu_tithe_amt,
+        eshu_burn,
+        tx_digest:   Some(stub_digest),
+        stub:        true,
     }
 }
 
@@ -224,7 +285,10 @@ mod tests {
         let result = AseMintResult {
             receipt_id:    "receipt-update".to_string(),
             tokens_minted: 2_000_000,
-            owner_fee:     100_000,
+            net_minted:    1_926_200, // after 3.69% tithe
+            owner_fee:     96_310,
+            eshu_tithe:    73_800,
+            eshu_burn:     7_380,
             tx_digest:     Some("ase_tx:stub".to_string()),
             stub:          true,
         };
@@ -232,8 +296,8 @@ mod tests {
         assert_eq!(economy.capture_count, 1);
         assert_eq!(
             economy.earned_tokens,
-            2_000_000 - 100_000,
-            "earned_tokens should be tokens_minted minus owner_fee"
+            result.net_minted - result.owner_fee,
+            "earned_tokens = net_minted minus owner_fee"
         );
         assert!(economy.last_capture.is_some());
     }
@@ -241,8 +305,8 @@ mod tests {
     #[tokio::test]
     async fn test_mint_stub_is_deterministic_for_same_receipt() {
         let req = make_req("receipt-det-1", 0.7, 0.3);
-        let r1 = mint_ase(&req, None).await;
-        let r2 = mint_ase(&req, None).await;
+        let r1 = mint_ase(&req, None, None).await;
+        let r2 = mint_ase(&req, None, None).await;
         assert_eq!(r1.tx_digest, r2.tx_digest, "Same receipt_id must produce same stub digest");
         assert_eq!(r1.tokens_minted, r2.tokens_minted);
         assert!(r1.stub && r2.stub);
@@ -252,11 +316,58 @@ mod tests {
     async fn test_mint_stub_differs_per_receipt() {
         let req_a = make_req("receipt-A", 0.5, 0.5);
         let req_b = make_req("receipt-B", 0.5, 0.5);
-        let ra = mint_ase(&req_a, None).await;
-        let rb = mint_ase(&req_b, None).await;
+        let ra = mint_ase(&req_a, None, None).await;
+        let rb = mint_ase(&req_b, None, None).await;
         assert_ne!(
             ra.tx_digest, rb.tx_digest,
             "Different receipt_ids must produce different stub digests"
         );
+    }
+
+    #[tokio::test]
+    async fn test_mint_applies_eshu_tithe() {
+        let req = make_req("receipt-tithe", 1.0, 1.0);
+        let result = mint_ase(&req, None, None).await;
+        // tithe = tokens_minted * 369 / 10_000
+        let expected_tithe = result.tokens_minted * ESHU_TITHE_BPS / 10_000;
+        assert_eq!(result.eshu_tithe + result.eshu_burn, expected_tithe);
+        assert_eq!(result.net_minted, result.tokens_minted - expected_tithe);
+    }
+
+    #[tokio::test]
+    async fn test_mint_with_claimed_tile_charges_owner_fee() {
+        let req = make_req("receipt-owner", 1.0, 1.0);
+        let tile = TileEconomy {
+            tile_id:       "odu:00".into(),
+            owner_did:     Some("did:vantage:owner:1".into()),
+            usage_fee_pct: DEFAULT_USAGE_FEE_PCT,
+            ..Default::default()
+        };
+        let result = mint_ase(&req, None, Some(&tile)).await;
+        assert!(result.owner_fee > 0, "claimed tile should generate owner fee");
+        let expected_fee = calculate_owner_fee(result.net_minted, DEFAULT_USAGE_FEE_PCT);
+        assert_eq!(result.owner_fee, expected_fee);
+    }
+
+    #[test]
+    fn test_sacred_split_daily_emission() {
+        let split = sacred_split(DAILY_EMISSION_MICRO);
+        assert_eq!(split.treasury,         720 * 1_000_000, "50% → treasury");
+        assert_eq!(split.inheritance_pool, 360 * 1_000_000, "25% → inheritance");
+        assert_eq!(split.council,          216 * 1_000_000, "15% → council");
+        assert_eq!(split.shrine,           144 * 1_000_000, "10% → shrine");
+        assert_eq!(
+            split.treasury + split.inheritance_pool + split.council + split.shrine,
+            DAILY_EMISSION_MICRO,
+        );
+    }
+
+    #[test]
+    fn test_eshu_tithe_369() {
+        // 10_000 * 369 / 10_000 = 369 (3.69%)
+        let (net, to_aio, burn) = eshu_tithe(10_000);
+        assert_eq!(net,    10_000 - 369);  // 9_631
+        assert_eq!(burn,   36);            // 10% of 369 = 36 (truncated)
+        assert_eq!(to_aio, 369 - 36);     // 333 to AIO
     }
 }

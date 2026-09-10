@@ -23,6 +23,19 @@ pub enum TwinEvent {
         job_id:  String,
         message: String,
     },
+    /// Àṣẹ tokens minted after proof evaluation cleared the eligibility gate.
+    MintApproved {
+        proof_id:      String,
+        proof_domain:  String,  // "simulation" | "spatial" | "physical"
+        tile_id:       String,
+        minter_did:    String,
+        tokens_minted: u64,     // gross micro-Àṣẹ
+        net_minted:    u64,     // after 3.69% Éṣù tithe
+        owner_fee:     u64,     // to tile owner
+        eshu_tithe:    u64,     // routed to AIO
+        tx_digest:     Option<String>,
+        stub:          bool,
+    },
 }
 
 impl TwinEvent {
@@ -30,7 +43,9 @@ impl TwinEvent {
     pub fn twin_id(&self) -> Option<&str> {
         match self {
             TwinEvent::CaptureComplete { twin_id, .. } => Some(twin_id),
-            TwinEvent::CaptureFailed { .. } | TwinEvent::StatusUpdate { .. } => None,
+            TwinEvent::CaptureFailed { .. }
+            | TwinEvent::StatusUpdate { .. }
+            | TwinEvent::MintApproved { .. } => None,
         }
     }
 
@@ -39,6 +54,7 @@ impl TwinEvent {
             TwinEvent::CaptureComplete { job_id, .. } => job_id,
             TwinEvent::CaptureFailed { job_id, .. } => job_id,
             TwinEvent::StatusUpdate { job_id, .. } => job_id,
+            TwinEvent::MintApproved { proof_id, .. } => proof_id,
         }
     }
 }

@@ -38,6 +38,31 @@ impl OduCoordinate {
         Some(Self { x, y })
     }
 
+    /// Derive the L2 tile containing a GPS position (WGS84 decimal degrees).
+    ///
+    /// The 16×16 grid spans the full Earth surface:
+    ///   x: longitude -180°→180° divided into 16 bands of 22.5° each
+    ///   y: latitude  -90°→90°  divided into 16 bands of 11.25° each
+    pub fn from_gps(lat: f64, lon: f64) -> Self {
+        let lat = lat.clamp(-90.0, 90.0);
+        let lon = lon.clamp(-180.0, 180.0);
+        let x = ((lon + 180.0) / 360.0 * 16.0).floor() as u8;
+        let y = ((lat + 90.0)  / 180.0 * 16.0).floor() as u8;
+        Self::new(x.min(15), y.min(15))
+    }
+
+    /// Return the WGS84 bounding box for this L2 tile.
+    pub fn to_bounds(&self) -> OduBounds {
+        const LON_STEP: f64 = 360.0 / 16.0;  // 22.5°
+        const LAT_STEP: f64 = 180.0 / 16.0;  // 11.25°
+        OduBounds::new(
+            self.y as f64 * LAT_STEP - 90.0,
+            (self.y as f64 + 1.0) * LAT_STEP - 90.0,
+            self.x as f64 * LON_STEP - 180.0,
+            (self.x as f64 + 1.0) * LON_STEP - 180.0,
+        )
+    }
+
     /// Canonical tile_id: "odu:XY" (single hex nibble each).
     pub fn tile_id(&self) -> String {
         format!("odu:{:x}{:x}", self.x, self.y)
@@ -167,5 +192,40 @@ mod tests {
         assert!(OduCoordinate::from_tile_id("bad").is_none());
         assert!(OduCoordinate::from_tile_id("odu:xyz").is_none());
         assert!(OduCoordinate::from_tile_id("odu:5").is_none());
+    }
+
+    #[test]
+    fn from_gps_london() {
+        // London: 51.5°N, -0.1°W → x ≈ 7 (near center), y ≈ 12
+        let c = OduCoordinate::from_gps(51.5, -0.1);
+        assert_eq!(c.x, 7);
+        assert_eq!(c.y, 12);
+    }
+
+    #[test]
+    fn from_gps_extreme_bounds() {
+        let nw = OduCoordinate::from_gps(90.0, -180.0);
+        assert_eq!(nw.x, 0);
+        assert_eq!(nw.y, 15);
+        let se = OduCoordinate::from_gps(-90.0, 180.0);
+        assert_eq!(se.x, 15);
+        assert_eq!(se.y, 0);
+    }
+
+    #[test]
+    fn gps_roundtrip_via_bounds() {
+        let c = OduCoordinate::from_gps(40.7, -74.0); // New York
+        let b = c.to_bounds();
+        assert!(b.contains(40.7, -74.0));
+    }
+
+    #[test]
+    fn to_bounds_covers_full_earth() {
+        let sw = OduCoordinate::new(0, 0).to_bounds();
+        assert!((sw.min_lat + 90.0).abs() < 1e-9);
+        assert!((sw.min_lon + 180.0).abs() < 1e-9);
+        let ne = OduCoordinate::new(15, 15).to_bounds();
+        assert!((ne.max_lat - 90.0).abs() < 1e-9);
+        assert!((ne.max_lon - 180.0).abs() < 1e-9);
     }
 }

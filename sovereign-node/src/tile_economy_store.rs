@@ -28,6 +28,11 @@ impl TileEconomyStore {
         self.0.read().await.values().cloned().collect()
     }
 
+    /// Insert or replace a tile economy entry.
+    pub async fn upsert(&self, economy: TileEconomy) {
+        self.0.write().await.insert(economy.tile_id.clone(), economy);
+    }
+
     /// Set the owner_did for a tile, creating the economy entry if it doesn't exist.
     pub async fn claim(&self, tile_id: &str, owner_did: &str) {
         let mut map = self.0.write().await;
