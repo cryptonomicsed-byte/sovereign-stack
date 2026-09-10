@@ -2,10 +2,15 @@
 resolver = "2"
 members = [
     "sovereign-types",
+    "sovereign-runtime",
+    "ip-layer",
     "dip",
     "vcp",
     "twin-protocol",
     "sovereign-pipeline",
+    "sovereign-a2a",
     "sovereign-node",
     "sovereign-cli",
+    "mycelium-finetune",
+    "sovereign-os",
 ]

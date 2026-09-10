@@ -1,21 +1,10 @@
-mod config;
-mod dip_gateway;
-mod identity;
-mod jobs;
-mod mcp_server;
-mod node;
-mod nostr_relay;
-mod receipt_store;
-mod vantage;
-mod witness_registry;
-
 use clap::Parser;
 use std::path::PathBuf;
 use tracing_subscriber::{EnvFilter, fmt};
 
-use config::NodeConfig;
-use identity::NodeIdentity;
-use node::SovereignNode;
+use sovereign_node::config::NodeConfig;
+use sovereign_node::identity::NodeIdentity;
+use sovereign_node::node::SovereignNode;
 
 #[derive(Parser, Debug)]
 #[command(name = "sovereign-node", version, about = "Sovereign Node — DIP + VCP + TSP daemon")]

@@ -1,0 +1,21 @@
+[crate]
+name        = "dip"
+version     = "0.1.0"
+role        = "routing-protocol"
+description = "Decentralised Identity Protocol — sovereign message routing across Nostr/A2A/MCP/Meshtastic"
+layer       = "L1-protocol"
+
+[protocols]
+implements  = ["DIP"]
+depends_on  = ["sovereign-types"]
+emits       = ["DipEnvelope", "CanonicalReceipt (ReceiptKind::DipRoute)"]
+consumes    = ["DipAddress", "DipEnvelope"]
+
+[dip]
+networks    = ["Vantage", "Nostr", "A2A", "Mcp", "Meshtastic", "Freenet", "Libp2p"]
+receipt_kind = "DipRoute"
+
+[audit]
+receipt_required  = true
+capability_gating = false   # routing layer — authorization deferred to edge
+identity_chain    = "DipAddress carries principal_id"

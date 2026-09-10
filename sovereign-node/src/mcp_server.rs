@@ -243,6 +243,9 @@ async fn tool_capture(state: &NodeState, args: &Value) -> Result<Value, String> 
         state.receipt_store.clone(),
         state.witnesses.clone(),
         state.dip_gateway.clone(),
+        state.twin_events.clone(),
+        state.tile_economy_store.clone(),
+        state.act_chain.clone(),
     ));
 
     let result = json!({

@@ -7,8 +7,11 @@ pub mod simulation;
 pub mod observation;
 pub mod license;
 pub mod sui_anchor;
+pub mod sui_rpc;
 pub mod osovm;
+pub mod timeline;
 pub mod error;
+pub mod ase;
 
 pub use twin::*;
 pub use region::*;
@@ -20,4 +23,6 @@ pub use observation::*;
 pub use license::*;
 pub use sui_anchor::*;
 pub use osovm::*;
+pub use timeline::{TwinTimeline, TwinTimelineEntry, entry_from_capture};
 pub use error::*;
+pub use ase::*;

@@ -27,6 +27,10 @@ pub struct ReceiptRecord {
     pub sui_object_id:    Option<String>,
     pub dip_message_count: usize,
     pub completed_at:     u64,
+    /// Odù spatial tile where this capture occurred (e.g. "odu:5b").
+    /// Derived from device GPS or manually set; None = location unknown.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub odu_tile:         Option<String>,
 }
 
 /// Thread-safe receipt cache backed by disk.
@@ -80,9 +84,25 @@ impl ReceiptStore {
             .cloned()
     }
 
+    /// Look up all receipts tagged to a given Odù tile_id.
+    pub async fn get_by_tile(&self, tile_id: &str) -> Vec<ReceiptRecord> {
+        self.cache.read().await.iter()
+            .filter(|r| r.odu_tile.as_deref() == Some(tile_id))
+            .cloned()
+            .collect()
+    }
+
     /// Count of persisted receipts.
     pub async fn count(&self) -> usize {
         self.cache.read().await.len()
+    }
+
+    /// Create an in-memory-only ReceiptStore (no disk I/O — for tests).
+    pub fn in_memory() -> Self {
+        Self {
+            dir:   PathBuf::from("/dev/null"),
+            cache: Arc::new(RwLock::new(vec![])),
+        }
     }
 }
 

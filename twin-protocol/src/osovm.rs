@@ -472,6 +472,41 @@ mod tests {
     }
 
     #[test]
+    fn engine_with_unreachable_http_endpoint_falls_back_to_stub() {
+        // Real OSOVM engine that won't connect — must fall back to stub output.
+        let twin = make_twin();
+        let scenario = SimScenario {
+            name: "fallback_test".into(),
+            robot_model: "Go2".into(),
+            trajectory_count: 4,
+            selection_objective: "min_risk".into(),
+            params: None,
+        };
+        let engine = OsovmEngine::new("osovm/2.0")
+            .with_endpoint("http://127.0.0.1:19999"); // port that won't be open
+        let result = engine.run(&twin, &scenario).unwrap();
+        // Stub output is valid even when the real engine is unreachable
+        assert!(result.candidate_policies.len() >= 2);
+        assert!(result.candidate_policies.iter().any(|p| p.id == result.selected_policy_id));
+    }
+
+    #[test]
+    fn engine_with_binary_path_falls_back_when_binary_missing() {
+        let twin = make_twin();
+        let scenario = SimScenario {
+            name: "bin_fallback_test".into(),
+            robot_model: "Go2".into(),
+            trajectory_count: 4,
+            selection_objective: "balanced".into(),
+            params: None,
+        };
+        let engine = OsovmEngine::new("osovm/2.0")
+            .with_endpoint("/nonexistent/osovm-binary");
+        let result = engine.run(&twin, &scenario).unwrap();
+        assert!(result.candidate_policies.len() >= 2);
+    }
+
+    #[test]
     fn selection_objectives() {
         let twin = make_twin();
         let engine = make_engine();
@@ -487,5 +522,120 @@ mod tests {
             assert!(result.candidate_policies.iter().any(|p| p.id == result.selected_policy_id),
                 "objective {obj}: selected policy not in list");
         }
+    }
+
+    /// Happy-path binary exec: write a shell script that reads stdin and emits
+    /// a valid OsovmRunResult JSON. Verifies the subprocess code path end-to-end.
+    #[test]
+    fn engine_binary_subprocess_happy_path() {
+        use std::os::unix::fs::PermissionsExt;
+
+        // Build valid OsovmRunResult JSON that the fake binary will emit
+        let result_json = serde_json::json!({
+            "engine_version": "osovm-stub/1.0",
+            "scenario": {
+                "name": "bin_test",
+                "robot_model": "Go2",
+                "trajectory_count": 2,
+                "selection_objective": "min_risk",
+                "params": null
+            },
+            "trajectories": [
+                {
+                    "trajectory_id": "traj:bin:0",
+                    "policy_id": "policy:conservative",
+                    "success": true,
+                    "energy_j": 100.0,
+                    "risk_score": 0.1,
+                    "duration_s": 20.0,
+                    "metrics": null
+                },
+                {
+                    "trajectory_id": "traj:bin:1",
+                    "policy_id": "policy:aggressive",
+                    "success": true,
+                    "energy_j": 80.0,
+                    "risk_score": 0.3,
+                    "duration_s": 15.0,
+                    "metrics": null
+                }
+            ],
+            "candidate_policies": [
+                {"id": "policy:conservative", "energy": 100.0, "risk": 0.1, "duration_s": 20.0, "metrics": null},
+                {"id": "policy:aggressive",   "energy": 80.0,  "risk": 0.3, "duration_s": 15.0, "metrics": null}
+            ],
+            "selected_policy_id": "policy:conservative",
+            "run_id": "osovm:run:bin-test-001",
+            "wall_ms": 42
+        });
+
+        // Write a shell script stub to a temp file
+        let tmp_dir = std::env::var("TMPDIR").unwrap_or_else(|_| "/tmp".into());
+        let script_path = format!("{tmp_dir}/sovereign-osovm-test-stub.sh");
+        let script_body = format!(
+            "#!/bin/sh\ncat /dev/null\necho '{}'\n",
+            result_json.to_string()
+        );
+        std::fs::write(&script_path, &script_body)
+            .expect("write test stub script");
+        std::fs::set_permissions(
+            &script_path,
+            std::fs::Permissions::from_mode(0o755),
+        ).expect("chmod stub script");
+
+        let twin = make_twin();
+        let scenario = SimScenario {
+            name: "bin_test".into(),
+            robot_model: "Go2".into(),
+            trajectory_count: 2,
+            selection_objective: "min_risk".into(),
+            params: None,
+        };
+
+        // Use `run_real` directly via the public `run()` entry — endpoint is the script path
+        let engine = OsovmEngine::new("osovm/2.0").with_endpoint(script_path.clone());
+        let result = engine.run(&twin, &scenario).expect("binary exec should succeed");
+
+        assert_eq!(result.engine_version, "osovm-stub/1.0");
+        assert_eq!(result.run_id, "osovm:run:bin-test-001");
+        assert_eq!(result.candidate_policies.len(), 2);
+        assert_eq!(result.selected_policy_id, "policy:conservative");
+        assert!(result.candidate_policies.iter().any(|p| p.id == result.selected_policy_id));
+
+        // Clean up
+        let _ = std::fs::remove_file(&script_path);
+    }
+
+    /// Binary that exits non-zero should cause fallback to the stub engine (not a hard error).
+    #[test]
+    fn engine_binary_nonzero_exit_falls_back_to_stub() {
+        use std::os::unix::fs::PermissionsExt;
+
+        let tmp_dir = std::env::var("TMPDIR").unwrap_or_else(|_| "/tmp".into());
+        let script_path = format!("{tmp_dir}/sovereign-osovm-test-fail.sh");
+        std::fs::write(&script_path, "#!/bin/sh\necho 'fatal error' >&2\nexit 1\n")
+            .expect("write fail stub");
+        std::fs::set_permissions(
+            &script_path,
+            std::fs::Permissions::from_mode(0o755),
+        ).expect("chmod fail stub");
+
+        let twin = make_twin();
+        let scenario = SimScenario {
+            name: "fail_test".into(),
+            robot_model: "Go2".into(),
+            trajectory_count: 4,
+            selection_objective: "balanced".into(),
+            params: None,
+        };
+
+        let engine = OsovmEngine::new("osovm/2.0").with_endpoint(script_path.clone());
+        // Should fall back to stub — not return an Err
+        let result = engine.run(&twin, &scenario)
+            .expect("non-zero exit should fall back to stub, not hard-fail");
+        assert!(result.candidate_policies.len() >= 2,
+            "stub fallback must produce >= 2 policies");
+
+        let _ = std::fs::remove_file(&script_path);
     }
 }

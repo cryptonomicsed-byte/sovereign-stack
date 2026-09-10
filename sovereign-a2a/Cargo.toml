@@ -1,0 +1,16 @@
+[package]
+name = "sovereign-a2a"
+version = "0.1.0"
+edition = "2021"
+description = "Google A2A v1.0 subset — agent-to-agent task protocol for Sovereign nodes"
+
+[dependencies]
+sovereign-types = { path = "../sovereign-types" }
+serde       = { version = "1", features = ["derive"] }
+serde_json  = "1"
+uuid        = { version = "1", features = ["v4", "serde"] }
+thiserror   = "1"
+tokio       = { version = "1", features = ["full"] }
+axum        = { version = "0.7", features = ["json"] }
+reqwest     = { version = "0.12", features = ["json"] }
+tracing     = "0.1"

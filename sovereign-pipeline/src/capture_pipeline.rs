@@ -140,6 +140,13 @@ pub struct PipelineConfig {
     pub owner_did:             String,
     pub privacy_flags:         Vec<PrivacyFlag>,
     pub license:               TwinLicenseConfig,
+    /// If set, invoke the Gaussian splatting engine on captured frames.
+    /// Value: binary name/path ("ns-train") or "gsplat" for standalone gsplat.
+    pub splat_bin:             Option<String>,
+    /// Output directory for splat training artefacts (default /tmp/sovereign-splats).
+    pub splat_output_dir:      Option<String>,
+    /// Training iterations (default 1000).
+    pub splat_steps:           u32,
 }
 
 impl Default for PipelineConfig {
@@ -150,6 +157,9 @@ impl Default for PipelineConfig {
             owner_did:             "did:vantage:principal:default".into(),
             privacy_flags:         vec![],
             license:               TwinLicenseConfig::default(),
+            splat_bin:             None,
+            splat_output_dir:      None,
+            splat_steps:           1000,
         }
     }
 }
@@ -179,9 +189,33 @@ impl CapturePipeline {
         let grant = session.grant.clone();
 
         // Phase 1: capture raw data via VCP commands
-        let (raw, recorded) = driver.capture(&grant, &self.agent_key)?;
+        let (mut raw, recorded) = driver.capture(&grant, &self.agent_key)?;
         for (cap, success) in recorded {
             session.record_command(cap, success);
+        }
+
+        // Phase 1b: Gaussian splat reconstruction (optional)
+        if let Some(splat_bin) = &self.config.splat_bin {
+            if let Some(rgb) = &raw.rgb_frames {
+                use crate::splat_engine::{SplatConfig, run_splat};
+                let splat_cfg = SplatConfig {
+                    bin:        splat_bin.clone(),
+                    output_dir: self.config.splat_output_dir
+                        .as_deref()
+                        .map(std::path::PathBuf::from)
+                        .unwrap_or_else(|| std::path::PathBuf::from("/tmp/sovereign-splats")),
+                    steps:      self.config.splat_steps,
+                    method:     if splat_bin.ends_with(".py") || splat_bin.contains("gsplat") {
+                        "gsplat".into()
+                    } else {
+                        "gaussian-splatting".into()
+                    },
+                };
+                match run_splat(rgb, raw.frame_count, &grant.device_id, &splat_cfg) {
+                    Ok(ply)  => { raw.splat = Some(ply); }
+                    Err(e)   => { tracing::warn!(error = %e, "splat training failed — keeping stub PLY"); }
+                }
+            }
         }
 
         let ts_end   = now_ms();
@@ -319,7 +353,7 @@ mod tests {
         let grant = make_grant(&device_key, &agent_key, &agent_did);
         let session = VcpSession::new(grant);
         let pipeline = make_pipeline(&agent_key, &agent_did);
-        let output = pipeline.run(session, &Go2CaptureDriver).unwrap();
+        let output = pipeline.run(session, &Go2CaptureDriver::default()).unwrap();
 
         assert_eq!(output.capture_receipt.kind, 31020);
         assert_eq!(output.scene_receipt.kind,   31030);
@@ -341,7 +375,7 @@ mod tests {
         let grant = make_grant(&device_key, &agent_key, &agent_did);
         let session = VcpSession::new(grant);
         let output = make_pipeline(&agent_key, &agent_did)
-            .run(session, &Go2CaptureDriver).unwrap();
+            .run(session, &Go2CaptureDriver::default()).unwrap();
 
         assert_eq!(output.scene_receipt.twin_id, output.twin.twin_id);
         assert!(output.twin.twin_id.starts_with("twin:sha256:"));
@@ -356,7 +390,7 @@ mod tests {
         let grant = make_grant(&device_key, &agent_key, &agent_did);
         let session = VcpSession::new(grant);
         let output = make_pipeline(&agent_key, &agent_did)
-            .run(session, &Go2CaptureDriver).unwrap();
+            .run(session, &Go2CaptureDriver::default()).unwrap();
 
         assert!(output.scene_receipt.capture_receipt_ids
             .contains(&output.capture_receipt.receipt_id));
@@ -371,7 +405,7 @@ mod tests {
         let grant = make_grant(&device_key, &agent_key, &agent_did);
         let session = VcpSession::new(grant);
         let output = make_pipeline(&agent_key, &agent_did)
-            .run(session, &Go2CaptureDriver).unwrap();
+            .run(session, &Go2CaptureDriver::default()).unwrap();
 
         assert!(!output.scene_receipt.splat_hash.is_empty());
         assert!(output.scene_receipt.splat_hash.starts_with("sha256:"));
@@ -386,7 +420,7 @@ mod tests {
         let grant = make_grant(&device_key, &agent_key, &agent_did);
         let session = VcpSession::new(grant);
         let output = make_pipeline(&agent_key, &agent_did)
-            .run(session, &Go2CaptureDriver).unwrap();
+            .run(session, &Go2CaptureDriver::default()).unwrap();
 
         assert_eq!(output.session_receipt.commands_issued, 3);
         assert_eq!(output.session_receipt.commands_success, 3);

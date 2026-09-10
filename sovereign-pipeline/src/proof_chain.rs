@@ -237,7 +237,7 @@ mod tests {
             agent_key,
             identity,
         );
-        pipeline.run(session, &Go2CaptureDriver).unwrap()
+        pipeline.run(session, &Go2CaptureDriver::default()).unwrap()
     }
 
     #[tokio::test]

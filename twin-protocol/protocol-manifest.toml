@@ -1,0 +1,23 @@
+[crate]
+name        = "twin-protocol"
+version     = "0.1.0"
+role        = "spatial-twin-protocol"
+description = "Twin Spatial Protocol — capture, scene, simulation, Àṣẹ economy, OSOVM execution"
+layer       = "L1-protocol"
+
+[protocols]
+implements  = ["TSP", "AseEconomy", "OSOVM"]
+depends_on  = ["sovereign-types"]
+emits       = ["TspCapture", "SceneReceipt", "AseMintResult", "OsovmOutput"]
+consumes    = ["IdentityChain", "ProofChain"]
+
+[tsp]
+receipt_kinds   = ["Capture (31020)", "Scene (31030)"]
+tile_grid       = "256 Odù tiles (16×16)"
+ase_token       = "Àṣẹ (ASE)"
+osovm_backends  = ["http", "binary", "stub"]
+
+[audit]
+receipt_required  = true
+capability_gating = false   # economy logic; capability wired at node layer
+identity_chain    = "IdentityChain threaded through all mint/capture flows"

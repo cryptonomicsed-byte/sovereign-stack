@@ -1,0 +1,26 @@
+[crate]
+name        = "sovereign-runtime"
+version     = "0.1.0"
+role        = "runtime-kernel"
+description = "Universal sovereign execution model — Principal→Capability→Authorization→Execution→Evidence→ActionReceipt spine"
+layer       = "L0-runtime"
+
+[protocols]
+implements  = ["Principal", "CapabilityKernel", "ActionReceipt"]
+depends_on  = []
+emits       = ["ActionReceipt"]
+consumes    = []
+
+[p0_fixes]
+P0_1 = "Principal type with hardware attestation binding"
+P0_2 = "CapabilityKernel — single enforced authorization engine"
+P0_3 = "ActionReceipt — universal per-action execution receipt"
+
+[hardware]
+tiers = ["micro", "portable", "spatial", "robotics"]
+hw_key_providers = ["atecc608b", "tpm2", "se050", "software"]
+
+[audit]
+receipt_required  = true
+capability_gating = true
+identity_chain    = "IdentityChain (5 primitives: principal_id, agent_id, session_id, execution_id, receipt_id)"

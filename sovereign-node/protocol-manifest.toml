@@ -1,0 +1,36 @@
+[crate]
+name        = "sovereign-node"
+version     = "0.1.0"
+role        = "node-daemon"
+description = "Sovereign Node daemon — HTTP/WS server wiring DIP + VCP + TSP + pipeline + tile economy"
+layer       = "L2-node"
+
+[protocols]
+implements  = ["DIP", "VCP", "TSP", "TileEconomy", "Gossip", "Federation"]
+depends_on  = ["sovereign-runtime", "sovereign-types", "dip", "vcp", "twin-protocol", "sovereign-pipeline", "sovereign-a2a"]
+emits       = ["CanonicalReceipt", "AseMintResult", "ActionReceipt"]
+consumes    = ["DipEnvelope", "VcpSession", "TspCapture"]
+
+[routes]
+capture         = "POST /jobs/capture"
+tile_claim      = "POST /tiles/:tile_id/claim"
+tile_economy    = "GET  /tiles/:tile_id/economy"
+receipt_export  = "GET  /receipts/export"
+receipt_verify  = "GET  /receipts/verify/:id"
+ws_splat        = "GET  /ws/splat/:twin_id"
+federation_peers = "GET /federation/peers"
+dip_gossip      = "POST /dip/gossip"
+job_retry       = "POST /jobs/:job_id/retry"
+config_check    = "GET  /config/check"
+mcp             = "POST /mcp"
+a2a             = "POST /a2a"
+
+[tile_economy]
+token           = "Àṣẹ (ASE)"
+tile_grid       = "256 Odù tiles (16×16 world grid)"
+receipt_kinds   = ["Capture (31020)", "Scene (31030)"]
+
+[audit]
+receipt_required  = true
+capability_gating = false   # P0-2 partially wired; full gating is next milestone
+identity_chain    = "IdentityChain threaded through run_capture_job"

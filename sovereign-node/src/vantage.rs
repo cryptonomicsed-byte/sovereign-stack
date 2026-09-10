@@ -92,6 +92,45 @@ impl VantageClient {
         }
     }
 
+    /// GET /api/dip/outbound — poll for envelopes queued for this node by Vantage.
+    ///
+    /// Used by nodes behind NAT that cannot receive inbound DIP push.
+    /// Vantage queues envelopes addressed to this node's DID; we drain them here.
+    /// Returns the list of envelopes (may be empty). Non-fatal on error.
+    pub async fn poll_dip_outbound(&self, node_did: &str) -> Vec<DipEnvelope> {
+        let url = format!("{}/api/dip/outbound", self.base_url);
+        match self.client
+            .get(&url)
+            .bearer_auth(&self.api_token)
+            .query(&[("did", node_did)])
+            .send()
+            .await
+        {
+            Ok(resp) if resp.status().is_success() => {
+                match resp.json::<Vec<DipEnvelope>>().await {
+                    Ok(envelopes) => {
+                        if !envelopes.is_empty() {
+                            debug!(count = envelopes.len(), "polled DIP envelopes from Vantage");
+                        }
+                        envelopes
+                    }
+                    Err(e) => {
+                        warn!(error = %e, "DIP outbound poll: failed to decode envelopes");
+                        vec![]
+                    }
+                }
+            }
+            Ok(resp) => {
+                debug!(status = %resp.status(), "DIP outbound poll: non-2xx (no messages)");
+                vec![]
+            }
+            Err(e) => {
+                warn!(error = %e, "DIP outbound poll: request failed");
+                vec![]
+            }
+        }
+    }
+
     /// POST /api/me/heartbeat with VCP device context.
     pub async fn post_heartbeat(
         &self,

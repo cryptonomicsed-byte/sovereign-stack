@@ -1,0 +1,16 @@
+[package]
+name = "mycelium-finetune"
+version = "0.1.0"
+edition = "2021"
+description = "Mycelium fine-tune pipeline — convert Claude Code sessions → QLoRA training data"
+
+[[bin]]
+name = "mycelium-finetune"
+path = "src/main.rs"
+
+[dependencies]
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+clap = { version = "4", features = ["derive"] }
+glob = "0.3"
+sha2 = "0.10"

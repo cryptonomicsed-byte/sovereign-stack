@@ -1,0 +1,24 @@
+// sovereign-node library — exports for integration tests and external tooling.
+pub mod body_store;
+pub mod telemetry_store;
+pub mod config;
+pub mod delegation;
+pub mod federation;
+pub mod dip_gateway;
+pub mod events;
+pub mod identity;
+pub mod jobs;
+pub mod mcp_server;
+pub mod node;
+pub mod nostr_publisher;
+pub mod nostr_relay;
+pub mod perception;
+pub mod proof_engine;
+pub mod receipt_merkle;
+pub mod receipt_store;
+pub mod swarm;
+pub mod tile_economy_store;
+pub mod timeline_store;
+pub mod vantage;
+pub mod witness_registry;
+pub mod ws;

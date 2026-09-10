@@ -1,0 +1,24 @@
+[crate]
+name        = "sovereign-types"
+version     = "0.1.0"
+role        = "type-foundation"
+description = "Canonical types shared across all sovereign crates: IdentityChain, CanonicalReceipt, DIP/VCP/TSP structs"
+layer       = "L0-types"
+
+[protocols]
+implements  = ["IdentityChain", "CanonicalReceipt", "WitnessAttestation"]
+depends_on  = []
+emits       = []
+consumes    = []
+
+[key_types]
+identity = ["Did", "AgentDid", "DeviceDid", "WitnessDid", "IdentityChain"]
+receipts = ["CanonicalReceipt", "ReceiptKind", "WitnessAttestation", "ActionRecord"]
+safety   = ["SafetyLevel", "F1_QUALITY_GATE"]
+modality = ["Modality", "PrivacyFlag", "UsageRight", "LicenseType"]
+network  = ["Network", "Outcome"]
+
+[audit]
+receipt_required  = false
+capability_gating = false
+identity_chain    = "defines IdentityChain"

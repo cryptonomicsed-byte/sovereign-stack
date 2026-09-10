@@ -21,7 +21,8 @@ manual_devices = []
 nostr_enabled = false
 # nostr_relay = "wss://relay.damus.io"
 # nostr_npub  = "npub1..."
-vantage_did   = "did:vantage:api:receipts"
+vantage_did          = "did:vantage:api:receipts"
+# poll_interval_secs = 30   # poll Vantage for queued DIP envelopes (NAT traversal); 0 = disabled
 
 [pipeline]
 reconstruction_engine = "nerfstudio/gaussian-splatting"
@@ -32,6 +33,12 @@ min_witnesses         = 2
 # Optional real ỌSỌVM engine:
 # osovm_endpoint = "http://localhost:9000"     # HTTP JSON bridge
 # osovm_endpoint = "/usr/local/bin/osovm"      # binary exec (JSON stdin/stdout)
+
+# Optional Gaussian splatting engine:
+# splat_bin        = "ns-train"                # nerfstudio on PATH
+# splat_bin        = "/path/to/gsplat/train.py"  # standalone gsplat
+# splat_output_dir = "/var/lib/sovereign-node/splats"
+# splat_steps      = 1000
 
 [api]
 bind    = "127.0.0.1:7779"

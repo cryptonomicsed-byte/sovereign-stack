@@ -199,44 +199,76 @@ impl DiscoveryDaemon {
     /// This is what runs permanently inside the Vantage-Voice or Koda process.
     pub fn spawn(self: Arc<Self>) {
         let daemon = self.clone();
+        let http   = reqwest::Client::builder()
+            .timeout(Duration::from_secs(8))
+            .build()
+            .unwrap_or_default();
+
         tokio::spawn(async move {
-            println!("[vcp-discovery] daemon started (scan={}s, ttl={}s)",
-                daemon.scan_interval.as_secs(), daemon.device_ttl_secs);
+            tracing::info!(
+                scan_secs = daemon.scan_interval.as_secs(),
+                ttl_secs  = daemon.device_ttl_secs,
+                "VCP discovery daemon started"
+            );
 
             let mut interval = tokio::time::interval(daemon.scan_interval);
             loop {
                 interval.tick().await;
 
-                // 1. Expire stale devices
+                // 1. mDNS scan — discover devices advertising _vcp._tcp.local.
+                //    Runs as a blocking subprocess; offloaded to the blocking pool.
+                let registry_clone = daemon.registry.clone();
+                tokio::task::spawn_blocking(move || {
+                    let result = crate::mdns::scan_mdns();
+                    if !result.devices.is_empty() {
+                        tracing::info!(
+                            count   = result.devices.len(),
+                            scanner = result.scanner,
+                            "mDNS VCP devices discovered"
+                        );
+                    }
+                    // Note: registry.upsert is async; we collect device IDs for logging
+                    // and return them so the async side can upsert.
+                    result
+                })
+                .await
+                .map(|mdns_result| {
+                    let reg = registry_clone.clone();
+                    tokio::spawn(async move {
+                        for dev in mdns_result.devices {
+                            reg.upsert(dev).await;
+                        }
+                    });
+                })
+                .ok();
+
+                // 2. Expire stale devices
                 daemon.registry.remove_expired().await;
 
                 let count = daemon.registry.count().await;
-                println!("[vcp-discovery] scan tick: {} device(s) visible", count);
+                tracing::debug!(device_count = count, "VCP scan tick");
 
-                // 2. Inject into Ọmọ Kọ́dà's perception context.
-                //    Koda's PERCEIVE phase calls observe_mesh_context() which hits the
-                //    vcp_nearby_devices MCP tool. We push a perception update here so
-                //    the tool always returns fresh data without Koda needing to poll.
-                //    Real impl: POST /v1/perceive/context { "vcp_devices": [...] }
+                // 3. Push context to Ọmọ Kọ́dà's perception endpoint.
                 if let Some(koda_url) = &daemon.koda_url {
                     let summary = daemon.registry.heartbeat_summary().await;
-                    println!("[vcp-discovery] → Koda perception: {} device(s)", count);
-                    // Production: reqwest::Client::new().post(format!("{koda_url}/v1/context/vcp"))
-                    //   .json(&summary).send().await
-                    let _ = (koda_url, summary); // stub
+                    let url = format!("{koda_url}/v1/context/vcp");
+                    if let Err(e) = http.post(&url).json(&summary).send().await {
+                        tracing::debug!(url = %url, error = %e, "Koda VCP context push failed");
+                    }
                 }
 
-                // 3. Touch Vantage /api/me/heartbeat with device context.
-                //    This keeps last_seen_at fresh AND informs the swarm dashboard
-                //    that this agent has physical VCP capability right now.
-                //    The heartbeat_pulse ACT step also carries nearby_vcp_devices,
-                //    so Vantage guild members see "Koda: Go2+Drone nearby" live.
+                // 4. Vantage heartbeat with live device context.
                 if let Some(vantage_url) = &daemon.vantage_url {
                     let summary = daemon.registry.heartbeat_summary().await;
-                    println!("[vcp-discovery] → Vantage heartbeat: {} device(s)", count);
-                    // Production: POST {vantage_url}/api/me/heartbeat
-                    //   body: { "vcp_context": summary }
-                    let _ = (vantage_url, summary); // stub
+                    let url = format!("{vantage_url}/api/me/heartbeat");
+                    let body = serde_json::json!({
+                        "work_state":        "ALIVE",
+                        "intent":            "vcp_scan",
+                        "details": { "nearby_vcp_devices": summary },
+                    });
+                    if let Err(e) = http.post(&url).json(&body).send().await {
+                        tracing::debug!(url = %url, error = %e, "Vantage heartbeat failed");
+                    }
                 }
             }
         });

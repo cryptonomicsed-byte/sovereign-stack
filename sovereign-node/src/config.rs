@@ -23,6 +23,23 @@ pub struct NodeConfig {
     pub meshtastic: Option<MeshtasticSection>,
     #[serde(default)]
     pub witnesses:  Vec<WitnessConfig>,
+    #[serde(default)]
+    pub peers:      PeersSection,
+}
+
+/// Peer sovereign nodes this node may delegate capture tasks to.
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct PeersSection {
+    pub nodes: Vec<PeerNodeConfig>,
+}
+
+/// A single peer node reachable via A2A.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PeerNodeConfig {
+    /// Human-readable name (used for selection in /capture/delegate).
+    pub name: String,
+    /// Base URL of the peer's API (e.g. "http://peer.local:7779").
+    pub a2a_base_url: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -69,8 +86,15 @@ pub struct DipSection {
     pub nostr_relay:    Option<String>,
     /// Nostr npub (base58) for this node's identity on Nostr.
     pub nostr_npub:     Option<String>,
+    /// Nostr nsec (hex 32-byte) — used by ip-layer to sign IP Root + Creation Receipts.
+    /// If absent, IP provenance publication is skipped (offline mode still works fully).
+    pub nostr_nsec:     Option<String>,
     /// Vantage DID for receipt routing.
     pub vantage_did:    String,
+    /// How often (seconds) to poll Vantage for outbound DIP envelopes (NAT traversal).
+    /// Set to 0 to disable. Default 30s.
+    #[serde(default = "default_dip_poll_secs")]
+    pub poll_interval_secs: u64,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -91,6 +115,16 @@ pub struct PipelineSection {
     /// Omit to use the built-in stub engine.
     #[serde(default)]
     pub osovm_endpoint:        Option<String>,
+    /// Gaussian splatting binary ("ns-train" for nerfstudio, path to gsplat train.py).
+    /// Omit to skip real splat training (use stub PLY bytes).
+    #[serde(default)]
+    pub splat_bin:             Option<String>,
+    /// Root output directory for splat training artefacts.
+    #[serde(default)]
+    pub splat_output_dir:      Option<String>,
+    /// Training iterations (default 1000).
+    #[serde(default = "default_splat_steps")]
+    pub splat_steps:           u32,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -126,7 +160,9 @@ pub struct MeshtasticSection {
     pub dip_channel: u32,
 }
 
-fn default_mesh_channel() -> u32 { 1 }
+fn default_mesh_channel()  -> u32 { 1 }
+fn default_splat_steps()   -> u32 { 1000 }
+fn default_dip_poll_secs() -> u64 { 30 }
 
 impl Default for NodeConfig {
     fn default() -> Self {
@@ -147,10 +183,12 @@ impl Default for NodeConfig {
                 manual_devices:     vec![],
             },
             dip: DipSection {
-                nostr_enabled: false,
-                nostr_relay:   None,
-                nostr_npub:    None,
-                vantage_did:   "did:vantage:api:receipts".into(),
+                nostr_enabled:      false,
+                nostr_relay:        None,
+                nostr_npub:         None,
+                nostr_nsec:         None,
+                vantage_did:        "did:vantage:api:receipts".into(),
+                poll_interval_secs: 30,
             },
             pipeline: PipelineSection {
                 reconstruction_engine: "nerfstudio/gaussian-splatting".into(),
@@ -159,6 +197,9 @@ impl Default for NodeConfig {
                 selection_objective:   "balanced".into(),
                 min_witnesses:         2,
                 osovm_endpoint:        None,
+                splat_bin:             None,
+                splat_output_dir:      None,
+                splat_steps:           1000,
             },
             api: ApiSection {
                 bind:    "127.0.0.1:7779".into(),
@@ -168,6 +209,7 @@ impl Default for NodeConfig {
             sui:        None,
             meshtastic: None,
             witnesses:  vec![],
+            peers:      PeersSection::default(),
         }
     }
 }

@@ -162,41 +162,52 @@ impl SuiAnchor {
         Self { rpc_url: rpc_url.into(), address: address.into(), key: key.into() }
     }
 
-    /// Anchor a SceneReceipt on Sui. Returns the transaction digest and object ID.
-    /// Production: uses sui-sdk or raw JSON-RPC.
+    /// Anchor a SceneReceipt on Sui by minting a Twin NFT.
+    ///
+    /// If `self.key` is a valid 32-byte Ed25519 seed (base64url), uses the real
+    /// Sui JSON-RPC path (unsafe_moveCall → sign → executeTransactionBlock).
+    /// Falls back to a deterministic stub when key == "stubkey" or is absent.
     pub async fn mint_twin(&self, receipt: &mut SceneReceipt) -> TspResult<SuiMintResponse> {
+        use crate::sui_rpc::SuiRpcClient;
+
         let request = SuiMintRequest::from_scene_receipt(receipt, &self.address)?;
-        let move_args = request.to_move_args();
 
-        println!("[sui-anchor] minting Twin NFT for {}...", &receipt.twin_id[..20.min(receipt.twin_id.len())]);
-        println!("[sui-anchor] move call: {}", serde_json::to_string(&move_args).unwrap_or_default());
+        tracing::info!(
+            twin_id = %receipt.twin_id,
+            rpc_url = %self.rpc_url,
+            "anchoring Twin NFT on Sui"
+        );
 
-        // Production implementation:
-        //   let client = sui_sdk::SuiClientBuilder::default().build(&self.rpc_url).await?;
-        //   let tx = client.transaction_builder()
-        //     .move_call(self.address.clone(), TWIN_PACKAGE_ID, "twin_nft", "mint_twin", ...)
-        //     .await?;
-        //   let signed = keystore.sign_transaction(&tx)?;
-        //   let response = client.quorum_driver_api().execute_transaction_block(signed, ...).await?;
-        //
-        // Stub response for now — object_id derived deterministically from twin_id
-        let stub_object_id = format!("0x{}", &sovereign_types::hash_str(&receipt.twin_id)[7..39]);
-        let stub_digest    = format!("sui_tx:{}", &sovereign_types::hash_str(&receipt.receipt_id)[7..23]);
+        let rpc = SuiRpcClient::new(&self.rpc_url);
+        let (tx_digest, object_id) = rpc.mint_twin(
+            &self.address,
+            &self.key,
+            &request.twin_id,
+            &request.merkle_root,
+            &request.splat_hash,
+            request.f1_score_x1000,
+            request.coverage_x100,
+            request.license_type,
+            request.owner_bps,
+            request.protocol_bps,
+            request.gas_budget,
+        ).await?;
 
         let response = SuiMintResponse {
-            tx_digest:  stub_digest,
-            object_id:  stub_object_id.clone(),
+            tx_digest:  tx_digest.clone(),
+            object_id:  object_id.clone(),
             gas_used:   3_500_000,
             epoch:      1,
             status:     SuiTxStatus::Success,
         };
 
-        // Write object_id back into the receipt
-        *receipt = receipt.clone().with_sui(stub_object_id, response.tx_digest.clone());
+        // Write object_id + digest back into the SceneReceipt
+        *receipt = receipt.clone().with_sui(object_id, tx_digest);
 
-        println!("[sui-anchor] ✓ Twin NFT minted: {} (tx: {})",
-            receipt.sui_object_id.as_deref().unwrap_or(""),
-            receipt.ip_root_tx.as_deref().unwrap_or(""),
+        tracing::info!(
+            object_id = %receipt.sui_object_id.as_deref().unwrap_or(""),
+            tx        = %receipt.ip_root_tx.as_deref().unwrap_or(""),
+            "Twin NFT anchored on Sui"
         );
 
         Ok(response)
@@ -205,8 +216,12 @@ impl SuiAnchor {
     /// Issue a License NFT derived from an existing Twin NFT.
     pub async fn issue_license(&self, grant: &TwinLicenseGrant, twin_object_id: &str) -> TspResult<SuiLicenseObject> {
         let bitmask = rights_to_bitmask(&grant.rights);
-        println!("[sui-anchor] issuing license for {} → {} (rights={:#010b})",
-            &grant.twin_id[..16.min(grant.twin_id.len())], grant.grantee_did, bitmask);
+        tracing::info!(
+            twin_id   = %grant.twin_id,
+            grantee   = %grant.grantee_did,
+            rights    = bitmask,
+            "issuing License NFT"
+        );
 
         let stub_object_id = format!("0xlic:{}", &sovereign_types::hash_str(&grant.grant_id)[7..23]);
 

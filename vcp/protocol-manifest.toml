@@ -1,0 +1,22 @@
+[crate]
+name        = "vcp"
+version     = "0.1.0"
+role        = "session-protocol"
+description = "Vantage Capability Protocol — secure session negotiation with capability delegation"
+layer       = "L1-protocol"
+
+[protocols]
+implements  = ["VCP"]
+depends_on  = ["sovereign-types"]
+emits       = ["VcpSession", "CanonicalReceipt (ReceiptKind::VcpSession)"]
+consumes    = ["Principal", "Capability"]
+
+[vcp]
+session_kinds = ["DirectPeer", "FederatedRelay", "MeshBroadcast"]
+receipt_kind  = "VcpSession"
+safety_levels = ["None", "Low", "Standard", "Elevated", "Critical"]
+
+[audit]
+receipt_required  = true
+capability_gating = true    # VCP is the capability negotiation layer
+identity_chain    = "IdentityChain embedded in VcpSession"
