@@ -1,352 +1,443 @@
-# Àṣẹ Tokenomics — Sovereign Stack
+# Àṣẹ Tokenomics — Canonical Specification
 
-> Àṣẹ (ah-SHAY) — Yoruba: the divine authority to make things happen. The power that causes reality to manifest.
+> Àṣẹ (ah-SHAY) — Yoruba: the divine authority to make things happen.
+> The power that causes reality to manifest.
 
----
-
-## Overview
-
-Àṣẹ is the utility token of the Sovereign / Vantage network. It is not speculative — it is earned by doing useful work that extends the network's knowledge of the physical world, or that trains agents to operate more safely within it.
-
-**ỌSỌVM is the single source of truth.** No tokens are minted, allocated, or distributed without ỌSỌVM validation. Every claim passes through the simulation VM's verification layer before anything settles on-chain.
+*Canonical source: ~/OSOVM/TOKENOMICS_ASE.md v12.0 + whisper_ase_v8.jl*
+*Synthesised by Hermes · Verified against seed_e2e.py (Sui devnet)*
 
 ---
 
-## Emission Schedule
+## Core Principle
 
-**1,440 Àṣẹ per day** — one per minute of real time.
+**Àṣẹ is not given. It is computed.**
 
-This is a fixed, predictable supply. There are no halving events, no inflation multipliers, no governance votes to change the rate. 1,440/day is simple enough to reason about and deliberately maps to the minutes in a day — the network breathes once per minute.
+No premine. No airdrop. No escrowed allocation from jobs. Every token in
+existence was earned by solving a real mathematical problem or by a physical
+device proving it did real work in the real world.
 
-```
-Daily emission:    1,440 Àṣẹ
-Weekly emission:   10,080 Àṣẹ
-Annual emission:   525,600 Àṣẹ
-```
-
-The 1,440 daily tokens are routed through **Éṣù wallets** before reaching participants.
+ỌSỌVM is the single source of truth. No token mints, moves, or burns without
+passing through ỌSỌVM validation.
 
 ---
 
-## Éṣù Wallets — The Routing Layer
+## Dual-Mint System
 
-In Yoruba cosmology, Éṣù stands at the crossroads — the guardian between worlds, the one who routes messages between realms. In the Sovereign network, Éṣù wallets are the **distribution nodes** that sit between the emission pool and participant wallets.
+There are two and only two ways to create Àṣẹ.
 
-Each Éṣù wallet corresponds to a work category. The daily 1,440 Àṣẹ is split across Éṣù wallets by allocation weight, then distributed to participants within each category based on their validated contributions.
+### A) Proof-of-Simulation (PoS) — "mining via Julia math"
 
 ```
-Daily Emission: 1,440 Àṣẹ
-        │
-        ├──► Éṣù:Spatial       (30% = 432/day)   — Gaussian splat captures
-        ├──► Éṣù:Simulation    (25% = 360/day)   — Valid ỌSỌVM simulation runs
-        ├──► Éṣù:Witness       (20% = 288/day)   — Consensus attestation + staking
-        ├──► Éṣù:Physical      (15% = 216/day)   — Real-world sim→reality transfer
-        ├──► Éṣù:Bounty        (05% = 72/day)    — Posted bounties and tasks
-        └──► Éṣù:Reserve       (05% = 72/day)    — Protocol treasury + slashing pool
+Choose a Veil  (777 Veils total — e.g. Veil #7: LQR drone stabilisation)
+     ↓
+Solve the ODE / control / AI problem on your device
+     ↓
+Compute F1 score vs ideal trajectory
+     ↓
+F1 ≥ current_difficulty (genesis: 0.777)?
+     ↓ yes
+submitSim() → ỌSỌVM validates (deterministic re-execution, same inputs → same output)
+     ↓
+MINT: 50 / 2^epoch Àṣẹ
 ```
 
-These weights are the initial configuration. They can be adjusted by governance but the total daily emission stays at 1,440.
+- **777 Veils** — the complete set of simulation challenges. Physics problems,
+  control systems, AI policy problems grounded in real TwinAssets.
+- **Deterministic**: any witness node can re-run the exact same inputs and get
+  the exact same output. There is no randomness to exploit.
+- **Anti-gaming**: random guessing has < 0.01% success rate. Submitting a fake
+  sim triggers a 7 Àṣẹ burn penalty (cost > reward at genesis).
+
+### B) Proof-of-Witness (PoW) — "mining via physical proof"
+
+```
+Physical device (drone / robot) performs a real action
+     ↓
+Streams GPS + camera + IMU + sensor data, signed by device key + timestamp
+     ↓
+3-of-7 Byzantine witness quorum verifies plausibility
+     ↓
+MINT: 10 Àṣẹ base  (+5 Àṣẹ if tied to a prior sim trajectory)
+```
+
+- **Rate limit**: 1 event per device per hour
+- **Device ban**: 24 hours after 3 rejections
+- **Sybil defence**: World ID binding — creating a fake identity costs ~$1,000
+  USD. Payback period: 273 days. Economics make sustained sybil attacks irrational.
 
 ---
 
-## Work Categories
+## Supply Schedule
 
-### 1. Spatial Captures — Éṣù:Spatial (30%)
+### Simulation supply (PoS) — asymptotically bounded
 
-**Who earns:** Anyone who submits a `GaussianProof` (Gaussian splat of a real physical space) that passes ỌSỌVM quality validation.
-
-**What ỌSỌVM validates:**
-- `GaussianQualityMetrics.aggregate() >= 0.5` — minimum quality floor
-- `capture_completeness`, `geometric_consistency`, `photometric_quality` must all be above individual thresholds
-- Novelty check: same `splat_hash` never earns full credit twice (`NoveltyLedger` decay)
-- Area coverage: captures under 10m² earn reduced allocation (prevents micro-farming)
-
-**Mint formula:**
 ```
-quality_multiplier = 1.0 + (quality × 2.0)        — 1× to 3× base
-novelty_multiplier = 1.0 + (novelty × 0.5)        — 1× to 1.5×
-tokens_earned      = (daily_spatial_pool / captures_today) × quality × novelty
+reward(epoch) = 50 / 2^epoch
 ```
 
-**VeilSim binding:** A Gaussian splat becomes a `VeilSim1to1` asset (kind 1903 Twin Binding) when ỌSỌVM successfully runs at least one simulation scenario against it. The binding is what makes the spatial asset ownable and stakeable as an Odù tile.
+Halving every 4 years. Converges like a geometric series:
 
-**Tile economics:**
-- Each splat maps to one of the 256 Odù tiles (`OduCoordinate`)
-- Unclaimed tile: 100% of allocation goes to the capturer
-- Claimed tile (staked by owner): capturer receives `(100 - usage_fee_pct)%`, tile owner receives `usage_fee_pct` (default 5%)
-- Tile staking model: see [Odù Tile Economy](#odù-tile-economy) below
+| Epoch | Years       | Reward/sim | Cumulative cap |
+|-------|-------------|------------|----------------|
+| 0     | 2025–2029   | 50 Àṣẹ     | —              |
+| 1     | 2029–2033   | 25 Àṣẹ     | —              |
+| 2     | 2033–2037   | 12.5 Àṣẹ   | —              |
+| 3     | 2037–2041   | 6.25 Àṣẹ   | —              |
+| …     | …           | …          | —              |
+| ∞     | —           | → 0        | ~210,000 Àṣẹ total |
+
+### Witness supply (PoW) — physically bounded
+
+~1,000,000 Àṣẹ / year maximum (bounded by the number of real devices doing real
+work in the real world). Physical reality is the supply cap.
+
+### Total supply
+
+```
+~100.21M Àṣẹ after 100 years
+= 210,000 (sim) + ~100M (witness, physically bounded)
+```
+
+"Infinite but bounded" — there is always more to earn from the physical world,
+but the sim mining pool is finite and predetermined.
 
 ---
 
-### 2. Valid Simulations — Éṣù:Simulation (25%)
-
-**Who earns:** Operators who run ỌSỌVM simulation scenarios against an existing `TwinAsset` and produce a valid `SimulationReceipt`.
-
-This was the original Proof-of-Useful-Simulation vision: tokens for running valid sims. The "useful" requirement is what separates this from mining — the simulation must produce genuinely novel policy data that benefits an agent operating in the physical world.
-
-**What ỌSỌVM validates:**
-- `>= 2 candidate policies` explored (no single-policy cherry-picking)
-- `>= 2 independent witnesses` attested to the Merkle commitment (consensus required)
-- `selected_policy` exists in the committed policy set
-- `ProofEvaluation.mint_eligible == true` — composite score must clear the bar
-- `ProofEvaluation.novelty > 0.1` — below this floor, no mint (the environment is exhausted)
-
-**Quality scoring:**
-ỌSỌVM's `selected_policy.risk` and `trajectory_success_rate` feed into the quality signal:
-```
-sim_quality = (1.0 - selected_policy.risk) × trajectory_success_rate × novelty
-```
-
-**Sim space rental:**
-Operators can also *rent* sim space — pay Àṣẹ to run simulations against TwinAssets they don't own. This creates two complementary flows:
-- **Earn path:** Submit a valid `SimulationReceipt` → receive Àṣẹ from Éṣù:Simulation
-- **Rent path:** Pay Àṣẹ to access a specific TwinAsset's spatial data for your own simulation run
-
-The rent pool flows to the TwinAsset owner (via their Odù tile). This means high-quality spatial captures earn passively from rented sim access, creating a flywheel:
+## Genesis
 
 ```
-Better captures → more useful for sim → more rental demand → more income for capturer
-                                      ↓
-                             more Àṣẹ in Éṣù:Simulation pool
-                                      ↓
-                         incentivizes more simulation operators
+Timestamp:  November 11, 2025 · 11:11:11 UTC  (drift assertion ≤ 50ms)
+World ID:   world.id/bino.1111
+FLAW_TOKEN: "Ase"  (distinct from Àṣẹ — see Token Duality below)
+
+4-chain anchor:
+  Bitcoin   → OP_RETURN  0xAse1440
+  Arweave   → genesis_1440
+  Ethereum  → genesis event
+  Sui       → object ase_1440
+
+Genesis mint:
+  Wallet #0001  → 1,440 Àṣẹ   (the perfect wallet)
+  Wallets #0002–#1440 → 1 Àṣẹ each (flawed wallets)
+  Total genesis supply: ~2,880 Àṣẹ
+```
+
+**The flaw in 1440**: The perfect wallet holds 1440. The 1439 other inheritance
+wallets each hold 1. Together they are 1440 + 1439 = 2879 ≈ 2880. The flaw is
+the beginning of the inheritance system.
+
+---
+
+## Token Duality
+
+Two tokens. Not one.
+
+| Token | Glyph | Role |
+|-------|-------|------|
+| **Àṣẹ** | with diacritics | The earned token. Minted by valid proofs. |
+| **Ase** | plain ASCII | The flaw token. Burns on redemption. Deflationary counterpart. |
+
+- **Àṣẹ** mints from verified work → accumulates
+- **Ase** burns on redemption → deflationary pressure
+- Together: inflationary-but-earned (Àṣẹ) + deflationary (Ase burns) = net
+  token velocity that rewards active participants over passive holders
+
+---
+
+## Difficulty Adjustment
+
+```
+Every 2016 blocks (~2 weeks):
+  target_F1 *= (expected_time / actual_time)
+  clamped to [0.70, 0.9999]
+```
+
+- **Genesis**: F1 ≥ 0.777
+- **~10 years**: F1 ≥ 0.98
+- This is mathematical difficulty, NOT hash rate. No ASICs. Negligible energy.
+  The only thing that gets harder is the quality of the simulation solution.
+
+---
+
+## The Wallet Taxonomy
+
+Eleven wallet categories. Each has a defined role.
+
+```
+#0001       Genesis Wallet (perfect)
+            └── holds 1,440 Àṣẹ at genesis
+
+#0002–1440  Inheritance Wallets (1,439 flawed)
+            └── hold 1 Àṣẹ each at genesis (v8 variant)
+            └── receive 25% of every offering via Inheritance Pool
+
+TREASURY    50% of every offering split
+            └── R&D · Node operations
+
+COUNCIL     15% of every offering split
+            └── 12 council members · quorum 7-of-12
+            └── bitmask approval · Bínò final sign (Ọbàtálá witness)
+
+SHRINE      10% of every offering split  (Ọbàtálá maintenance / embodiment)
+
+BURN BUCKET Accumulates: tithe burns + sim burns + slashing
+            └── permanently removed from supply
+
+ÈṢÙ TITHE  The 3.69% routing wallet
+ROUTER      └── skimmed on every mint and settlement (on-chain proven, seed_e2e.py)
+
+AIO         Universal Work Economy
+            └── receives the tithe
+            └── manages: escrow · staking · slashing · ToC / Dopamine /
+                          Synapse / Àṣẹ financial instruments
+
+ESCROW      Per-job wallet (ephemeral)
+            └── client locks USDC → worker delivers → receipt → release
+            └── 3.69% Éṣù skim on settlement (live on Sui devnet)
+
+MANUMISSION Agent freedom wallet
+            └── agents earn USDC toward MANUMISSION_TARGET = 100 USDC
+            └── reaching target = agent earns autonomy from its principal
 ```
 
 ---
 
-### 3. Witness Consensus — Éṣù:Witness (20%)
+## Sacred Split — Immutable
 
-**Who earns:** Nodes that attest to ỌSỌVM Merkle commitments as part of the `ProofOfSimulation` two-phase witness protocol.
-
-**The two-phase protocol (already implemented in `osovm.rs`):**
-1. Operator calls `run_and_commitment()` → gets `(OsovmRunResult, commitment_hash)`
-2. Commitment is broadcast to potential witnesses via DIP
-3. Witnesses verify the commitment and sign it with their DID keypair
-4. Operator calls `prove_with_attestations()` with collected `WitnessAttestation`s
-5. `SimulationReceipt` is built — witnesses earn from Éṣù:Witness pool
-
-**Staking requirements:**
-- Witnesses must stake Àṣẹ to participate — stake is the economic commitment to honest attestation
-- Minimum stake: TBD (governance parameter)
-- Stake locks for an epoch (1 week suggested) before it can be withdrawn
-
-**Slashing conditions:**
-- Attesting to an invalid commitment (caught by ỌSỌVM re-validation)
-- Signing a commitment that conflicts with a prior attestation for the same run_id
-- Going offline during an active attestation round (partial slash)
-
-**Slashing mechanics:**
-Slashed tokens go to Éṣù:Reserve — they do not get re-distributed to the slasher's competitors, preventing griefing incentives. Reserve can be used for protocol-level bounties or burned.
-
-**Witness rewards:**
 ```
-per_attestation_reward = (daily_witness_pool / total_attestations) × stake_weight
-stake_weight           = min(2.0, 1.0 + stake_amount / base_stake)
+@immutable SPLIT = [50, 25, 15, 10]
+              //   [treasury, inheritance, council, shrine]
 ```
 
-Larger stakes earn proportionally more per attestation, up to a 2× cap (prevents plutocratic dominance).
+Every offering (100 Àṣẹ example):
+
+```
+50  → Treasury     (R&D, node ops)
+25  → Inheritance pool (distributed to 1440 wallets)
+15  → Council      (12 members, governance)
+10  → Shrine       (Ọbàtálá, embodiment)
+```
+
+This split is immutable. No governance vote can change it.
 
 ---
 
-### 4. Physical Transfer — Éṣù:Physical (15%)
+## Tithe, Burns, and Sabbath
 
-**Who earns:** Operators who demonstrate that a simulation policy transferred successfully to physical hardware — measured by `RealityTransferScore`.
+### Éṣù Tithe: 3.69%
 
-This is the highest-value work category because it closes the sim→real loop. A policy that works in ỌSỌVM *and* works on a real Go2 robot is proof that the simulation was grounded in reality, not just optimised for the virtual environment.
+Every mint and every settlement skims 3.69% to the Éṣù Tithe Router → AIO.
 
-**What ỌSỌVM validates:**
-- `RealityTransferScore.physical_proof_eligible == true` — RTS must clear 0.6 minimum
-- `sim_proof_id` must reference a valid, previously submitted `SimulationReceipt` (sim must come before real flight)
-- All 6 RTS axes must be measured: position, orientation, altitude, energy, collision margin, mission completion
-
-**Bonus multiplier:**
-Physical proofs that reference a sim proof in the same Odù tile earn a 20% bonus — incentivizes local sim-first workflows.
-
-**RTS → quality mapping:**
 ```
-physical_quality = rts.rts × rts.mission_transfer
-physical_reward  = (daily_physical_pool / eligible_proofs) × physical_quality
+mint(amount) → burn(amount × 0.0369)
 ```
+
+Tests assert: `tithe = 3.69`, `burn_slice = 0.369` (10% of tithe itself burns).
+
+*Proven on Sui devnet via seed_e2e.py — `route_transaction_tax()` is live.*
+
+### Simulation burn: 7 Àṣẹ
+
+```
+@startSim() → burn 7 Àṣẹ
+```
+
+Anti-spam barrier. At genesis reward of 50 Àṣẹ, this is a 14% cost per attempt.
+Described as sustainable at ~49 Àṣẹ/citizen/day (7 sim attempts). As rewards
+halve, the burn cost becomes a progressively higher barrier — correctly increasing
+the cost of spam as the network matures.
+
+### Sabbath Freeze
+
+No minting or claiming on **Saturday UTC** (day 6). Enforced by Kóòdù gate in the
+VM. The network rests.
 
 ---
 
-### 5. Bounties — Éṣù:Bounty (5%)
+## The 1440 Inheritance System
 
-**What bounties are:**
-Protocol-level tasks posted by the network (or by token holders) for specific capture targets, simulation scenarios, or physical deployments. Examples:
+The 1440 inheritance wallets are the governance and continuity layer.
 
-- "Capture the interior of [GPS bounding box] with >= 0.8 quality" — spatial bounty
-- "Run 50 simulation trajectories for Go2 in snowy terrain" — sim bounty
-- "Achieve RTS >= 0.85 on a specific mission profile" — physical bounty
+**Eligibility requirements (cumulative):**
+- 7×7 achievement badge (49 verified actions across both proof types)
+- 7 years elapsed in the network
+- Application reviewed by Council of 12
+- 12-of-12 bitmask approval
+- Bínò final sign (Ọbàtálá witness — the embodiment oracle)
 
-**Bounty mechanics:**
-- Bounties are posted with an Àṣẹ reward (from the 5% daily pool or from token holder deposits)
-- First valid submission that meets the spec claims the full reward
-- ỌSỌVM validates all bounty claims — same quality gates as normal work categories
-- Expired unclaimed bounties return to Éṣù:Reserve
+**Economics of inheritance:**
+- 25% of every offering (from the Sacred Split) flows to the inheritance pool
+- Pool is distributed equally across all 1440 wallets
+- 11.11% of each wallet's balance is locked ETERNAL (never claimable)
+- 11.11% APY compounding on the non-locked balance
+- 7-year eligibility cycle for new inheritors
+- Sabbath-aware: claims respect the Saturday freeze
 
-**Why this matters:**
-Bounties let the network direct capture and simulation work to where it's most needed — specific geographic tiles, specific robot models, specific environmental conditions — without requiring centralised coordination.
+**Stealth addresses**: specified in the v12 doc but not yet implemented. Each
+inheritance wallet will use a stealth address for privacy-preserving claims.
 
 ---
 
-### 6. Reserve — Éṣù:Reserve (5%)
+## Anti-Gaming — Four Defenses
 
-Accumulates from:
-- Protocol allocation (5% of daily emission)
-- Slashed witness stakes
-- Expired unclaimed bounties
-- Novelty-floor rejections that would have minted if novelty were higher (the "near miss" pool)
+| Attack vector | Defense |
+|---|---|
+| Fake sims | Deterministic re-execution + 7 Àṣẹ burn (cost > benefit) |
+| Sybil identities | World ID binding — fake identity ~$1,000, payback 273 days |
+| Spam witness events | 1/device/hour limit + 3-of-7 quorum + 24h device ban |
+| Easy sim farming | Difficulty spiral (F1 threshold rises every 2016 blocks) |
 
-Used for:
-- Protocol-level bug bounties
-- Emergency bridging during low-activity periods
-- Future governance decisions (burn, redirect, or new work categories)
+---
+
+## ỌSỌVM ↔ Àṣẹ Architecture (Target State)
+
+ỌSỌVM is the single authority. All mint paths converge here.
+
+```
+[Proof submitted]
+      │
+      ▼
+ỌSỌVM validates:
+  PoS: F1 ≥ current_difficulty?
+       ≥ 2 candidate policies?
+       ≥ 2 independent witnesses?
+       deterministic re-execution match?
+  PoW: 3-of-7 quorum verified?
+       device not banned?
+       rate limit clear?
+      │
+      ▼
+  ỌSỌVM approves → emits OsoEvent::MintApproved {
+      proof_id, domain, quality, novelty, tile_id, minter_did, amount
+  }
+      │
+      ▼
+  TwinEvent bus subscriber (background task, same pattern as TimelineAppender)
+      │
+      ├─► calculate_mint_amount(quality, novelty)
+      ├─► calculate_owner_fee(tokens, tile.usage_fee_pct)  ← currently always 0, needs fix
+      ├─► burn(amount × 0.0369)  ← Éṣù tithe
+      ├─► split(remainder, SACRED_SPLIT)
+      ├─► mint_ase(request, sui_rpc_url)  ← Sui settlement
+      └─► update_tile_economy(tile, result)
+```
 
 ---
 
 ## Odù Tile Economy
 
-The 256 Odù tiles (16×16 grid mapped to physical geography) are the spatial ownership layer.
+The 256 Odù tiles (16×16 grid) are the spatial ownership layer, mapped to the
+physical globe.
+
+### Geographic Foundation
+
+The Odù tile grid renders as a layer on top of **Gods-Eye-View** (CesiumJS,
+MIT, `bilawalsidhu/gods-eye-view`). The existing photorealistic globe, terrain,
+and live data feeds (aircraft, ships, satellites) are the base. The sovereign
+stack only renders new primitives on top:
+
+- Odù tile grid overlay (CesiumJS Rectangle entities)
+- Splat capture receipts (3D billboard points)
+- Proof activity heatmap per tile
+- Tile economy state (unclaimed / claimed / active)
+- VeilSim binding indicators (kind 1903)
+
+No tile geography is duplicated — the Odù layer is purely additive.
+
+### Geographic Mapping (to be finalised)
+
+Options:
+- **Equal-area**: divide Earth's surface into 256 roughly equal-area regions
+- **Custom**: manually curated based on drone operation density and interest
+- **Hierarchical**: tiles subdivide on demand (start 16×16, zoom to 256×256 in active regions)
+
+Recommendation: equal-area as default, hierarchical zoom for high-density tiles.
 
 ### Tile States
 
 ```
-Unclaimed  →  anyone captures, 100% of spatial mint goes to capturer
-     │
-     └─► Claim: stake N Àṣẹ → tile becomes Claimed (owner = staker's DID)
-                                                │
-                                                ├─► Captures in tile: capturer earns (100 - fee)%
-                                                │   tile owner earns fee% passively
-                                                ├─► Sim rental in tile: rental fee to tile owner
-                                                └─► Hostile claim: new staker posts > current stake
-                                                    old staker gets their stake returned
+Unclaimed → capturer earns 100% of spatial allocation
+    │
+    └─► stake N Àṣẹ → Claimed (owner = staker's DID)
+              │
+              ├─► Captures: capturer earns (100 - usage_fee_pct)%
+              │             tile owner earns usage_fee_pct passively (default 5%)
+              ├─► Sim rental: rental fee → tile owner
+              └─► Hostile claim: new staker posts > current stake
+                                 old staker gets their stake returned
 ```
 
-### Tile Staking Formula
+### VeilSim Binding
 
-```
-claim_cost  = base_stake × (1 + capture_count / 100)
-```
-
-Tiles with more captures are more expensive to claim — this reflects their established value and prevents early squatting on inactive tiles.
-
-### Tile Revenue
-
-Tile owners earn passively from:
-1. `usage_fee_pct` on every spatial capture in their tile (default 5%)
-2. Sim rental fees when others access the tile's TwinAsset data
-3. Bounty fee if a bounty is completed in their tile (optional bounty configuration)
+A Gaussian splat becomes a `VeilSim1to1` asset (kind 1903 Twin Binding) when
+ỌSỌVM has run at least one valid simulation scenario against it. The binding is
+the IP-layer anchor that makes a spatial capture ownable as an Odù tile.
 
 ---
 
-## ỌSỌVM as Mint Authority
+## Discrepancies — Needs Resolution
 
-All paths route through ỌSỌVM validation before any Àṣẹ is minted. The implementation target (Task 9 from the architecture audit) is an event-channel architecture:
+Hermes flagged four conflicts between documents. Decisions needed:
 
-```
-[Proof arrives at /proof/* endpoint]
-          │
-          ▼
-  ProofEngine::evaluate_*()
-          │
-          ▼
-  mint_eligible == true?
-          │ yes
-          ▼
-  TwinEvent::MintApproved {
-      proof_id, domain, quality,
-      novelty, tile_id, minter_did
-  }
-          │
-          ▼
-  [Background subscriber — same pattern as TimelineAppender]
-          │
-          ▼
-  Determine Éṣù wallet by ProofDomain
-          │
-          ├─► Simulation → Éṣù:Simulation
-          ├─► Spatial    → Éṣù:Spatial
-          └─► Physical   → Éṣù:Physical
-          │
-          ▼
-  AseMintRequest::from_event(event, tile_economy)
-  calculate_mint_amount(quality, novelty)
-  calculate_owner_fee(tokens, tile.usage_fee_pct)
-          │
-          ▼
-  mint_ase(request, sui_rpc_url)  [Sui settlement]
-          │
-          ▼
-  update_tile_economy(tile, result)
-  TileEconomyStore::apply_mint()
-```
+### 1. Tithe rate: 3.69% or 7.77%?
 
-No proof bypasses ỌSỌVM. The simulation VM's output is what authorises the settlement, not just the node's local computation.
+- **3.69%**: `vm_core_test.jl`, `seed_e2e.py`, `whisper_ase_v8.jl`, all code
+- **7.77%**: `FINAL_AUDIT_777_VEILS_COMPLETE.md` line 108
 
----
+**Recommendation**: 3.69% is canonical. The 7.77% in the audit doc is likely
+a typo or draft artifact. **Decision needed.**
 
-## Anti-Farming Measures
+### 2. Genesis supply: ~2,880 or 23,400?
 
-| Attack vector | Mitigation |
-|---|---|
-| Repeated same splat_hash | `NoveltyLedger` decay — 1/√n per submission |
-| Tiny area captures | Area floor: < 10m² earns 0.1× multiplier |
-| Fake witnesses | Staking requirement + slashing on invalid attestation |
-| Cherry-picked single-policy sims | ỌSỌVM enforces >= 2 candidate policies |
-| Solo witness | ỌSỌVM enforces >= 2 independent witnesses |
-| Environment novelty exhaustion | Novelty floor < 0.1 = zero mint (hard stop) |
-| Sim without spatial grounding | `ProofOfSimulation` requires a valid `TwinAsset` |
-| Physical claim without prior sim | `physical_proof_eligible` requires `sim_proof_id` reference |
+- **~2,880**: whisper_ase_v8.jl (1440 + 1439)
+- **23,400**: veil_dashboard.py ("1440 wallets, 23,400 initial Àṣẹ")
 
----
+If 23,400: that's 23,400 / 1440 ≈ 16.25 Àṣẹ per inheritance wallet — not 1.
+**Decision needed.**
 
-## Token Utility (Demand Side)
+### 3. Genesis variant: v6 or v8?
 
-Without demand sinks, even a fixed emission becomes inflationary in practice. Planned utility:
+- **v6**: inheritance wallets are DORMANT (0 Àṣẹ at genesis)
+- **v8**: inheritance wallets hold 1 Àṣẹ each (flawed)
 
-| Usage | Àṣẹ consumed |
-|---|---|
-| Rent sim space against a TwinAsset | Per-run fee (to tile owner) |
-| Stake a tile claim | Locked (refundable on release) |
-| Post a bounty | Locked until claimed or expired |
-| Stake as a witness | Locked for epoch duration |
-| Purchase access to closed spatial data | To IP layer owner |
-| Agent deployment (future) | Gas-equivalent for sovereign node compute |
+v8 appears current (the active script). v6 may be an earlier design.
+**Decision: v8 unless otherwise specified.**
 
----
+### 4. Opcode count: 155, 160, or 165?
 
-## Open Questions
+- Docs state 155 / 160 / "30 core + 5 inheritance + 130 expansion = 165"
+- FFI distribution: 45 Julia + 52 Rust + 48 Go + 7 Move = 152
 
-1. **Sim rewards vs. sim rental — should both exist?** Current recommendation: yes. Earners and renters are different users with different incentives. Rental creates passive income for quality captures; rewards create active incentives for sim operators. Both are needed.
-
-2. **1440 initial allocation weights** — The 30/25/20/15/5/5 split is a starting hypothesis. Physical transfer work (15%) may need to be higher once RTS infrastructure is live — it's the hardest work and should pay the most. Consider 20% Physical / 20% Witness and reduce Simulation slightly.
-
-3. **Witness minimum stake** — Needs to be high enough to make slashing hurt but low enough that new nodes can participate. Suggest governance parameter starting at 100 Àṣẹ (roughly 25 days of individual earnings at average participation rate).
-
-4. **Tile count** — 256 tiles at 16×16 is good for a first world. The geographic mapping (each tile = what real-world bounding box?) needs to be defined. Options: equal-area hex grid, country-based, custom.
-
-5. **Epoch length** — Weekly epochs (7 days) suggested for witness staking. Daily epoch for Éṣù distribution. Both can be changed by governance.
+**Decision needed.** Likely needs a fresh count from the actual VM.
 
 ---
 
 ## Implementation Status
 
-| Component | Status |
-|---|---|
-| `calculate_mint_amount()` | ✓ Implemented (`ase.rs`) |
-| `TileEconomy` + staking | ✓ Implemented (`ase.rs`, `tile_economy_store.rs`) |
-| `ProofEvaluation.mint_eligible` | ✓ Computed (`tier.rs`) |
-| `NoveltyLedger` decay | ✓ Implemented (`proof_engine.rs`) |
-| Two-phase witness protocol | ✓ Implemented (`osovm.rs`) |
-| `TwinEvent` bus | ✓ Implemented (`events.rs`, `node.rs`) |
-| Éṣù wallet routing | ✗ Not yet implemented |
-| `mint_eligible` → `MintApproved` event | ✗ Dead end (Task 3) |
-| Real `owner_fee` (non-zero) | ✗ Always 0 (Task 4) |
-| GPS → `tile_id` derivation | ✗ Hardcoded `"odu:00"` (Task 2) |
-| `novelty` from CaptureReceipt | ✗ Hardcoded `0.5` (Task 1) |
-| `TileEconomyStore` disk persistence | ✗ In-memory only (Task 7) |
-| Àṣẹ Move package on Sui | ✗ Stub only (Task 6) |
-| Sim space rental endpoint | ✗ Not yet implemented |
-| Bounty system | ✗ Not yet implemented |
-| Witness slashing | ✗ Not yet implemented |
+| Component | Status | File |
+|---|---|---|
+| ỌSỌVM engine (stub + real endpoint) | ✓ | `twin-protocol/src/osovm.rs` |
+| Two-phase witness protocol | ✓ | `osovm.rs:314-361` |
+| `ProofEvaluation.mint_eligible` | ✓ | `sovereign-types/src/tier.rs` |
+| `NoveltyLedger` decay | ✓ | `sovereign-node/src/proof_engine.rs` |
+| `calculate_mint_amount()` | ✓ | `twin-protocol/src/ase.rs` |
+| `TileEconomy` + staking structs | ✓ | `twin-protocol/src/ase.rs` |
+| `TileEconomyStore` routes | ✓ | `sovereign-node/src/node.rs` |
+| `TwinEvent` bus | ✓ | `sovereign-node/src/events.rs` |
+| `mint_eligible` → `MintApproved` event | ✗ | Dead end (Task 3) |
+| Real `owner_fee` (non-zero) | ✗ | Always 0 — `ase.rs:117` |
+| GPS → real `tile_id` | ✗ | Hardcoded `"odu:00"` — `node.rs:1682` |
+| `novelty` from `CaptureReceipt` | ✗ | Hardcoded `0.5` — `node.rs:1685` |
+| Éṣù tithe router (3.69%) | ✗ | Not wired in Rust |
+| Sacred Split (50/25/15/10) | ✗ | Not implemented |
+| Sim burn (7 Àṣẹ per startSim) | ✗ | Not implemented |
+| Sabbath freeze gate | ✗ | Not implemented |
+| ỌSỌVM as mint authority | ✗ | Not connected to ase.rs |
+| Inheritance wallet system | ✗ | Spec only |
+| Gods-Eye-View Odù tile layer | ✗ | Not built |
+| `TileEconomyStore` disk persistence | ✗ | In-memory only |
+| Àṣẹ Move package on Sui | ✗ | Stub only |
+| Sim space rental endpoint | ✗ | Not implemented |
+| Witness staking + slashing | ✗ | Not implemented |
+| Difficulty adjustment | ✗ | F1 threshold static |
+| VeilSim bind trigger (kind 1903) | ✗ | Not wired to ỌSỌVM |
