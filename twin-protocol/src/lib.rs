@@ -12,6 +12,8 @@ pub mod osovm;
 pub mod timeline;
 pub mod error;
 pub mod ase;
+pub mod emission;
+pub mod governance;
 
 pub use twin::*;
 pub use region::*;
@@ -26,3 +28,4 @@ pub use osovm::*;
 pub use timeline::{TwinTimeline, TwinTimelineEntry, entry_from_capture};
 pub use error::*;
 pub use ase::*;
+pub use governance::GrantProposal;

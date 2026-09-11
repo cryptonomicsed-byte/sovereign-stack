@@ -16,6 +16,7 @@
 
 use clap::{Parser, Subcommand};
 use serde_json::{json, Value};
+use urlencoding;
 
 // ── CLI definition ────────────────────────────────────────────────────────────
 
@@ -205,6 +206,174 @@ enum Cmd {
     Ip {
         #[command(subcommand)]
         sub: IpCmd,
+    },
+    // ── Governance (Phase 44) ─────────────────────────────────────────────
+    /// List all governance proposals
+    Proposals,
+    /// Create a new governance grant proposal
+    Propose {
+        #[arg(long)] proposer: String,
+        #[arg(long)] recipient: String,
+        #[arg(long)] amount: u64,
+        #[arg(long)] purpose: String,
+        #[arg(long, default_value_t = 1)] veil_id: u64,
+    },
+    /// Vote for a governance proposal
+    VoteFor {
+        #[arg(long)] id: u64,
+    },
+    /// Vote against a governance proposal
+    VoteAgainst {
+        #[arg(long)] id: u64,
+    },
+    /// Execute a passed governance proposal
+    Execute {
+        #[arg(long)] id: u64,
+    },
+    // ── Cowrie Oracle + Emission (Phase 45) ──────────────────────────────
+    /// Query the Cowrie Oracle for today's active Odù tile
+    Oracle,
+    /// Query the Cowrie Oracle for a specific day
+    OracleDay {
+        #[arg(long)] day: u32,
+    },
+    /// Show current emission allocator status
+    EmissionStatus,
+    /// Submit a proof claim to the emission allocator
+    EmissionClaim {
+        #[arg(long)] proof_id: String,
+        #[arg(long)] worker_did: String,
+        #[arg(long, default_value_t = 1)] veil_id: u16,
+        #[arg(long, default_value = "0000000000000000000000000000000000000000000000000000000000000000")]
+        trajectory_hash: String,
+        #[arg(long, default_value_t = 0.85)] f1_score: f64,
+        #[arg(long, default_value_t = 0.8)]  proof_value: f64,
+        #[arg(long, default_value = "0000000000000000000000000000000000000000000000000000000000000000")]
+        env_hash: String,
+    },
+    // ── Sovereign Wallets (Phase 46) ─────────────────────────────────────
+    /// List all sovereign wallets
+    Wallets,
+    /// Get a specific wallet balance
+    Wallet {
+        #[arg(long)] did: String,
+    },
+    /// Credit µÀṣẹ to a wallet
+    WalletCredit {
+        #[arg(long)] did: String,
+        #[arg(long)] amount: u64,
+        #[arg(long, default_value = "manual")] reason: String,
+    },
+    // ── Proof submission (Phase 47) ──────────────────────────────────────
+    /// Submit or query proofs (simulation, Gaussian, physical, observation)
+    Proof {
+        #[command(subcommand)]
+        sub: ProofCmd,
+    },
+    // ── License marketplace (Phase 48) ───────────────────────────────────
+    /// List all twin license grants
+    Licenses,
+    /// List license grants for a specific twin
+    LicensesForTwin {
+        twin_id: String,
+    },
+    /// Issue a license grant for a twin
+    LicenseIssue {
+        #[arg(long)] twin_id: String,
+        #[arg(long)] grantee: String,
+        #[arg(long, default_value_t = 5.0)] usage_fee_pct: f64,
+        #[arg(long)] expires_at: Option<u64>,
+        #[arg(long, default_value = "exclusive=false")] terms: String,
+    },
+    /// Get a specific license grant
+    License {
+        grant_id: String,
+    },
+    /// Accept (counter-sign) a license grant as the grantee
+    LicenseAccept {
+        grant_id: String,
+        #[arg(long)] grantee_sig: String,
+    },
+    // ── Body / VCP sessions (Phase 49) ────────────────────────────────────
+    /// List all VCP body sessions
+    BodySessions,
+    /// Open a new VCP body session
+    BodyOpen {
+        #[arg(long)] body_id: String,
+        #[arg(long)] device_id: String,
+        #[arg(long)] operator_did: String,
+        #[arg(long, default_value = "capture")] session_type: String,
+    },
+    /// Get a specific body session
+    BodySession {
+        session_id: String,
+    },
+    /// Push a telemetry frame to an open body session
+    BodyTelemetry {
+        #[arg(long)] session_id: String,
+        #[arg(long)] frame_index: u32,
+        #[arg(long, default_value_t = 0.0)] lat: f64,
+        #[arg(long, default_value_t = 0.0)] lon: f64,
+        #[arg(long, default_value_t = 0.0)] altitude_m: f64,
+        #[arg(long, default_value_t = 100)] battery_pct: u8,
+    },
+    /// Close (finalize) a body session and emit a FlightReceipt
+    BodyClose {
+        #[arg(long)] session_id: String,
+        #[arg(long, default_value = "did:node:system")] operator_did: String,
+    },
+    /// Get flight receipts for a body
+    BodyReceipts {
+        body_id: String,
+    },
+    /// List VCP body capabilities
+    BodyCapabilities,
+}
+
+#[derive(Subcommand, Debug)]
+enum ProofCmd {
+    /// Submit a simulation proof for evaluation
+    Simulate {
+        #[arg(long)] env_hash: String,
+        #[arg(long, default_value_t = 0.85)] f1_score: f64,
+        #[arg(long, default_value_t = 0.80)] proof_value: f64,
+        #[arg(long, default_value_t = 0.70)] difficulty: f64,
+        #[arg(long, default_value_t = 1)] veil_id: u64,
+        #[arg(long)] worker_did: Option<String>,
+    },
+    /// Get a previously submitted simulation proof by ID
+    Get {
+        id: String,
+    },
+    /// Submit a Gaussian splat quality proof
+    Gaussian {
+        #[arg(long)] twin_id: String,
+        #[arg(long, default_value_t = 0.85)] quality_score: f64,
+        #[arg(long, default_value_t = 1000)] point_count: u64,
+        #[arg(long, default_value_t = 0.9)]  coverage: f64,
+        #[arg(long, default_value_t = 0.88)] sharpness: f64,
+        #[arg(long, default_value_t = 0.0)]  lat: f64,
+        #[arg(long, default_value_t = 0.0)]  lon: f64,
+        #[arg(long)] worker_did: Option<String>,
+    },
+    /// Submit a physical Reality Transfer Score proof
+    Physical {
+        #[arg(long)] twin_id: String,
+        #[arg(long, default_value_t = 0.80)] rts_score: f64,
+        #[arg(long, default_value_t = 0.90)] semantic_fidelity: f64,
+        #[arg(long, default_value_t = 0.85)] geometric_accuracy: f64,
+        #[arg(long, default_value_t = 0.0)]  lat: f64,
+        #[arg(long, default_value_t = 0.0)]  lon: f64,
+        #[arg(long)] worker_did: Option<String>,
+    },
+    /// Submit an observation proof (raw JSON body)
+    Observation {
+        /// JSON file path or inline JSON string
+        payload: String,
+    },
+    /// Get a previously submitted observation proof by ID
+    ObservationGet {
+        id: String,
     },
 }
 
@@ -598,6 +767,224 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         // ── Standalone IP provenance (no node required) ────────────────
         Cmd::Ip { sub } => {
             cmd_ip(sub).await?;
+        }
+
+        // ── Governance (Phase 44) ──────────────────────────────────────────────
+        Cmd::Proposals => {
+            let val = get(&client, &cli.url, "/governance/proposals").await?;
+            print_json(&val);
+        }
+        Cmd::Propose { proposer, recipient, amount, purpose, veil_id } => {
+            let body = serde_json::json!({
+                "proposer":          proposer,
+                "recipient":         recipient,
+                "amount_micro_ase":  amount,
+                "purpose":           purpose,
+                "veil_id":           veil_id,
+            });
+            let val = post(&client, &cli.url, "/governance/proposals", Some(body)).await?;
+            print_json(&val);
+        }
+        Cmd::VoteFor { id } => {
+            let val = post(&client, &cli.url, &format!("/governance/proposals/{id}/vote_for"), None).await?;
+            print_json(&val);
+        }
+        Cmd::VoteAgainst { id } => {
+            let val = post(&client, &cli.url, &format!("/governance/proposals/{id}/vote_against"), None).await?;
+            print_json(&val);
+        }
+        Cmd::Execute { id } => {
+            let val = post(&client, &cli.url, &format!("/governance/proposals/{id}/execute"), None).await?;
+            print_json(&val);
+        }
+
+        // ── Cowrie Oracle + Emission (Phase 45) ───────────────────────────────
+        Cmd::Oracle => {
+            let val = get(&client, &cli.url, "/oracle/today").await?;
+            print_json(&val);
+        }
+        Cmd::OracleDay { day } => {
+            let val = get(&client, &cli.url, &format!("/oracle/day/{day}")).await?;
+            print_json(&val);
+        }
+        Cmd::EmissionStatus => {
+            let val = get(&client, &cli.url, "/emission/status").await?;
+            print_json(&val);
+        }
+        Cmd::EmissionClaim { proof_id, worker_did, veil_id, trajectory_hash, f1_score, proof_value, env_hash } => {
+            let body = serde_json::json!({
+                "proof_id":         proof_id,
+                "worker_did":       worker_did,
+                "veil_id":          veil_id,
+                "trajectory_hash":  trajectory_hash,
+                "f1_score":         f1_score,
+                "proof_value":      proof_value,
+                "env_hash":         env_hash,
+            });
+            let val = post(&client, &cli.url, "/emission/claim", Some(body)).await?;
+            print_json(&val);
+        }
+
+        // ── Sovereign Wallets (Phase 46) ──────────────────────────────────────
+        Cmd::Wallets => {
+            let val = get(&client, &cli.url, "/wallets").await?;
+            print_json(&val);
+        }
+        Cmd::Wallet { did } => {
+            let encoded = urlencoding::encode(&did);
+            let val = get(&client, &cli.url, &format!("/wallets/{encoded}")).await?;
+            print_json(&val);
+        }
+        Cmd::WalletCredit { did, amount, reason } => {
+            let encoded = urlencoding::encode(&did);
+            let body = serde_json::json!({ "amount_micro_ase": amount, "reason": reason });
+            let val = post(&client, &cli.url, &format!("/wallets/{encoded}/credit"), Some(body)).await?;
+            print_json(&val);
+        }
+        // ── Proof commands (Phase 47) ─────────────────────────────────────
+        Cmd::Proof { sub } => match sub {
+            ProofCmd::Simulate { env_hash, f1_score, proof_value, difficulty, veil_id, worker_did } => {
+                let body = serde_json::json!({
+                    "env_hash": env_hash,
+                    "f1_score": f1_score,
+                    "proof_value": proof_value,
+                    "difficulty": difficulty,
+                    "veil_id": veil_id,
+                    "worker_did": worker_did.clone().unwrap_or_else(|| "did:node:cli".into()),
+                });
+                let val = post(&client, &cli.url, "/proofs/simulation", Some(body)).await?;
+                print_json(&val);
+            }
+            ProofCmd::Get { id } => {
+                let encoded = urlencoding::encode(&id);
+                let val = get(&client, &cli.url, &format!("/proofs/simulation/{encoded}")).await?;
+                print_json(&val);
+            }
+            ProofCmd::Gaussian { twin_id, quality_score, point_count, coverage, sharpness, lat, lon, worker_did } => {
+                let body = serde_json::json!({
+                    "twin_id": twin_id,
+                    "quality_score": quality_score,
+                    "point_count": point_count,
+                    "coverage": coverage,
+                    "sharpness": sharpness,
+                    "lat": lat,
+                    "lon": lon,
+                    "worker_did": worker_did.clone().unwrap_or_else(|| "did:node:cli".into()),
+                });
+                let val = post(&client, &cli.url, "/proofs/gaussian", Some(body)).await?;
+                print_json(&val);
+            }
+            ProofCmd::Physical { twin_id, rts_score, semantic_fidelity, geometric_accuracy, lat, lon, worker_did } => {
+                let body = serde_json::json!({
+                    "twin_id": twin_id,
+                    "rts_score": rts_score,
+                    "semantic_fidelity": semantic_fidelity,
+                    "geometric_accuracy": geometric_accuracy,
+                    "lat": lat,
+                    "lon": lon,
+                    "worker_did": worker_did.clone().unwrap_or_else(|| "did:node:cli".into()),
+                });
+                let val = post(&client, &cli.url, "/proofs/physical", Some(body)).await?;
+                print_json(&val);
+            }
+            ProofCmd::Observation { payload } => {
+                let body: Value = if payload.trim_start().starts_with('{') {
+                    serde_json::from_str(&payload)?
+                } else {
+                    let raw = std::fs::read_to_string(&payload)?;
+                    serde_json::from_str(&raw)?
+                };
+                let val = post(&client, &cli.url, "/proofs/observation", Some(body)).await?;
+                print_json(&val);
+            }
+            ProofCmd::ObservationGet { id } => {
+                let encoded = urlencoding::encode(&id);
+                let val = get(&client, &cli.url, &format!("/proofs/observation/{encoded}")).await?;
+                print_json(&val);
+            }
+        },
+        // ── License marketplace commands (Phase 48) ───────────────────────
+        Cmd::Licenses => {
+            let val = get(&client, &cli.url, "/licenses").await?;
+            print_json(&val);
+        }
+        Cmd::LicensesForTwin { twin_id } => {
+            let encoded = urlencoding::encode(&twin_id);
+            let val = get(&client, &cli.url, &format!("/twins/{encoded}/licenses")).await?;
+            print_json(&val);
+        }
+        Cmd::LicenseIssue { twin_id, grantee, usage_fee_pct, expires_at, terms } => {
+            let encoded_twin = urlencoding::encode(&twin_id);
+            let body = serde_json::json!({
+                "grantee_did": grantee,
+                "usage_fee_pct": usage_fee_pct,
+                "expires_at": expires_at,
+                "terms": terms,
+            });
+            let val = post(&client, &cli.url, &format!("/twins/{encoded_twin}/licenses"), Some(body)).await?;
+            print_json(&val);
+        }
+        Cmd::License { grant_id } => {
+            let encoded = urlencoding::encode(&grant_id);
+            let val = get(&client, &cli.url, &format!("/licenses/{encoded}")).await?;
+            print_json(&val);
+        }
+        Cmd::LicenseAccept { grant_id, grantee_sig } => {
+            let encoded = urlencoding::encode(&grant_id);
+            let body = serde_json::json!({ "grantee_sig": grantee_sig });
+            let val = post(&client, &cli.url, &format!("/licenses/{encoded}/accept"), Some(body)).await?;
+            print_json(&val);
+        }
+        // ── Body / VCP session commands (Phase 49) ────────────────────────
+        Cmd::BodySessions => {
+            let val = get(&client, &cli.url, "/body/sessions").await?;
+            print_json(&val);
+        }
+        Cmd::BodyOpen { body_id, device_id, operator_did, session_type } => {
+            let body = serde_json::json!({
+                "body_id": body_id,
+                "device_id": device_id,
+                "operator_did": operator_did,
+                "session_type": session_type,
+            });
+            let val = post(&client, &cli.url, "/body/sessions", Some(body)).await?;
+            print_json(&val);
+        }
+        Cmd::BodySession { session_id } => {
+            let encoded = urlencoding::encode(&session_id);
+            let val = get(&client, &cli.url, &format!("/body/sessions/{encoded}")).await?;
+            print_json(&val);
+        }
+        Cmd::BodyTelemetry { session_id, frame_index, lat, lon, altitude_m, battery_pct } => {
+            let encoded = urlencoding::encode(&session_id);
+            let body = serde_json::json!({
+                "frame_index": frame_index,
+                "lat": lat,
+                "lon": lon,
+                "altitude_m": altitude_m,
+                "battery_pct": battery_pct,
+                "timestamp_ms": std::time::SystemTime::now()
+                    .duration_since(std::time::UNIX_EPOCH)
+                    .unwrap_or_default()
+                    .as_millis() as u64,
+            });
+            let val = post(&client, &cli.url, &format!("/body/sessions/{encoded}/telemetry"), Some(body)).await?;
+            print_json(&val);
+        }
+        Cmd::BodyClose { session_id, operator_did } => {
+            let encoded = urlencoding::encode(&session_id);
+            let body = serde_json::json!({ "operator_did": operator_did });
+            let val = post(&client, &cli.url, &format!("/body/sessions/{encoded}/close"), Some(body)).await?;
+            print_json(&val);
+        }
+        Cmd::BodyReceipts { body_id } => {
+            let encoded = urlencoding::encode(&body_id);
+            let val = get(&client, &cli.url, &format!("/body/{encoded}/receipts")).await?;
+            print_json(&val);
+        }
+        Cmd::BodyCapabilities => {
+            let val = get(&client, &cli.url, "/body/capabilities").await?;
+            print_json(&val);
         }
     }
 

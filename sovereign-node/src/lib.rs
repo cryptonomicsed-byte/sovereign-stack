@@ -1,5 +1,6 @@
 // sovereign-node library — exports for integration tests and external tooling.
 pub mod body_store;
+pub mod governance_store;
 pub mod telemetry_store;
 pub mod config;
 pub mod delegation;
@@ -8,6 +9,7 @@ pub mod dip_gateway;
 pub mod events;
 pub mod identity;
 pub mod jobs;
+pub mod license_store;
 pub mod mcp_server;
 pub mod node;
 pub mod nostr_publisher;
@@ -20,5 +22,7 @@ pub mod swarm;
 pub mod tile_economy_store;
 pub mod timeline_store;
 pub mod vantage;
+pub mod vantage_heartbeat;
+pub mod wallet_store;
 pub mod witness_registry;
 pub mod ws;

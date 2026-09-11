@@ -77,7 +77,23 @@ pub struct ObservationReceipt {
     pub timestamp:      Timestamp,
 }
 
+impl ObservationOutcome {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            Self::Validated    => "validated",
+            Self::Partial      => "partial",
+            Self::Falsified    => "falsified",
+            Self::Inconclusive => "inconclusive",
+        }
+    }
+}
+
 impl ObservationReceipt {
+    /// Return the outcome as a plain string (for event messages, logs, etc.)
+    pub fn outcome_str(&self) -> &'static str {
+        self.outcome.as_str()
+    }
+
     pub fn build(
         sim_receipt_id: impl Into<String>,
         witness_id:     impl Into<String>,

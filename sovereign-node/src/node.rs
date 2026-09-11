@@ -36,6 +36,11 @@ use sovereign_pipeline::{
 };
 use twin_protocol::osovm::{OsovmEngine, ProofOfSimulation, SimScenario};
 use twin_protocol::ase::{AseMintRequest, mint_ase, AseMintResult};
+use twin_protocol::emission::{DailyEmissionAllocator, ProofClaim};
+use twin_protocol::ObservationReceipt;
+use twin_protocol::{TwinLicenseGrant, TwinLicenseConstraints};
+use sovereign_types::UsageRight;
+use std::time::{SystemTime, UNIX_EPOCH, Duration};
 use sovereign_types::OduCoordinate;
 use crate::tile_economy_store::TileEconomyStore;
 use sovereign_types::WitnessAttestation;
@@ -48,7 +53,10 @@ use ip_layer::{NostrSecretKey, IpRootBuilder, seal_gaussian_splat, sha256_hex};
 use sovereign_os::{ActReceiptChain, AgentActReceipt, EpistemicSeverity as AgentEpistemic};
 
 use crate::body_store::BodyStore;
+use crate::governance_store::GovernanceStore;
+use crate::license_store::LicenseStore;
 use crate::telemetry_store::TelemetryStore;
+use crate::wallet_store::WalletStore;
 use crate::config::NodeConfig;
 use crate::dip_gateway::DipGateway;
 use crate::federation::discover_sovereign_nodes;
@@ -94,6 +102,16 @@ pub struct NodeState {
     pub telemetry_store:      TelemetryStore,
     /// Proof-of-Evolution engine — evaluates SimulationProofs.
     pub proof_engine:         Arc<ProofEngine>,
+    /// OSOVM RUNTIME: DailyEmissionAllocator — converts ProofClaims → MintAuthorizations.
+    pub emission_allocator:   Arc<tokio::sync::Mutex<DailyEmissionAllocator>>,
+    /// OSOVM RUNTIME: queued ProofClaims awaiting the next per-minute allocation tick.
+    pub pending_claims:       Arc<tokio::sync::Mutex<Vec<ProofClaim>>>,
+    /// Off-chain governance proposal index.
+    pub governance_store:     GovernanceStore,
+    /// Twin license grant store — Phase 3.6 licensing marketplace.
+    pub license_store:        LicenseStore,
+    /// Sovereign wallet balances (micro-Àṣẹ) keyed by DID.
+    pub wallet_store:         WalletStore,
 }
 
 impl axum::extract::FromRef<NodeState> for sovereign_a2a::A2aState {
@@ -334,7 +352,70 @@ impl SovereignNode {
             body_store:       BodyStore::new(),
             telemetry_store:  TelemetryStore::new(),
             proof_engine:     Arc::new(ProofEngine::new()),
+            emission_allocator: Arc::new(tokio::sync::Mutex::new(DailyEmissionAllocator::new())),
+            pending_claims:     Arc::new(tokio::sync::Mutex::new(Vec::new())),
+            governance_store:   GovernanceStore::new(),
+            license_store:      LicenseStore::new(),
+            wallet_store:       WalletStore::new(),
         };
+
+        // --- 3a-emission. Per-minute DailyEmissionAllocator task (OSOVM RUNTIME) ---
+        {
+            use sovereign_types::{GovernanceStrata, DistributionPool};
+            let allocator    = state.emission_allocator.clone();
+            let pending      = state.pending_claims.clone();
+            let wallet_store = state.wallet_store.clone();
+            let node_did     = state.identity.did.clone();
+            tokio::spawn(async move {
+                let strata = GovernanceStrata::canonical();
+                let mut interval = tokio::time::interval(Duration::from_secs(60));
+                loop {
+                    interval.tick().await;
+                    let now = SystemTime::now()
+                        .duration_since(UNIX_EPOCH).unwrap_or_default().as_secs();
+                    let epoch_minute = now / 60;
+                    let claims: Vec<_> = {
+                        let mut guard = pending.lock().await;
+                        std::mem::take(&mut *guard)
+                    };
+                    let mut alloc = allocator.lock().await;
+                    let (_minute_alloc, auth) = alloc.allocate_minute(epoch_minute, now, &claims);
+
+                    // Credit proof workers their earned shares.
+                    for worker_alloc in &auth.allocations {
+                        wallet_store.credit(&worker_alloc.worker_did, worker_alloc.micro_ase).await;
+                    }
+
+                    // Credit governance pool shares to this node's wallet (proxy for on-chain).
+                    let total_per_minute = twin_protocol::emission::MICRO_ASE_PER_MINUTE;
+                    for pool in &[DistributionPool::Simulation, DistributionPool::Research,
+                                  DistributionPool::Governance, DistributionPool::Reserve,
+                                  DistributionPool::Grants, DistributionPool::Ubi,
+                                  DistributionPool::LotteryBurn, DistributionPool::Sabbath] {
+                        let share = (total_per_minute * pool.allocation_bps() as u64) / 10_000;
+                        if share > 0 {
+                            let pool_did = format!("did:pool:{}", pool.name());
+                            wallet_store.credit(&pool_did, share).await;
+                        }
+                    }
+
+                    // Inheritance fallback: credit to this node on no-proof minutes.
+                    if auth.inheritance_fallback {
+                        let per_seat = total_per_minute / strata.council_seat_count as u64;
+                        wallet_store.credit(&node_did, per_seat).await;
+                    }
+
+                    info!(
+                        epoch_minute = epoch_minute,
+                        workers      = auth.allocations.len(),
+                        inheritance  = auth.inheritance_fallback,
+                        is_sabbath   = twin_protocol::emission::DailyEmissionAllocator::is_sabbath(now),
+                        "emission minute settled"
+                    );
+                }
+            });
+            info!("DailyEmissionAllocator per-minute task started");
+        }
 
         // --- 3a. A2A dispatch loop (routes skill requests → capture jobs) ---
         {
@@ -495,6 +576,8 @@ pub fn build_router(state: NodeState) -> Router {
         // ── Proof-of-Evolution ─────────────────────────────────────────────
         .route("/proofs/simulation",        post(handle_proof_simulation_submit))
         .route("/proofs/simulation/:id",    get(handle_proof_simulation_get))
+        .route("/proofs/observation",       post(handle_proof_observation_submit))
+        .route("/proofs/observation/:id",   get(handle_proof_observation_get))
         .route("/proofs/gaussian",          post(handle_proof_gaussian_submit))
         .route("/proofs/physical",          post(handle_proof_physical_submit))
         // ── Body sessions (VCP physical embodiment) ────────────────────────
@@ -505,6 +588,27 @@ pub fn build_router(state: NodeState) -> Router {
         .route("/body/capabilities",        get(handle_body_capabilities))
         .route("/body/sessions/:id/telemetry", post(handle_body_telemetry_push))
         .route("/body/sessions/:id/close",     post(handle_body_session_close))
+        // ── Governance proposals ───────────────────────────────────────────────
+        .route("/governance/proposals",                     get(handle_governance_list))
+        .route("/governance/proposals",                     post(handle_governance_create))
+        .route("/governance/proposals/:id",                 get(handle_governance_get))
+        .route("/governance/proposals/:id/vote_for",        post(handle_governance_vote_for))
+        .route("/governance/proposals/:id/vote_against",    post(handle_governance_vote_against))
+        .route("/governance/proposals/:id/execute",         post(handle_governance_execute))
+        // ── Twin licensing marketplace (Phase 3.6) ──
+        .route("/twins/:twin_id/licenses",  post(handle_license_issue).get(handle_license_list_for_twin))
+        .route("/licenses",                 get(handle_license_list))
+        .route("/licenses/:grant_id",       get(handle_license_get))
+        .route("/licenses/:grant_id/accept", post(handle_license_accept))
+        // ── Cowrie Oracle + Emission (Phase 45) ──
+        .route("/oracle/today",             get(handle_oracle_today))
+        .route("/oracle/day/:day",          get(handle_oracle_day))
+        .route("/emission/status",          get(handle_emission_status))
+        .route("/emission/claim",           post(handle_emission_claim))
+        // ── Sovereign Wallet (Phase 46) ──
+        .route("/wallets",                  get(handle_wallets_list))
+        .route("/wallets/:did",             get(handle_wallet_get))
+        .route("/wallets/:did/credit",      post(handle_wallet_credit))
         .nest("/a2a",                       sovereign_a2a::a2a_router::<NodeState>())
         .with_state(state)
 }
@@ -631,6 +735,7 @@ async fn handle_job_retry(
         new_job_id.clone(), device_id, model,
         identity, config, job_store, receipts, witnesses, dip_gateway, events_tx, tile_econ,
         state.act_chain.clone(),
+        state.pending_claims.clone(),
     ));
 
     (StatusCode::ACCEPTED, Json(json!({
@@ -674,6 +779,7 @@ async fn handle_proof_simulation_submit(
                     eval.novelty as f32,
                     state.config.vantage.as_ref().map(|v| v.base_url.as_str()),
                     &state.tile_economy_store,
+                    &state.pending_claims,
                 ).await;
                 let _ = state.twin_events.send(crate::events::TwinEvent::MintApproved {
                     proof_id:      eval.proof_id.clone(),
@@ -702,6 +808,65 @@ async fn handle_proof_simulation_get(
     Path(id): Path<String>,
 ) -> impl IntoResponse {
     (StatusCode::NOT_FOUND, Json(json!({"error": format!("proof not found: {id}"), "note": "use POST /proofs/simulation to submit"})))
+}
+
+/// POST /proofs/observation — submit a Proof-of-Observation receipt.
+/// Body: ObservationReceipt (JSON).
+/// Validates: non-empty sim_receipt_id, valid outcome field (always present on a well-formed struct).
+/// Returns 201 Created with the receipt on success.
+async fn handle_proof_observation_submit(
+    State(state): State<NodeState>,
+    Json(obs): Json<ObservationReceipt>,
+) -> impl IntoResponse {
+    // Validate: sim_receipt_id must be non-empty
+    if obs.sim_receipt_id.is_empty() {
+        return (
+            StatusCode::UNPROCESSABLE_ENTITY,
+            Json(json!({"error": "sim_receipt_id must not be empty"})),
+        );
+    }
+
+    // Validate: receipt_id must be non-empty
+    if obs.receipt_id.is_empty() {
+        return (
+            StatusCode::UNPROCESSABLE_ENTITY,
+            Json(json!({"error": "receipt_id must not be empty"})),
+        );
+    }
+
+    info!(
+        receipt_id     = %obs.receipt_id,
+        sim_receipt_id = %obs.sim_receipt_id,
+        outcome        = %obs.outcome_str(),
+        witness_id     = %obs.witness_id,
+        "ObservationReceipt submitted"
+    );
+
+    // Broadcast status update
+    let _ = state.twin_events.send(crate::events::TwinEvent::StatusUpdate {
+        job_id:  obs.receipt_id.clone(),
+        message: format!("observation:{}", obs.outcome_str()),
+    });
+
+    // Persist to store
+    let receipt_json = serde_json::to_value(&obs).unwrap_or(json!({}));
+    state.receipt_store.add_observation(obs).await;
+
+    (StatusCode::CREATED, Json(receipt_json))
+}
+
+/// GET /proofs/observation/:id — fetch a single ObservationReceipt by receipt_id.
+async fn handle_proof_observation_get(
+    State(state): State<NodeState>,
+    Path(receipt_id): Path<String>,
+) -> impl IntoResponse {
+    match state.receipt_store.get_observation(&receipt_id).await {
+        Some(obs) => (StatusCode::OK, Json(serde_json::to_value(&obs).unwrap_or(json!({})))),
+        None => (
+            StatusCode::NOT_FOUND,
+            Json(json!({"error": format!("observation receipt not found: {receipt_id}")})),
+        ),
+    }
 }
 
 // ── Body session handlers ─────────────────────────────────────────────────────
@@ -829,7 +994,41 @@ async fn handle_body_session_close(
     );
 
     let val = serde_json::to_value(&receipt).unwrap();
-    state.body_store.add_receipt(receipt).await;
+    state.body_store.add_receipt(receipt.clone()).await;
+
+    // Phase 4.1 — VCP→TSP bridge: if mission succeeded and session had a camera,
+    // auto-queue a capture job so the scan becomes a 31020 receipt.
+    if mission_success && session.capabilities.iter().any(|c| c.contains("camera")) {
+        let job_id  = format!("job:{}", uuid::Uuid::new_v4());
+        let job     = Job::new(job_id.clone(), session.body_id.clone());
+        state.job_store.insert(job).await;
+        info!(
+            job_id = %job_id,
+            body_id = %session.body_id,
+            source = "vcp_session_close",
+            "auto-capture job queued after successful camera session"
+        );
+        let _ = state.twin_events.send(TwinEvent::StatusUpdate {
+            job_id:  job_id.clone(),
+            message: format!("capture_queued_from_session:{session_id}"),
+        });
+        tokio::spawn(run_capture_job(
+            job_id,
+            session.body_id.clone(),
+            session.body_id.clone(),
+            state.identity.clone(),
+            state.config.clone(),
+            state.job_store.clone(),
+            state.receipt_store.clone(),
+            state.witnesses.clone(),
+            state.dip_gateway.clone(),
+            state.twin_events.clone(),
+            state.tile_economy_store.clone(),
+            state.act_chain.clone(),
+            state.pending_claims.clone(),
+        ));
+    }
+
     (StatusCode::OK, Json(val))
 }
 
@@ -855,6 +1054,7 @@ async fn handle_proof_gaussian_submit(
                     eval.novelty as f32,
                     state.config.vantage.as_ref().map(|v| v.base_url.as_str()),
                     &state.tile_economy_store,
+                    &state.pending_claims,
                 ).await;
                 let _ = state.twin_events.send(crate::events::TwinEvent::MintApproved {
                     proof_id:      eval.proof_id.clone(),
@@ -896,6 +1096,7 @@ async fn handle_proof_physical_submit(
                     eval.novelty as f32,
                     state.config.vantage.as_ref().map(|v| v.base_url.as_str()),
                     &state.tile_economy_store,
+                    &state.pending_claims,
                 ).await;
                 let _ = state.twin_events.send(crate::events::TwinEvent::MintApproved {
                     proof_id:      eval.proof_id.clone(),
@@ -1064,6 +1265,7 @@ async fn handle_capture_swarm(
             state.twin_events.clone(),
             state.tile_economy_store.clone(),
             state.act_chain.clone(),
+            state.pending_claims.clone(),
         ));
     }
 
@@ -1477,6 +1679,7 @@ async fn handle_capture(
         state.twin_events.clone(),
         state.tile_economy_store.clone(),
         state.act_chain.clone(),
+        state.pending_claims.clone(),
     ));
 
     Json(json!({
@@ -1528,6 +1731,7 @@ pub async fn run_capture_job(
     events_tx:      broadcast::Sender<TwinEvent>,
     tile_economy:   TileEconomyStore,
     act_chain:      Arc<tokio::sync::RwLock<ActReceiptChain>>,
+    pending_claims: Arc<tokio::sync::Mutex<Vec<ProofClaim>>>,
 ) {
     job_store.update_status(&job_id, JobStatus::Running).await;
 
@@ -1571,10 +1775,12 @@ pub async fn run_capture_job(
         params:              None,
     };
 
-    let mut engine = OsovmEngine::new(&config.pipeline.osovm_version);
-    if let Some(ep) = &config.pipeline.osovm_endpoint {
-        engine = engine.with_endpoint(ep.clone());
-    }
+    // Prefer the top-level `osovm_url` (async HTTP path); fall back to
+    // `pipeline.osovm_endpoint` for backwards-compatibility.
+    let resolved_osovm_url: Option<String> = config.osovm_url.clone()
+        .or_else(|| config.pipeline.osovm_endpoint.clone());
+    let engine = OsovmEngine::new(&config.pipeline.osovm_version)
+        .with_endpoint_opt(resolved_osovm_url);
     let proof  = ProofOfSimulation::new(engine);
 
     // Phase B1: run ỌSỌVM and get the commitment hash
@@ -1753,33 +1959,73 @@ pub async fn run_capture_job(
                 odu_tile:           Some(derived_tile_id.clone()),
             }).await;
 
+            // Publish kind-31020 CaptureReceipt to Nostr (fire-and-forget stub).
+            if let Some(relay_url) = config.dip.nostr_relay.as_deref() {
+                let relay   = relay_url.to_string();
+                let cap_rcpt = proof_output.pipeline.capture_receipt.clone();
+                let nsec    = config.dip.nostr_nsec.clone().unwrap_or_default();
+                tokio::spawn(async move {
+                    match crate::nostr_publisher::publish_capture_receipt(&cap_rcpt, &relay, &nsec).await {
+                        Ok(event_id) => info!(event_id = %event_id, "kind-31020 CaptureReceipt published to Nostr"),
+                        Err(e)       => warn!(error = %e, "kind-31020 CaptureReceipt Nostr publish failed"),
+                    }
+                });
+            }
+
             // Novelty from the proof engine — quality-proportional for captures
             // (proper VeilSim novelty oracle wires in via proof_engine in production).
             let novelty_score = proof_output.pipeline.twin.quality.f1_score;
 
-            // Mint Àṣẹ tokens for this SceneReceipt.
-            let sui_url = config.vantage.as_ref().map(|v| v.base_url.as_str());
-            let tile_econ = tile_economy.get(&derived_tile_id).await;
-            let ase_req = AseMintRequest {
-                receipt_id:  p_scene_id.clone(),
-                twin_id:     p_twin_id.clone(),
-                tile_id:     derived_tile_id.clone(),
-                minter_did:  identity.did.clone(),
-                quality:     proof_output.pipeline.twin.quality.f1_score,
-                novelty:     novelty_score,
-                sui_address: identity.did.clone(),
+            // Queue ProofClaim for DailyEmissionAllocator (canonical PoUS emission path).
+            // The per-minute task drains pending_claims, calls allocate_minute(), and
+            // produces a MintAuthorization — only then does Sui settlement mint_ase().
+            let mint_result = {
+                let now_secs = SystemTime::now()
+                    .duration_since(UNIX_EPOCH).unwrap_or_default().as_secs();
+                let env_hash_bytes = {
+                    let mut h = [0u8; 32];
+                    let s = sovereign_types::hash_str(&proof_output.pipeline.twin.twin_id);
+                    let decoded = hex::decode(&s[..s.len().min(64)]).unwrap_or_else(|_| vec![0u8; 32]);
+                    let copy_len = decoded.len().min(32);
+                    h[..copy_len].copy_from_slice(&decoded[..copy_len]);
+                    h
+                };
+                let claim = ProofClaim {
+                    proof_id:        p_scene_id.clone(),
+                    worker_did:      identity.did.clone(),
+                    veil_id:         0, // capture receipts: veil 0 = unchallenged capture
+                    epoch_minute:    now_secs / 60,
+                    trajectory_hash: [0u8; 32], // real hash from proof pipeline
+                    f1_score:        proof_output.pipeline.twin.quality.f1_score as f64,
+                    proof_value:     proof_output.pipeline.twin.quality.f1_score as f64,
+                    env_hash:        env_hash_bytes,
+                };
+                pending_claims.lock().await.push(claim);
+                info!(
+                    job_id  = %job_id,
+                    tile_id = %derived_tile_id,
+                    "proof claim queued to DailyEmissionAllocator"
+                );
+                // Return a stub result — real mint deferred to emission minute task
+                AseMintResult {
+                    receipt_id:    p_scene_id.clone(),
+                    tokens_minted: 0,
+                    net_minted:    0,
+                    owner_fee:     0,
+                    elegbara:      Default::default(),
+                    tx_digest:     None,
+                    stub:          true,
+                }
             };
-            let mint_result = mint_ase(&ase_req, sui_url, tile_econ.as_ref()).await;
+            // Apply stub to tile economy tracking (real values applied post-settlement)
             tile_economy.apply_mint(&derived_tile_id, &mint_result).await;
             info!(
                 job_id        = %job_id,
                 tile_id       = %derived_tile_id,
                 tokens_minted = mint_result.tokens_minted,
                 net_minted    = mint_result.net_minted,
-                eshu_tithe    = mint_result.elegbara.tithe_total,
-                owner_fee     = mint_result.owner_fee,
                 stub          = mint_result.stub,
-                "Àṣẹ tokens minted for receipt"
+                "Àṣẹ emission queued (deferred to DailyEmissionAllocator)"
             );
 
             // Emit sovereign ActionReceipt for this capture — the universal execution proof.
@@ -1802,7 +2048,7 @@ pub async fn run_capture_job(
                 None,
                 CapabilityAction::Capture,
                 format!("twin:{p_twin_id}"),
-                serde_json::json!({ "job_id": job_id, "tile": ase_req.tile_id }),
+                serde_json::json!({ "job_id": job_id, "tile": derived_tile_id }),
                 now_ts,
             ) {
                 Ok(ctx) => {
@@ -1905,43 +2151,58 @@ pub async fn run_capture_job(
     }
 }
 
-/// Mint Àṣẹ for a proof-eligible evaluation result.
+/// Queue a ProofClaim for the DailyEmissionAllocator (canonical PoUS emission path).
 /// Called from proof handlers when mint_eligible=true.
+/// Returns a stub AseMintResult (tokens_minted=0, stub=true) — the real mint is
+/// deferred to the per-minute emission task which calls allocate_minute().
 async fn mint_eligible_to_ase(
     proof_id:       &str,
     proof_domain:   &str,
     tile_id:        &str,
     minter_did:     &str,
     quality:        f32,
-    novelty:        f32,
-    sui_url:        Option<&str>,
-    tile_store:     &crate::tile_economy_store::TileEconomyStore,
+    _novelty:       f32,
+    _sui_url:       Option<&str>,
+    _tile_store:    &crate::tile_economy_store::TileEconomyStore,
+    pending_claims: &Arc<tokio::sync::Mutex<Vec<ProofClaim>>>,
 ) -> AseMintResult {
-    let tile_economy = tile_store.get(tile_id).await;
-    let req = AseMintRequest {
-        receipt_id:  format!("{proof_domain}:{proof_id}"),
-        twin_id:     proof_id.to_string(),
-        tile_id:     tile_id.to_string(),
-        minter_did:  minter_did.to_string(),
-        quality,
-        novelty,
-        sui_address: minter_did.to_string(),
+    let now_secs = SystemTime::now()
+        .duration_since(UNIX_EPOCH).unwrap_or_default().as_secs();
+    let env_hash_bytes = {
+        let mut h = [0u8; 32];
+        let s = sovereign_types::hash_str(tile_id);
+        let decoded = hex::decode(&s[..s.len().min(64)]).unwrap_or_else(|_| vec![0u8; 32]);
+        let copy_len = decoded.len().min(32);
+        h[..copy_len].copy_from_slice(&decoded[..copy_len]);
+        h
     };
-    let result = mint_ase(&req, sui_url, tile_economy.as_ref()).await;
+    let claim = ProofClaim {
+        proof_id:        format!("{proof_domain}:{proof_id}"),
+        worker_did:      minter_did.to_string(),
+        veil_id:         0,
+        epoch_minute:    now_secs / 60,
+        trajectory_hash: [0u8; 32],
+        f1_score:        quality as f64,
+        proof_value:     quality as f64,
+        env_hash:        env_hash_bytes,
+    };
+    pending_claims.lock().await.push(claim);
     info!(
-        proof_id    = %proof_id,
-        domain      = %proof_domain,
-        tokens      = result.tokens_minted,
-        net         = result.net_minted,
-        eshu_tithe  = result.elegbara.tithe_total,
-        owner_fee   = result.owner_fee,
-        "Àṣẹ minted via proof evaluation"
+        proof_id   = %proof_id,
+        domain     = %proof_domain,
+        tile_id    = %tile_id,
+        "proof claim queued to DailyEmissionAllocator (mint deferred)"
     );
-    if let Some(mut economy) = tile_economy {
-        twin_protocol::ase::update_tile_economy(&mut economy, &result);
-        tile_store.upsert(economy).await;
+    // Stub result — tokens will be allocated by the emission minute task
+    AseMintResult {
+        receipt_id:    format!("{proof_domain}:{proof_id}"),
+        tokens_minted: 0,
+        net_minted:    0,
+        owner_fee:     0,
+        elegbara:      Default::default(),
+        tx_digest:     None,
+        stub:          true,
     }
-    result
 }
 
 /// Blocking capture pipeline run — called via spawn_blocking.
@@ -2246,6 +2507,7 @@ async fn handle_a2a_dispatch(req: sovereign_a2a::A2aDispatchRequest, state: Node
                 capture_state.twin_events.clone(),
                 capture_state.tile_economy_store.clone(),
                 capture_state.act_chain.clone(),
+                capture_state.pending_claims.clone(),
             ));
 
             // Poll for job completion and update the A2A task
@@ -2340,6 +2602,122 @@ fn now_ms() -> u64 {
         .as_millis() as u64
 }
 
+// ── Governance handlers ────────────────────────────────────────────────────────
+
+/// Body accepted for POST /governance/proposals — only the user-supplied fields.
+#[derive(serde::Deserialize)]
+struct CreateProposalBody {
+    proposer:           String,
+    recipient:          String,
+    amount_micro_ase:   u64,
+    purpose:            String,
+    #[serde(default)]
+    veil_id:            u64,
+}
+
+// GET /governance/proposals
+async fn handle_governance_list(State(state): State<NodeState>) -> impl IntoResponse {
+    let proposals = state.governance_store.all().await;
+    Json(json!({
+        "count":     proposals.len(),
+        "proposals": proposals,
+    }))
+}
+
+// POST /governance/proposals
+async fn handle_governance_create(
+    State(state): State<NodeState>,
+    Json(body): Json<CreateProposalBody>,
+) -> impl IntoResponse {
+    let now_secs = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_secs();
+    let now_ms_val = now_secs * 1000;
+
+    // Auto-assign id as current count + 1.
+    let id = state.governance_store.all().await.len() as u64 + 1;
+
+    let proposal = twin_protocol::GrantProposal {
+        id,
+        proposer:           body.proposer,
+        recipient:          body.recipient,
+        amount_micro_ase:   body.amount_micro_ase,
+        purpose:            body.purpose,
+        veil_id:            body.veil_id,
+        votes_for:          0,
+        votes_against:      0,
+        created_at:         now_ms_val,
+        timelock_release:   now_secs + twin_protocol::GrantProposal::TIMELOCK_SECS,
+        executed:           false,
+        rejected:           false,
+    };
+
+    state.governance_store.insert(proposal.clone()).await;
+    (StatusCode::CREATED, Json(serde_json::to_value(proposal).unwrap_or_default()))
+}
+
+// GET /governance/proposals/:id
+async fn handle_governance_get(
+    State(state): State<NodeState>,
+    Path(id): Path<u64>,
+) -> impl IntoResponse {
+    match state.governance_store.get(id).await {
+        Some(p) => (StatusCode::OK, Json(serde_json::to_value(p).unwrap_or_default())),
+        None    => (
+            StatusCode::NOT_FOUND,
+            Json(json!({ "error": "proposal_not_found", "id": id })),
+        ),
+    }
+}
+
+// POST /governance/proposals/:id/vote_for
+async fn handle_governance_vote_for(
+    State(state): State<NodeState>,
+    Path(id): Path<u64>,
+) -> impl IntoResponse {
+    match state.governance_store.vote_for(id).await {
+        Some(p) => (StatusCode::OK, Json(serde_json::to_value(p).unwrap_or_default())),
+        None    => (
+            StatusCode::NOT_FOUND,
+            Json(json!({ "error": "proposal_not_found", "id": id })),
+        ),
+    }
+}
+
+// POST /governance/proposals/:id/vote_against
+async fn handle_governance_vote_against(
+    State(state): State<NodeState>,
+    Path(id): Path<u64>,
+) -> impl IntoResponse {
+    match state.governance_store.vote_against(id).await {
+        Some(p) => (StatusCode::OK, Json(serde_json::to_value(p).unwrap_or_default())),
+        None    => (
+            StatusCode::NOT_FOUND,
+            Json(json!({ "error": "proposal_not_found", "id": id })),
+        ),
+    }
+}
+
+// POST /governance/proposals/:id/execute
+async fn handle_governance_execute(
+    State(state): State<NodeState>,
+    Path(id): Path<u64>,
+) -> impl IntoResponse {
+    let now_secs = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_secs();
+
+    match state.governance_store.execute(id, now_secs).await {
+        Ok(p)    => (StatusCode::OK, Json(serde_json::to_value(p).unwrap_or_default())),
+        Err(msg) => (
+            StatusCode::UNPROCESSABLE_ENTITY,
+            Json(json!({ "error": msg })),
+        ),
+    }
+}
+
 /// Build a minimal in-memory `NodeState` for integration tests.
 ///
 /// No files on disk, no external connections. Suitable for handler-level testing
@@ -2414,5 +2792,284 @@ pub fn make_test_state() -> NodeState {
         body_store:          BodyStore::new(),
         telemetry_store:     TelemetryStore::new(),
         proof_engine:        Arc::new(ProofEngine::new()),
+        emission_allocator:  Arc::new(tokio::sync::Mutex::new(DailyEmissionAllocator::new())),
+        pending_claims:      Arc::new(tokio::sync::Mutex::new(Vec::new())),
+        governance_store:    GovernanceStore::new(),
+        license_store:       LicenseStore::new(),
+        wallet_store:        WalletStore::new(),
     }
+}
+
+// ── Twin licensing marketplace handlers (Phase 3.6) ───────────────────────────
+
+#[derive(Debug, serde::Deserialize)]
+struct IssueLicenseBody {
+    grantee_did:  String,
+    #[serde(default)]
+    rights:       Vec<UsageRight>,
+    expires_at:   Option<u64>,
+    fee_mist:     Option<u64>,
+    #[serde(default)]
+    constraints:  Option<TwinLicenseConstraints>,
+}
+
+async fn handle_license_issue(
+    State(state): State<NodeState>,
+    axum::extract::Path(twin_id): axum::extract::Path<String>,
+    Json(body): Json<IssueLicenseBody>,
+) -> impl IntoResponse {
+    let identity = state.identity.clone();
+    let grantee_did = body.grantee_did.clone();
+    let constraints = body.constraints.unwrap_or_default();
+    match TwinLicenseGrant::issue(
+        twin_id,
+        identity.did.clone(),
+        grantee_did.clone(),
+        body.rights,
+        constraints,
+        body.expires_at,
+        body.fee_mist,
+        &identity.private_key,
+    ) {
+        Ok(grant) => {
+            state.license_store.insert(grant.clone()).await;
+
+            // Phase 4.2 — DIP→TSP: forward license grant to grantee via DIP.
+            {
+                use dip::{DipEnvelope, DipKind, DipAddress, address::DipNetwork};
+                use sovereign_types::IdentityChain;
+                let payload = serde_json::to_value(&grant).unwrap_or(serde_json::Value::Null);
+                let gw   = state.dip_gateway.clone();
+                let did  = identity.did.clone();
+                let key  = identity.private_key.clone();
+                let dest = grantee_did.clone();
+                tokio::spawn(async move {
+                    let origin = DipAddress::vantage(&did);
+                    let destination = DipAddress {
+                        network: DipNetwork::Vantage,
+                        address: dest.clone(),
+                        did:     Some(dest.clone()),
+                    };
+                    let chain = IdentityChain::new(did.clone(), did.clone());
+                    if let Ok(env) = DipEnvelope::build(
+                        origin, destination, chain,
+                        DipKind::Message, payload, 300, &key,
+                    ) {
+                        gw.send(env).await;
+                    }
+                });
+            }
+
+            (StatusCode::CREATED, Json(serde_json::to_value(grant).unwrap())).into_response()
+        }
+        Err(e) => (StatusCode::BAD_REQUEST,
+            Json(json!({ "error": e.to_string() }))).into_response(),
+    }
+}
+
+async fn handle_license_list_for_twin(
+    State(state): State<NodeState>,
+    axum::extract::Path(twin_id): axum::extract::Path<String>,
+) -> impl IntoResponse {
+    let grants = state.license_store.for_twin(&twin_id).await;
+    Json(json!({ "grants": grants, "count": grants.len() }))
+}
+
+async fn handle_license_list(
+    State(state): State<NodeState>,
+    axum::extract::Query(params): axum::extract::Query<std::collections::HashMap<String, String>>,
+) -> impl IntoResponse {
+    let grants = if let Some(grantee) = params.get("grantee") {
+        state.license_store.for_grantee(grantee).await
+    } else {
+        state.license_store.all().await
+    };
+    Json(json!({ "grants": grants, "count": grants.len() }))
+}
+
+async fn handle_license_get(
+    State(state): State<NodeState>,
+    axum::extract::Path(grant_id): axum::extract::Path<String>,
+) -> impl IntoResponse {
+    match state.license_store.get(&grant_id).await {
+        Some(g) => Json(serde_json::to_value(g).unwrap()).into_response(),
+        None => (StatusCode::NOT_FOUND,
+            Json(json!({ "error": "grant_not_found", "grant_id": grant_id }))).into_response(),
+    }
+}
+
+#[derive(Debug, serde::Deserialize)]
+struct AcceptLicenseBody {
+    #[serde(default)]
+    grantee_sig: String,
+}
+
+async fn handle_license_accept(
+    State(state): State<NodeState>,
+    axum::extract::Path(grant_id): axum::extract::Path<String>,
+    Json(body): Json<AcceptLicenseBody>,
+) -> impl IntoResponse {
+    let sig = if body.grantee_sig.is_empty() {
+        format!("stub-accept:{grant_id}")
+    } else {
+        body.grantee_sig
+    };
+    match state.license_store.accept(&grant_id, sig).await {
+        Some(g) => Json(serde_json::to_value(g).unwrap()).into_response(),
+        None => (StatusCode::NOT_FOUND,
+            Json(json!({ "error": "grant_not_found", "grant_id": grant_id }))).into_response(),
+    }
+}
+
+// ── Cowrie Oracle + Emission handlers (Phase 45) ──────────────────────────────
+
+// GET /oracle/today
+async fn handle_oracle_today() -> impl IntoResponse {
+    use sovereign_types::{CowrieOracle, DailyEmission};
+    let now_secs = SystemTime::now()
+        .duration_since(UNIX_EPOCH).unwrap_or_default().as_secs();
+    let day = (now_secs / 86_400) as u32;
+    let result = CowrieOracle::query(day, "spatial");
+    let emission = DailyEmission::for_day(day, "spatial");
+    Json(json!({
+        "day":              day,
+        "tile_id":          result.tile_id,
+        "tile_index":       result.tile_index,
+        "seed_hash":        result.seed_hash,
+        "emission_cap":     emission.emission_cap,
+        "domain":           result.domain,
+    }))
+}
+
+// GET /oracle/day/:day
+async fn handle_oracle_day(
+    Path(day): Path<u32>,
+) -> impl IntoResponse {
+    use sovereign_types::{CowrieOracle, DailyEmission};
+    let result = CowrieOracle::query(day, "spatial");
+    let emission = DailyEmission::for_day(day, "spatial");
+    Json(json!({
+        "day":              day,
+        "tile_id":          result.tile_id,
+        "tile_index":       result.tile_index,
+        "seed_hash":        result.seed_hash,
+        "emission_cap":     emission.emission_cap,
+        "domain":           result.domain,
+    }))
+}
+
+// GET /emission/status
+async fn handle_emission_status(State(state): State<NodeState>) -> impl IntoResponse {
+    use twin_protocol::emission::{MICRO_ASE_PER_MINUTE, GENESIS_DIFFICULTY};
+    let allocator = state.emission_allocator.lock().await;
+    let pending   = state.pending_claims.lock().await.len();
+    let now_secs  = SystemTime::now()
+        .duration_since(UNIX_EPOCH).unwrap_or_default().as_secs();
+    let epoch_minute = now_secs / 60;
+    let difficulty = twin_protocol::emission::DailyEmissionAllocator::current_difficulty(epoch_minute);
+    let is_sabbath = twin_protocol::emission::DailyEmissionAllocator::is_sabbath(now_secs);
+    Json(json!({
+        "epoch_minute":         epoch_minute,
+        "micro_ase_per_minute": MICRO_ASE_PER_MINUTE,
+        "current_difficulty":   difficulty,
+        "genesis_difficulty":   GENESIS_DIFFICULTY,
+        "is_sabbath":           is_sabbath,
+        "chain_tip_hex":        hex::encode(allocator.chain_tip()),
+        "utxos_claimed":        allocator.utxos_claimed(),
+        "env_hash_count":       allocator.env_hash_count(),
+        "pending_claims":       pending,
+    }))
+}
+
+#[derive(serde::Deserialize)]
+struct EmissionClaimBody {
+    proof_id:         String,
+    worker_did:       String,
+    veil_id:          u16,
+    trajectory_hash:  String,   // hex-encoded 32 bytes
+    f1_score:         f64,
+    proof_value:      f64,
+    env_hash:         String,   // hex-encoded 32 bytes
+}
+
+// POST /emission/claim
+async fn handle_emission_claim(
+    State(state): State<NodeState>,
+    Json(body): Json<EmissionClaimBody>,
+) -> impl IntoResponse {
+    use twin_protocol::emission::ProofClaim;
+
+    let trajectory_bytes = hex::decode(&body.trajectory_hash).unwrap_or_default();
+    let env_bytes        = hex::decode(&body.env_hash).unwrap_or_default();
+    let mut traj = [0u8; 32];
+    let mut env  = [0u8; 32];
+    let tl = trajectory_bytes.len().min(32);
+    let el = env_bytes.len().min(32);
+    traj[..tl].copy_from_slice(&trajectory_bytes[..tl]);
+    env[..el].copy_from_slice(&env_bytes[..el]);
+
+    let now_secs = SystemTime::now()
+        .duration_since(UNIX_EPOCH).unwrap_or_default().as_secs();
+
+    let claim = ProofClaim {
+        proof_id:         body.proof_id,
+        worker_did:       body.worker_did,
+        veil_id:          body.veil_id,
+        epoch_minute:     now_secs / 60,
+        trajectory_hash:  traj,
+        f1_score:         body.f1_score.clamp(0.0, 1.0),
+        proof_value:      body.proof_value.clamp(0.0, 1.0),
+        env_hash:         env,
+    };
+
+    state.pending_claims.lock().await.push(claim.clone());
+    (StatusCode::ACCEPTED, Json(json!({
+        "queued":         true,
+        "proof_id":       claim.proof_id,
+        "epoch_minute":   claim.epoch_minute,
+        "f1_score":       claim.f1_score,
+    })))
+}
+
+// ── Sovereign Wallet handlers (Phase 46) ──────────────────────────────────────
+
+// GET /wallets
+async fn handle_wallets_list(State(state): State<NodeState>) -> impl IntoResponse {
+    let wallets = state.wallet_store.all().await;
+    Json(json!({ "count": wallets.len(), "wallets": wallets }))
+}
+
+// GET /wallets/:did
+async fn handle_wallet_get(
+    State(state): State<NodeState>,
+    Path(did): Path<String>,
+) -> impl IntoResponse {
+    let decoded_did = urlencoding::decode(&did).unwrap_or(std::borrow::Cow::Borrowed(&did)).into_owned();
+    match state.wallet_store.get(&decoded_did).await {
+        Some(w) => Json(serde_json::to_value(w).unwrap()).into_response(),
+        None    => (StatusCode::NOT_FOUND,
+            Json(json!({ "error": "wallet_not_found", "did": decoded_did }))).into_response(),
+    }
+}
+
+#[derive(serde::Deserialize)]
+struct WalletCreditBody {
+    amount_micro_ase: u64,
+    reason:           String,
+}
+
+// POST /wallets/:did/credit
+async fn handle_wallet_credit(
+    State(state): State<NodeState>,
+    Path(did): Path<String>,
+    Json(body): Json<WalletCreditBody>,
+) -> impl IntoResponse {
+    let decoded_did = urlencoding::decode(&did).unwrap_or(std::borrow::Cow::Borrowed(&did)).into_owned();
+    let balance = state.wallet_store.credit(&decoded_did, body.amount_micro_ase).await;
+    info!(did = %decoded_did, amount = body.amount_micro_ase, reason = %body.reason, "wallet credited");
+    Json(json!({
+        "did":             decoded_did,
+        "balance_micro_ase": balance,
+        "credited":        body.amount_micro_ase,
+    }))
 }

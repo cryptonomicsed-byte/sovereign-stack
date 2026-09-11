@@ -1,21 +1,4002 @@
 [
-  {"id": "veil:001", "name": "Ọkàn Alátùn-ún (The Restoring Force)", "category": "control", "description": "LQR stabilisation of a perturbed drone on a wind-shear gust. Minimize RMS deviation from hover.", "difficulty": 0.42, "veil_number": 1, "continent": "Ìgbó Ọ̀rún", "julia_fn": "lqr_controller", "params": {"plant": "quadrotor_6dof", "wind_speed_ms": 4.0, "target_rms_deg": 2.0}},
-  {"id": "veil:002", "name": "Ẹ̀gbẹ́ Ìdúróṣinṣin (Stability Alliance)", "category": "control", "description": "PID cascade for a ground vehicle traversing uneven terrain. Maintain ±5 cm altitude.", "difficulty": 0.38, "veil_number": 2, "continent": "Ìgbó Ọ̀rún", "julia_fn": "pid_controller", "params": {"terrain": "rough_outdoor", "max_slope_deg": 15}},
-  {"id": "veil:003", "name": "Ẹ̀rọ Ìpẹ̀sẹ̀ (Preparation Engine)", "category": "control", "description": "Model-predictive control for a 3-joint robotic arm approaching a moving target.", "difficulty": 0.51, "veil_number": 3, "continent": "Ìgbó Ọ̀rún", "julia_fn": "mpc_arm", "params": {"joints": 3, "target_speed_ms": 0.3}},
-  {"id": "veil:004", "name": "Ìmọ̀ Àárọ̀ (Dawn Knowledge)", "category": "control", "description": "Kalman filter fusion of IMU + barometer for altitude hold without GPS.", "difficulty": 0.44, "veil_number": 4, "continent": "Ìgbó Ọ̀rún", "julia_fn": "kalman_filter", "params": {"sensors": ["imu", "baro"], "update_hz": 100}},
-  {"id": "veil:005", "name": "Irú Àgbára (Nature of Power)", "category": "control", "description": "Bang-bang control for minimum-time maneuver between two waypoints. Fuel constraint.", "difficulty": 0.46, "veil_number": 5, "continent": "Ìgbó Ọ̀rún", "julia_fn": "bangbang_control", "params": {"fuel_limit_j": 500.0, "waypoints": 2}},
-  {"id": "veil:026", "name": "Ìkẹ́kọ̀ọ́ Àyọ̀ (Joyful Learning)", "category": "ml", "description": "Policy gradient on drone navigation in sparse-reward maze. 50 episodes.", "difficulty": 0.58, "veil_number": 26, "continent": "Aṣọdun", "julia_fn": "policy_gradient", "params": {"episodes": 50, "maze_size": 8, "sparse_reward": true}},
-  {"id": "veil:027", "name": "Ìmọ̀ Ìtẹ̀lọ́rùn (Knowledge of Satisfaction)", "category": "ml", "description": "Q-learning for multi-step object sorting with delayed reward signal.", "difficulty": 0.61, "veil_number": 27, "continent": "Aṣọdun", "julia_fn": "q_learning", "params": {"objects": 5, "delay_steps": 10}},
-  {"id": "veil:028", "name": "Ẹ̀kọ́ Agbára (Power Learning)", "category": "ml", "description": "Proximal Policy Optimization for bipedal walking on sloped terrain.", "difficulty": 0.67, "veil_number": 28, "continent": "Aṣọdun", "julia_fn": "ppo_biped", "params": {"terrain_slope_max": 20, "target_velocity_ms": 1.5}},
-  {"id": "veil:076", "name": "Omi Ìmọ̀ (Water of Knowledge)", "category": "physics", "description": "Navier-Stokes fluid drag simulation for underwater drone at Re=10^4.", "difficulty": 0.53, "veil_number": 76, "continent": "Omi Àgbàdo", "julia_fn": "ode_solver", "params": {"Re": 10000, "fluid": "water", "timesteps": 1000}},
-  {"id": "veil:077", "name": "Ìgbà Àfikún (Time of Addition)", "category": "physics", "description": "Rigid body impact simulation — drone collision avoidance in dense obstacle field.", "difficulty": 0.55, "veil_number": 77, "continent": "Omi Àgbàdo", "julia_fn": "rigid_body_impact", "params": {"obstacle_density": 0.3, "drone_mass_kg": 1.2}},
-  {"id": "veil:151", "name": "Ìlú Àárẹ̀ (Ruler's City)", "category": "robotics", "description": "Inverse kinematics for 6-DOF arm: reach 100 random targets within tolerance 1mm.", "difficulty": 0.62, "veil_number": 151, "continent": "Ilẹ̀ Àárẹ̀", "julia_fn": "inverse_kinematics", "params": {"dof": 6, "targets": 100, "tolerance_mm": 1.0}},
-  {"id": "veil:152", "name": "Ìgbẹ́kẹ̀lé Ọba (King's Trust)", "category": "robotics", "description": "RRT* path planning in 3D obstacle environment with moving objects.", "difficulty": 0.65, "veil_number": 152, "continent": "Ilẹ̀ Àárẹ̀", "julia_fn": "rrt_star", "params": {"obstacles": 30, "moving_obstacles": 5, "dimensions": 3}},
-  {"id": "veil:251", "name": "Ojú Tí Ó Ní Ìmọ̀ (Eye That Has Knowledge)", "category": "perception", "description": "Visual SLAM loop closure in a 200m corridor with repeated textures.", "difficulty": 0.60, "veil_number": 251, "continent": "Ojú Ọ̀run", "julia_fn": "optical_flow", "params": {"corridor_length_m": 200, "repeated_texture": true}},
-  {"id": "veil:252", "name": "Àárọ̀ Ojú (Dawn of the Eye)", "category": "perception", "description": "Object detection and 3D localisation in low-light conditions (lux < 10).", "difficulty": 0.63, "veil_number": 252, "continent": "Ojú Ọ̀run", "julia_fn": "low_light_detection", "params": {"lux": 8, "objects_to_find": 5}},
-  {"id": "veil:401", "name": "Àpéjọ Àgbẹ̀dẹ̀ (Gathering of Smiths)", "category": "swarm", "description": "Flocking consensus for 12-drone swarm maintaining formation through narrow gap.", "difficulty": 0.68, "veil_number": 401, "continent": "Ipàdé Àgbẹ̀dẹ̀", "julia_fn": "flocking_sim", "params": {"agents": 12, "gap_width_m": 3.0}},
-  {"id": "veil:402", "name": "Ìṣọ̀kan Agbára (Unity of Power)", "category": "swarm", "description": "Byzantine fault-tolerant consensus among 7 nodes with 2 adversarial agents.", "difficulty": 0.72, "veil_number": 402, "continent": "Ipàdé Àgbẹ̀dẹ̀", "julia_fn": "byzantine_consensus", "params": {"total_nodes": 7, "adversarial": 2, "threshold": 5}},
-  {"id": "veil:601", "name": "Ìlú Àánú (City of Grace)", "category": "embodiment", "description": "Sim-to-real policy transfer: trained in sim on flat floor, deployed on rough terrain.", "difficulty": 0.74, "veil_number": 601, "continent": "Ilẹ̀ Àánú", "julia_fn": "lqr_controller", "params": {"sim_terrain": "flat", "real_terrain": "rough", "transfer_gap": 0.3}},
-  {"id": "veil:602", "name": "Ìmọ̀ Ara (Body Knowledge)", "category": "embodiment", "description": "Proprioceptive state estimation with partial sensor failure (2 of 6 IMU axes failed).", "difficulty": 0.70, "veil_number": 602, "continent": "Ilẹ̀ Àánú", "julia_fn": "proprioceptive_estimation", "params": {"failed_axes": 2, "recovery_time_ms": 500}},
-  {"id": "veil:777", "name": "Ẹbọ Àánú (Offering of Grace)", "category": "embodiment", "description": "The final Veil. Full embodied autonomy trial: complete a 10-task mission sequence without human intervention.", "difficulty": 0.99, "veil_number": 777, "continent": "Ilẹ̀ Àánú", "julia_fn": "full_autonomy_trial", "params": {"tasks": 10, "human_intervention_allowed": false, "time_limit_s": 600}}
+  {
+    "id": "veil:001",
+    "veil_number": 1,
+    "name": "Ọkàn Alátùn-ún",
+    "technical_name": "PID Controller",
+    "equation": "u(t) = Kp·e(t) + Ki∫e(t)dt + Kd·de/dt",
+    "category": "control_systems",
+    "description": "Tune PID gains to stabilise a 6-DOF drone in wind shear. RMS < 2°.",
+    "difficulty": 0.42,
+    "continent": "Ìgbó Ọ̀rún",
+    "ffi_language": "Julia",
+    "julia_fn": "pid_controller",
+    "tags": [
+      "control",
+      "linear",
+      "feedback"
+    ],
+    "parameters": [],
+    "outputs": []
+  },
+  {
+    "id": "veil:002",
+    "veil_number": 2,
+    "name": "Ìmọ̀ Àárọ̀",
+    "technical_name": "Kalman Filter",
+    "equation": "x̂k = x̂k-1 + Kk(zk - Hx̂k-1)",
+    "category": "control_systems",
+    "description": "Fuse IMU + barometer for GPS-denied altitude hold. RMSE < 0.05 m.",
+    "difficulty": 0.44,
+    "continent": "Ìgbó Ọ̀rún",
+    "ffi_language": "Julia",
+    "julia_fn": "kalman_filter",
+    "tags": [
+      "estimation",
+      "fusion",
+      "linear"
+    ],
+    "parameters": [],
+    "outputs": []
+  },
+  {
+    "id": "veil:003",
+    "veil_number": 3,
+    "name": "Ẹ̀gbẹ́ Ìdúróṣinṣin",
+    "technical_name": "LQR Control",
+    "equation": "u = -Kx where K = R⁻¹BᵀP",
+    "category": "control_systems",
+    "description": "LQR stabilisation of inverted pendulum on cart. Settle in < 3 s.",
+    "difficulty": 0.48,
+    "continent": "Ìgbó Ọ̀rún",
+    "ffi_language": "Julia",
+    "julia_fn": "lqr_controller",
+    "tags": [
+      "control",
+      "optimal",
+      "linear"
+    ],
+    "parameters": [],
+    "outputs": []
+  },
+  {
+    "id": "veil:004",
+    "veil_number": 4,
+    "name": "Ìpìlẹ̀ Ìmọ̀",
+    "technical_name": "State Space",
+    "equation": "ẋ = Ax + Bu, y = Cx + Du",
+    "category": "control_systems",
+    "description": "Model a DC motor drive system in state-space and verify step response.",
+    "difficulty": 0.4,
+    "continent": "Ìgbó Ọ̀rún",
+    "ffi_language": "Julia",
+    "julia_fn": "state_space",
+    "tags": [
+      "control",
+      "linear",
+      "modeling"
+    ],
+    "parameters": [],
+    "outputs": []
+  },
+  {
+    "id": "veil:005",
+    "veil_number": 5,
+    "name": "Ẹ̀rọ Ìpẹ̀sẹ̀",
+    "technical_name": "Transfer Function",
+    "equation": "G(s) = Y(s)/U(s)",
+    "category": "control_systems",
+    "description": "Derive transfer function for quadrotor altitude and verify Bode margins.",
+    "difficulty": 0.41,
+    "continent": "Ìgbó Ọ̀rún",
+    "ffi_language": "Julia",
+    "julia_fn": "transfer_fn",
+    "tags": [
+      "control",
+      "frequency",
+      "linear"
+    ],
+    "parameters": [],
+    "outputs": []
+  },
+  {
+    "id": "veil:006",
+    "veil_number": 6,
+    "name": "Ipò Ìmọ̀",
+    "technical_name": "Pole Placement",
+    "equation": "det(sI - A + BK) = desired polynomial",
+    "category": "control_systems",
+    "description": "Place closed-loop poles for a 3-state system meeting settling time spec.",
+    "difficulty": 0.45,
+    "continent": "Ìgbó Ọ̀rún",
+    "ffi_language": "Julia",
+    "julia_fn": "pole_placement",
+    "tags": [
+      "control",
+      "design",
+      "linear"
+    ],
+    "parameters": [],
+    "outputs": []
+  },
+  {
+    "id": "veil:007",
+    "veil_number": 7,
+    "name": "Ojú Ìmọ̀",
+    "technical_name": "Observer Design",
+    "equation": "L = PcᵀR⁻¹",
+    "category": "control_systems",
+    "description": "Design Luenberger observer for partial-state feedback. Estimate error < 5%.",
+    "difficulty": 0.47,
+    "continent": "Ìgbó Ọ̀rún",
+    "ffi_language": "Julia",
+    "julia_fn": "observer_design",
+    "tags": [
+      "estimation",
+      "observer",
+      "linear"
+    ],
+    "parameters": [],
+    "outputs": []
+  },
+  {
+    "id": "veil:008",
+    "veil_number": 8,
+    "name": "Ẹ̀rọ Ìpinnu",
+    "technical_name": "Model Predictive Control",
+    "equation": "min J = Σ(||x||²Q + ||u||²R)",
+    "category": "control_systems",
+    "description": "MPC for 3-joint arm approaching moving target at 0.3 m/s.",
+    "difficulty": 0.55,
+    "continent": "Ìgbó Ọ̀rún",
+    "ffi_language": "Julia",
+    "julia_fn": "mpc_controller",
+    "tags": [
+      "control",
+      "optimal",
+      "predictive"
+    ],
+    "parameters": [],
+    "outputs": []
+  },
+  {
+    "id": "veil:009",
+    "veil_number": 9,
+    "name": "Ọ̀nà Ìdánilójú",
+    "technical_name": "Sliding Mode Control",
+    "equation": "s = cx̃ + ẋ̃, u = -K·sign(s)",
+    "category": "control_systems",
+    "description": "SMC for robust drone attitude under 20% parameter uncertainty.",
+    "difficulty": 0.52,
+    "continent": "Ìgbó Ọ̀rún",
+    "ffi_language": "Julia",
+    "julia_fn": "sliding_mode",
+    "tags": [
+      "control",
+      "robust",
+      "nonlinear"
+    ],
+    "parameters": [],
+    "outputs": []
+  },
+  {
+    "id": "veil:010",
+    "veil_number": 10,
+    "name": "Ìkọ́ Àgbáye",
+    "technical_name": "Adaptive Control",
+    "equation": "θ̇ = -Γeᵀφ",
+    "category": "control_systems",
+    "description": "Adaptive controller for robot arm with unknown payload mass.",
+    "difficulty": 0.56,
+    "continent": "Ìgbó Ọ̀rún",
+    "ffi_language": "Julia",
+    "julia_fn": "adaptive_control",
+    "tags": [
+      "control",
+      "adaptive",
+      "nonlinear"
+    ],
+    "parameters": [],
+    "outputs": []
+  },
+  {
+    "id": "veil:011",
+    "veil_number": 11,
+    "name": "Àgbára Àìdásí",
+    "technical_name": "H∞ Control",
+    "equation": "||T||∞ < γ",
+    "category": "control_systems",
+    "description": "H∞ robust controller for flexible spacecraft attitude.",
+    "difficulty": 0.6,
+    "continent": "Ìgbó Ọ̀rún",
+    "ffi_language": "Julia",
+    "julia_fn": "hinf_control",
+    "tags": [
+      "control",
+      "robust",
+      "frequency"
+    ],
+    "parameters": [],
+    "outputs": []
+  },
+  {
+    "id": "veil:012",
+    "veil_number": 12,
+    "name": "Ìdúróṣinṣin Àgbáye",
+    "technical_name": "Robust Control",
+    "equation": "μ-synthesis",
+    "category": "control_systems",
+    "description": "μ-synthesis for a multi-variable chemical reactor with structured uncertainty.",
+    "difficulty": 0.62,
+    "continent": "Ìgbó Ọ̀rún",
+    "ffi_language": "Julia",
+    "julia_fn": "robust_mu",
+    "tags": [
+      "control",
+      "robust",
+      "multivariable"
+    ],
+    "parameters": [],
+    "outputs": []
+  },
+  {
+    "id": "veil:013",
+    "veil_number": 13,
+    "name": "Ọkàn Àkókò",
+    "technical_name": "Discrete PID",
+    "equation": "uk = uk-1 + Kp(ek - ek-1) + Kiek + Kd(ek - 2ek-1 + ek-2)",
+    "category": "control_systems",
+    "description": "Discrete PID at 100 Hz for temperature loop in embedded system.",
+    "difficulty": 0.39,
+    "continent": "Ìgbó Ọ̀rún",
+    "ffi_language": "Rust",
+    "julia_fn": "discrete_pid",
+    "tags": [
+      "control",
+      "discrete",
+      "embedded"
+    ],
+    "parameters": [],
+    "outputs": []
+  },
+  {
+    "id": "veil:014",
+    "veil_number": 14,
+    "name": "Ìjókòó Ìpari",
+    "technical_name": "Deadbeat Control",
+    "equation": "ym = r in minimum steps",
+    "category": "control_systems",
+    "description": "Deadbeat controller for DC servo: reach setpoint in exactly 4 samples.",
+    "difficulty": 0.44,
+    "continent": "Ìgbó Ọ̀rún",
+    "ffi_language": "Julia",
+    "julia_fn": "deadbeat_control",
+    "tags": [
+      "control",
+      "discrete",
+      "optimal"
+    ],
+    "parameters": [],
+    "outputs": []
+  },
+  {
+    "id": "veil:015",
+    "veil_number": 15,
+    "name": "Asọtẹlẹ Àkókò",
+    "technical_name": "Smith Predictor",
+    "equation": "Gc(s) = Gp(s)/(1 + Gp(s)Gm(s)(1 - e^-Tds))",
+    "category": "control_systems",
+    "description": "Smith predictor for process with 2 s pure delay. Overshoot < 10%.",
+    "difficulty": 0.5,
+    "continent": "Ìgbó Ọ̀rún",
+    "ffi_language": "Julia",
+    "julia_fn": "smith_predictor",
+    "tags": [
+      "control",
+      "delay",
+      "prediction"
+    ],
+    "parameters": [],
+    "outputs": []
+  },
+  {
+    "id": "veil:016",
+    "veil_number": 16,
+    "name": "Ìmọ̀ Inú",
+    "technical_name": "Internal Model Control",
+    "equation": "Q(s) = Gp^-1(s)F(s)",
+    "category": "control_systems",
+    "description": "IMC for SISO plant with measurement noise. Robustness analysis.",
+    "difficulty": 0.49,
+    "continent": "Ìgbó Ọ̀rún",
+    "ffi_language": "Julia",
+    "julia_fn": "imc_controller",
+    "tags": [
+      "control",
+      "internal_model",
+      "robust"
+    ],
+    "parameters": [],
+    "outputs": []
+  },
+  {
+    "id": "veil:017",
+    "veil_number": 17,
+    "name": "Ìmọ̀ Àṣà",
+    "technical_name": "Fuzzy Logic Control",
+    "equation": "u(x) membership functions",
+    "category": "control_systems",
+    "description": "Fuzzy controller for inverted pendulum. Compare with PID baseline.",
+    "difficulty": 0.46,
+    "continent": "Ìgbó Ọ̀rún",
+    "ffi_language": "Python",
+    "julia_fn": "fuzzy_control",
+    "tags": [
+      "control",
+      "fuzzy",
+      "nonlinear"
+    ],
+    "parameters": [],
+    "outputs": []
+  },
+  {
+    "id": "veil:018",
+    "veil_number": 18,
+    "name": "Ọpọlọ Ẹ̀rọ",
+    "technical_name": "Neural Network Control",
+    "equation": "u = NN(x,W)",
+    "category": "control_systems",
+    "description": "NN policy for cart-pole balance. Train 500 episodes, eval stability.",
+    "difficulty": 0.58,
+    "continent": "Ìgbó Ọ̀rún",
+    "ffi_language": "Python",
+    "julia_fn": "nn_control",
+    "tags": [
+      "control",
+      "neural",
+      "learning"
+    ],
+    "parameters": [],
+    "outputs": []
+  },
+  {
+    "id": "veil:019",
+    "veil_number": 19,
+    "name": "Ìyípadà Àṣẹ",
+    "technical_name": "Gain Scheduling",
+    "equation": "K(p) parameter-dependent gains",
+    "category": "control_systems",
+    "description": "Gain-scheduled controller for aircraft across 3 flight envelopes.",
+    "difficulty": 0.51,
+    "continent": "Ìgbó Ọ̀rún",
+    "ffi_language": "Julia",
+    "julia_fn": "gain_schedule",
+    "tags": [
+      "control",
+      "scheduling",
+      "nonlinear"
+    ],
+    "parameters": [],
+    "outputs": []
+  },
+  {
+    "id": "veil:020",
+    "veil_number": 20,
+    "name": "Ìdènà Ìkóra",
+    "technical_name": "Anti-Windup",
+    "equation": "Conditional integration",
+    "category": "control_systems",
+    "description": "Anti-windup PID for actuator-saturated chemical reactor.",
+    "difficulty": 0.43,
+    "continent": "Ìgbó Ọ̀rún",
+    "ffi_language": "Julia",
+    "julia_fn": "anti_windup",
+    "tags": [
+      "control",
+      "saturation",
+      "practical"
+    ],
+    "parameters": [],
+    "outputs": []
+  },
+  {
+    "id": "veil:021",
+    "veil_number": 21,
+    "name": "Ìdarí Ìṣàájú",
+    "technical_name": "Feedforward Control",
+    "equation": "uff = Gff^-1 * r",
+    "category": "control_systems",
+    "description": "Feedforward + feedback for high-bandwidth motion stage. Tracking < 10 um.",
+    "difficulty": 0.47,
+    "continent": "Ìgbó Ọ̀rún",
+    "ffi_language": "Julia",
+    "julia_fn": "feedforward_control",
+    "tags": [
+      "control",
+      "feedforward",
+      "tracking"
+    ],
+    "parameters": [],
+    "outputs": []
+  },
+  {
+    "id": "veil:022",
+    "veil_number": 22,
+    "name": "Ẹ̀ka Ìdarí",
+    "technical_name": "Cascade Control",
+    "equation": "Inner/outer loop structure",
+    "category": "control_systems",
+    "description": "Cascade PID for quadrotor: inner attitude loop, outer position loop.",
+    "difficulty": 0.5,
+    "continent": "Ìgbó Ọ̀rún",
+    "ffi_language": "Julia",
+    "julia_fn": "cascade_control",
+    "tags": [
+      "control",
+      "cascade",
+      "hierarchy"
+    ],
+    "parameters": [],
+    "outputs": []
+  },
+  {
+    "id": "veil:023",
+    "veil_number": 23,
+    "name": "Ìpín Ìdarí",
+    "technical_name": "Ratio Control",
+    "equation": "u = K(r1/r2)",
+    "category": "control_systems",
+    "description": "Ratio controller for fuel-air mixture in combustion system.",
+    "difficulty": 0.38,
+    "continent": "Ìgbó Ọ̀rún",
+    "ffi_language": "Julia",
+    "julia_fn": "ratio_control",
+    "tags": [
+      "control",
+      "ratio",
+      "process"
+    ],
+    "parameters": [],
+    "outputs": []
+  },
+  {
+    "id": "veil:024",
+    "veil_number": 24,
+    "name": "Àṣẹ Àkọ́kọ́",
+    "technical_name": "Override Control",
+    "equation": "u = min/max(u1,u2)",
+    "category": "control_systems",
+    "description": "Override control for dual-mode HVAC system.",
+    "difficulty": 0.37,
+    "continent": "Ìgbó Ọ̀rún",
+    "ffi_language": "Julia",
+    "julia_fn": "override_control",
+    "tags": [
+      "control",
+      "override",
+      "safety"
+    ],
+    "parameters": [],
+    "outputs": []
+  },
+  {
+    "id": "veil:025",
+    "veil_number": 25,
+    "name": "Ìpín Ẹ̀rọ",
+    "technical_name": "Split Range Control",
+    "equation": "Multiple actuators",
+    "category": "control_systems",
+    "description": "Split-range valve control for wide-range flow across two valves.",
+    "difficulty": 0.4,
+    "continent": "Ìgbó Ọ̀rún",
+    "ffi_language": "Julia",
+    "julia_fn": "split_range",
+    "tags": [
+      "control",
+      "split",
+      "actuators"
+    ],
+    "parameters": [],
+    "outputs": []
+  },
+  {
+    "id": "veil:026",
+    "veil_number": 26,
+    "name": "Ìkọ́ Àánú",
+    "technical_name": "Gradient Descent",
+    "equation": "theta = theta - alpha * grad_J(theta)",
+    "category": "ml_ai",
+    "description": "Gradient descent on non-convex loss landscape. Escape local minima count.",
+    "difficulty": 0.45,
+    "continent": "Aṣọdun",
+    "ffi_language": "Python",
+    "julia_fn": "gradient_descent",
+    "tags": [
+      "optimization",
+      "learning",
+      "first_order"
+    ],
+    "parameters": [],
+    "outputs": []
+  },
+  {
+    "id": "veil:027",
+    "veil_number": 27,
+    "name": "Ìkọ́ Ìpadà",
+    "technical_name": "Backpropagation",
+    "equation": "delta_l = ((W_l+1)^T * delta_l+1) hadamard sigma'(z_l)",
+    "category": "ml_ai",
+    "description": "Backprop through 5-layer MLP. Verify gradient flow, no vanishing.",
+    "difficulty": 0.5,
+    "continent": "Aṣọdun",
+    "ffi_language": "Python",
+    "julia_fn": "backprop",
+    "tags": [
+      "neural",
+      "learning",
+      "gradient"
+    ],
+    "parameters": [],
+    "outputs": []
+  },
+  {
+    "id": "veil:028",
+    "veil_number": 28,
+    "name": "Adamu Ìmọ̀",
+    "technical_name": "Adam Optimizer",
+    "equation": "m_t = b1*m_t-1 + (1-b1)*g_t",
+    "category": "ml_ai",
+    "description": "Adam vs SGD convergence on MNIST. Measure steps to 99% accuracy.",
+    "difficulty": 0.47,
+    "continent": "Aṣọdun",
+    "ffi_language": "Python",
+    "julia_fn": "adam_optimizer",
+    "tags": [
+      "optimization",
+      "adaptive",
+      "learning"
+    ],
+    "parameters": [],
+    "outputs": []
+  },
+  {
+    "id": "veil:029",
+    "veil_number": 29,
+    "name": "Ìpín Agbára",
+    "technical_name": "RMSprop",
+    "equation": "v_t = b2*v_t-1 + (1-b2)*g_t^2",
+    "category": "ml_ai",
+    "description": "RMSprop for RNN training on sequence. Compare gradient variance.",
+    "difficulty": 0.46,
+    "continent": "Aṣọdun",
+    "ffi_language": "Python",
+    "julia_fn": "rmsprop",
+    "tags": [
+      "optimization",
+      "adaptive",
+      "learning"
+    ],
+    "parameters": [],
+    "outputs": []
+  },
+  {
+    "id": "veil:030",
+    "veil_number": 30,
+    "name": "Àdánù Ìdáríjì",
+    "technical_name": "Cross-Entropy Loss",
+    "equation": "L = -sum(y_i * log(y_hat_i))",
+    "category": "ml_ai",
+    "description": "Multi-class classification: optimize cross-entropy on 10-class problem.",
+    "difficulty": 0.43,
+    "continent": "Aṣọdun",
+    "ffi_language": "Python",
+    "julia_fn": "cross_entropy",
+    "tags": [
+      "loss",
+      "classification",
+      "neural"
+    ],
+    "parameters": [],
+    "outputs": []
+  },
+  {
+    "id": "veil:031",
+    "veil_number": 31,
+    "name": "Àsàyàn Ìjìnlẹ̀",
+    "technical_name": "Mean Squared Error",
+    "equation": "MSE = (1/n)*sum((y_i - y_hat_i)^2)",
+    "category": "ml_ai",
+    "description": "MSE regression on noisy sensor readings. Train to RMSE < 0.01.",
+    "difficulty": 0.4,
+    "continent": "Aṣọdun",
+    "ffi_language": "Python",
+    "julia_fn": "mse_regression",
+    "tags": [
+      "loss",
+      "regression",
+      "metrics"
+    ],
+    "parameters": [],
+    "outputs": []
+  },
+  {
+    "id": "veil:032",
+    "veil_number": 32,
+    "name": "Ìpín Ìgbàgbọ́",
+    "technical_name": "Softmax",
+    "equation": "sigma(z_i) = e^z_i / sum(e^z_j)",
+    "category": "ml_ai",
+    "description": "Softmax temperature scaling for calibration. ECE < 0.02.",
+    "difficulty": 0.42,
+    "continent": "Aṣọdun",
+    "ffi_language": "Python",
+    "julia_fn": "softmax",
+    "tags": [
+      "classification",
+      "probability",
+      "neural"
+    ],
+    "parameters": [],
+    "outputs": []
+  },
+  {
+    "id": "veil:033",
+    "veil_number": 33,
+    "name": "Ìmọ̀ Ìgbésí",
+    "technical_name": "ReLU",
+    "equation": "f(x) = max(0,x)",
+    "category": "ml_ai",
+    "description": "ReLU vs Leaky-ReLU in deep network. Dead neuron analysis.",
+    "difficulty": 0.38,
+    "continent": "Aṣọdun",
+    "ffi_language": "Python",
+    "julia_fn": "relu_activation",
+    "tags": [
+      "activation",
+      "neural",
+      "nonlinear"
+    ],
+    "parameters": [],
+    "outputs": []
+  },
+  {
+    "id": "veil:034",
+    "veil_number": 34,
+    "name": "Ìpadà Ìgbésí",
+    "technical_name": "Sigmoid",
+    "equation": "sigma(x) = 1/(1+e^-x)",
+    "category": "ml_ai",
+    "description": "Sigmoid gate in LSTM. Saturation region analysis under large inputs.",
+    "difficulty": 0.39,
+    "continent": "Aṣọdun",
+    "ffi_language": "Python",
+    "julia_fn": "sigmoid",
+    "tags": [
+      "activation",
+      "neural",
+      "gate"
+    ],
+    "parameters": [],
+    "outputs": []
+  },
+  {
+    "id": "veil:035",
+    "veil_number": 35,
+    "name": "Ìdàgbà Ìmọ̀",
+    "technical_name": "Tanh",
+    "equation": "tanh(x) = (e^x - e^-x)/(e^x + e^-x)",
+    "category": "ml_ai",
+    "description": "Tanh vs ReLU in shallow network on regression task.",
+    "difficulty": 0.39,
+    "continent": "Aṣọdun",
+    "ffi_language": "Python",
+    "julia_fn": "tanh_activation",
+    "tags": [
+      "activation",
+      "neural",
+      "symmetric"
+    ],
+    "parameters": [],
+    "outputs": []
+  },
+  {
+    "id": "veil:036",
+    "veil_number": 36,
+    "name": "Ìforukọ Àánú",
+    "technical_name": "Dropout",
+    "equation": "y_i = r_i * x_i where r_i ~ Bernoulli(p)",
+    "category": "ml_ai",
+    "description": "Dropout rate search: find p that minimises validation loss on overfit dataset.",
+    "difficulty": 0.44,
+    "continent": "Aṣọdun",
+    "ffi_language": "Python",
+    "julia_fn": "dropout",
+    "tags": [
+      "regularization",
+      "neural",
+      "stochastic"
+    ],
+    "parameters": [],
+    "outputs": []
+  },
+  {
+    "id": "veil:037",
+    "veil_number": 37,
+    "name": "Ìdọgbà Ìmọ̀",
+    "technical_name": "Batch Normalization",
+    "equation": "y_hat = gamma*((x-mu)/sigma) + beta",
+    "category": "ml_ai",
+    "description": "Batch norm ablation: training stability with/without BN on 10-layer net.",
+    "difficulty": 0.46,
+    "continent": "Aṣọdun",
+    "ffi_language": "Python",
+    "julia_fn": "batch_norm",
+    "tags": [
+      "normalization",
+      "neural",
+      "training"
+    ],
+    "parameters": [],
+    "outputs": []
+  },
+  {
+    "id": "veil:038",
+    "veil_number": 38,
+    "name": "Irántí Gígùn",
+    "technical_name": "LSTM Gate",
+    "equation": "f_t = sigma(W_f*[h_t-1,x_t] + b_f)",
+    "category": "ml_ai",
+    "description": "LSTM for time-series anomaly detection in IoT sensor stream.",
+    "difficulty": 0.55,
+    "continent": "Aṣọdun",
+    "ffi_language": "Python",
+    "julia_fn": "lstm_gate",
+    "tags": [
+      "recurrent",
+      "memory",
+      "sequence"
+    ],
+    "parameters": [],
+    "outputs": []
+  },
+  {
+    "id": "veil:039",
+    "veil_number": 39,
+    "name": "Ẹnu Irántí",
+    "technical_name": "GRU",
+    "equation": "z_t = sigma(W_z*[h_t-1,x_t])",
+    "category": "ml_ai",
+    "description": "GRU vs LSTM on drone telemetry prediction. Params vs accuracy tradeoff.",
+    "difficulty": 0.53,
+    "continent": "Aṣọdun",
+    "ffi_language": "Python",
+    "julia_fn": "gru",
+    "tags": [
+      "recurrent",
+      "memory",
+      "sequence"
+    ],
+    "parameters": [],
+    "outputs": []
+  },
+  {
+    "id": "veil:040",
+    "veil_number": 40,
+    "name": "Ìfẹ́ Ìdarí",
+    "technical_name": "Attention",
+    "equation": "Attention(Q,K,V) = softmax(QK^T/sqrt(d_k))V",
+    "category": "ml_ai",
+    "description": "Attention for multi-sensor fusion. Cross-attention alignment score.",
+    "difficulty": 0.58,
+    "continent": "Aṣọdun",
+    "ffi_language": "Python",
+    "julia_fn": "attention",
+    "tags": [
+      "attention",
+      "transformer",
+      "neural"
+    ],
+    "parameters": [],
+    "outputs": []
+  },
+  {
+    "id": "veil:041",
+    "veil_number": 41,
+    "name": "Àyípadà Ojú",
+    "technical_name": "Transformer",
+    "equation": "MultiHead(Q,K,V) = Concat(head_1,...,head_h)W_O",
+    "category": "ml_ai",
+    "description": "Vision Transformer on 32x32 image patches for obstacle classification.",
+    "difficulty": 0.63,
+    "continent": "Aṣọdun",
+    "ffi_language": "Python",
+    "julia_fn": "transformer",
+    "tags": [
+      "transformer",
+      "attention",
+      "vision"
+    ],
+    "parameters": [],
+    "outputs": []
+  },
+  {
+    "id": "veil:042",
+    "veil_number": 42,
+    "name": "Ọ̀nà Ìpadà",
+    "technical_name": "ResNet",
+    "equation": "F(x) = H(x) - x",
+    "category": "ml_ai",
+    "description": "ResNet skip connections: measure gradient norm vs depth. Verify no vanishing.",
+    "difficulty": 0.55,
+    "continent": "Aṣọdun",
+    "ffi_language": "Python",
+    "julia_fn": "resnet_residual",
+    "tags": [
+      "neural",
+      "residual",
+      "deep"
+    ],
+    "parameters": [],
+    "outputs": []
+  },
+  {
+    "id": "veil:043",
+    "veil_number": 43,
+    "name": "Àpapọ̀ Ìdárayá",
+    "technical_name": "Convolution",
+    "equation": "(f * g)(t) = integral f(tau)*g(t-tau) dtau",
+    "category": "ml_ai",
+    "description": "CNN feature extraction on depth images. Max pooling stride search.",
+    "difficulty": 0.5,
+    "continent": "Aṣọdun",
+    "ffi_language": "Python",
+    "julia_fn": "convolution",
+    "tags": [
+      "neural",
+      "spatial",
+      "feature"
+    ],
+    "parameters": [],
+    "outputs": []
+  },
+  {
+    "id": "veil:044",
+    "veil_number": 44,
+    "name": "Ìkóra Àkókò",
+    "technical_name": "Pooling",
+    "equation": "Max/Average pooling operations",
+    "category": "ml_ai",
+    "description": "Global average pooling vs max pooling for classification accuracy.",
+    "difficulty": 0.4,
+    "continent": "Aṣọdun",
+    "ffi_language": "Python",
+    "julia_fn": "pooling",
+    "tags": [
+      "neural",
+      "downsampling",
+      "spatial"
+    ],
+    "parameters": [],
+    "outputs": []
+  },
+  {
+    "id": "veil:045",
+    "veil_number": 45,
+    "name": "Ìmọ̀ Ìpàdé",
+    "technical_name": "L1 Regularization",
+    "equation": "lambda * sum(|w_i|)",
+    "category": "ml_ai",
+    "description": "L1 regularisation inducing sparsity in robot state estimator.",
+    "difficulty": 0.43,
+    "continent": "Aṣọdun",
+    "ffi_language": "Python",
+    "julia_fn": "l1_reg",
+    "tags": [
+      "regularization",
+      "sparsity",
+      "optimization"
+    ],
+    "parameters": [],
+    "outputs": []
+  },
+  {
+    "id": "veil:046",
+    "veil_number": 46,
+    "name": "Ìmọ̀ Ìpẹ̀lú",
+    "technical_name": "L2 Regularization",
+    "equation": "lambda * sum(w_i^2)",
+    "category": "ml_ai",
+    "description": "L2 weight decay vs dropout: generalisation gap on validation set.",
+    "difficulty": 0.42,
+    "continent": "Aṣọdun",
+    "ffi_language": "Python",
+    "julia_fn": "l2_reg",
+    "tags": [
+      "regularization",
+      "weight_decay",
+      "optimization"
+    ],
+    "parameters": [],
+    "outputs": []
+  },
+  {
+    "id": "veil:047",
+    "veil_number": 47,
+    "name": "Ẹ̀rọ Ìkápọ̀",
+    "technical_name": "Elastic Net",
+    "equation": "a1*sum(|w_i|) + a2*sum(w_i^2)",
+    "category": "ml_ai",
+    "description": "Elastic net for high-dimensional sensor feature selection.",
+    "difficulty": 0.45,
+    "continent": "Aṣọdun",
+    "ffi_language": "Python",
+    "julia_fn": "elastic_net",
+    "tags": [
+      "regularization",
+      "sparsity",
+      "regression"
+    ],
+    "parameters": [],
+    "outputs": []
+  },
+  {
+    "id": "veil:048",
+    "veil_number": 48,
+    "name": "Àlùfáà Ìpínpín",
+    "technical_name": "SVM",
+    "equation": "min 1/2*||w||^2 + C*sum(xi_i)",
+    "category": "ml_ai",
+    "description": "SVM with RBF kernel for fault classification in vibration data.",
+    "difficulty": 0.48,
+    "continent": "Aṣọdun",
+    "ffi_language": "Python",
+    "julia_fn": "svm",
+    "tags": [
+      "classification",
+      "kernel",
+      "margin"
+    ],
+    "parameters": [],
+    "outputs": []
+  },
+  {
+    "id": "veil:049",
+    "veil_number": 49,
+    "name": "Ìmọ̀ Àgbàyé",
+    "technical_name": "Kernel Trick",
+    "equation": "K(x_i,x_j) = phi(x_i)^T * phi(x_j)",
+    "category": "ml_ai",
+    "description": "Kernel PCA for nonlinear manifold in robot pose data.",
+    "difficulty": 0.5,
+    "continent": "Aṣọdun",
+    "ffi_language": "Python",
+    "julia_fn": "kernel_trick",
+    "tags": [
+      "kernel",
+      "nonlinear",
+      "dimensionality"
+    ],
+    "parameters": [],
+    "outputs": []
+  },
+  {
+    "id": "veil:050",
+    "veil_number": 50,
+    "name": "Ìpínyà Ìmọ̀",
+    "technical_name": "K-Means",
+    "equation": "minimize sum||x_i - mu_j||^2",
+    "category": "ml_ai",
+    "description": "K-means clustering of LiDAR point cloud. Silhouette score > 0.7.",
+    "difficulty": 0.44,
+    "continent": "Aṣọdun",
+    "ffi_language": "Python",
+    "julia_fn": "kmeans",
+    "tags": [
+      "clustering",
+      "unsupervised",
+      "partitioning"
+    ],
+    "parameters": [],
+    "outputs": []
+  },
+  {
+    "id": "veil:051",
+    "veil_number": 51,
+    "name": "Àkójọ Ìmọ̀",
+    "technical_name": "Gaussian Mixture",
+    "equation": "p(x) = sum(pi_k * N(x|mu_k,Sigma_k))",
+    "category": "ml_ai",
+    "description": "GMM for multi-modal sensor noise modelling. Log-likelihood comparison.",
+    "difficulty": 0.5,
+    "continent": "Aṣọdun",
+    "ffi_language": "Python",
+    "julia_fn": "gaussian_mixture",
+    "tags": [
+      "clustering",
+      "probabilistic",
+      "density"
+    ],
+    "parameters": [],
+    "outputs": []
+  },
+  {
+    "id": "veil:052",
+    "veil_number": 52,
+    "name": "Ìṣẹ Àìdáwọle",
+    "technical_name": "EM Algorithm",
+    "equation": "theta(t+1) = argmax Q(theta|theta(t))",
+    "category": "ml_ai",
+    "description": "EM for hidden state recovery in partially-observable robot task.",
+    "difficulty": 0.53,
+    "continent": "Aṣọdun",
+    "ffi_language": "Python",
+    "julia_fn": "em_algorithm",
+    "tags": [
+      "unsupervised",
+      "latent",
+      "inference"
+    ],
+    "parameters": [],
+    "outputs": []
+  },
+  {
+    "id": "veil:053",
+    "veil_number": 53,
+    "name": "Ìpèsè Ìmọ̀",
+    "technical_name": "PCA",
+    "equation": "Y = X*W",
+    "category": "ml_ai",
+    "description": "PCA dimensionality reduction on 50-dim sensor data. Retain 95% variance.",
+    "difficulty": 0.42,
+    "continent": "Aṣọdun",
+    "ffi_language": "Python",
+    "julia_fn": "pca",
+    "tags": [
+      "dimensionality",
+      "linear",
+      "unsupervised"
+    ],
+    "parameters": [],
+    "outputs": []
+  },
+  {
+    "id": "veil:054",
+    "veil_number": 54,
+    "name": "Ìyàtọ̀ Ìmọ̀",
+    "technical_name": "LDA",
+    "equation": "w = S_w^-1 * (mu_1 - mu_2)",
+    "category": "ml_ai",
+    "description": "LDA for 3-class terrain classification from IMU features.",
+    "difficulty": 0.44,
+    "continent": "Aṣọdun",
+    "ffi_language": "Python",
+    "julia_fn": "lda",
+    "tags": [
+      "classification",
+      "discriminant",
+      "linear"
+    ],
+    "parameters": [],
+    "outputs": []
+  },
+  {
+    "id": "veil:055",
+    "veil_number": 55,
+    "name": "Ìgbàgbọ́ Àánú",
+    "technical_name": "Naive Bayes",
+    "equation": "P(y|x) proportional to P(y)*prod(P(x_i|y))",
+    "category": "ml_ai",
+    "description": "Naive Bayes for IoT device event classification. F1 > 0.85.",
+    "difficulty": 0.4,
+    "continent": "Aṣọdun",
+    "ffi_language": "Python",
+    "julia_fn": "naive_bayes",
+    "tags": [
+      "classification",
+      "probabilistic",
+      "bayes"
+    ],
+    "parameters": [],
+    "outputs": []
+  },
+  {
+    "id": "veil:056",
+    "veil_number": 56,
+    "name": "Ìmọ̀ Ìpínpín",
+    "technical_name": "Logistic Regression",
+    "equation": "p = 1/(1+e^-(b0+b1*x))",
+    "category": "ml_ai",
+    "description": "Logistic regression for binary anomaly detection with class imbalance.",
+    "difficulty": 0.41,
+    "continent": "Aṣọdun",
+    "ffi_language": "Python",
+    "julia_fn": "logistic_regression",
+    "tags": [
+      "classification",
+      "linear",
+      "probability"
+    ],
+    "parameters": [],
+    "outputs": []
+  },
+  {
+    "id": "veil:057",
+    "veil_number": 57,
+    "name": "Igi Ìpinnu",
+    "technical_name": "Decision Tree",
+    "equation": "Gini = 1 - sum(p_i^2)",
+    "category": "ml_ai",
+    "description": "Decision tree for fault diagnosis. Interpretable rules, depth < 5.",
+    "difficulty": 0.42,
+    "continent": "Aṣọdun",
+    "ffi_language": "Python",
+    "julia_fn": "decision_tree",
+    "tags": [
+      "classification",
+      "tree",
+      "interpretable"
+    ],
+    "parameters": [],
+    "outputs": []
+  },
+  {
+    "id": "veil:058",
+    "veil_number": 58,
+    "name": "Igbó Ìpinnu",
+    "technical_name": "Random Forest",
+    "equation": "Ensemble of decision trees",
+    "category": "ml_ai",
+    "description": "Random forest for multi-class robot state estimation. OOB error < 5%.",
+    "difficulty": 0.46,
+    "continent": "Aṣọdun",
+    "ffi_language": "Python",
+    "julia_fn": "random_forest",
+    "tags": [
+      "ensemble",
+      "tree",
+      "classification"
+    ],
+    "parameters": [],
+    "outputs": []
+  },
+  {
+    "id": "veil:059",
+    "veil_number": 59,
+    "name": "Ìdàgbàsókè Ìkọ́",
+    "technical_name": "Gradient Boosting",
+    "equation": "F_m(x) = F_m-1(x) + gamma_m*h_m(x)",
+    "category": "ml_ai",
+    "description": "XGBoost on drone telemetry for predictive maintenance classification.",
+    "difficulty": 0.5,
+    "continent": "Aṣọdun",
+    "ffi_language": "Python",
+    "julia_fn": "gradient_boosting",
+    "tags": [
+      "ensemble",
+      "boosting",
+      "classification"
+    ],
+    "parameters": [],
+    "outputs": []
+  },
+  {
+    "id": "veil:060",
+    "veil_number": 60,
+    "name": "Ìkọ́ Ìjókòó",
+    "technical_name": "Q-Learning",
+    "equation": "Q(s,a) += alpha*(r + gamma*max_Q(s',a') - Q(s,a))",
+    "category": "ml_ai",
+    "description": "Q-learning for grid navigation. Convergence to optimal policy in < 1000 episodes.",
+    "difficulty": 0.55,
+    "continent": "Aṣọdun",
+    "ffi_language": "Python",
+    "julia_fn": "q_learning",
+    "tags": [
+      "reinforcement",
+      "value",
+      "tabular"
+    ],
+    "parameters": [],
+    "outputs": []
+  },
+  {
+    "id": "veil:061",
+    "veil_number": 61,
+    "name": "Ìkọ́ Ọ̀nà",
+    "technical_name": "Policy Gradient",
+    "equation": "grad_theta J = E[grad_theta log pi_theta(a|s) * Q(s,a)]",
+    "category": "ml_ai",
+    "description": "REINFORCE on drone hover task. Variance reduction with baseline.",
+    "difficulty": 0.58,
+    "continent": "Aṣọdun",
+    "ffi_language": "Python",
+    "julia_fn": "policy_gradient",
+    "tags": [
+      "reinforcement",
+      "policy",
+      "gradient"
+    ],
+    "parameters": [],
+    "outputs": []
+  },
+  {
+    "id": "veil:062",
+    "veil_number": 62,
+    "name": "Ṣíṣe àti Ìmọ̀",
+    "technical_name": "Actor-Critic",
+    "equation": "delta_t = r_t+1 + gamma*V(s_t+1) - V(s_t)",
+    "category": "ml_ai",
+    "description": "A2C for continuous locomotion. TD error minimisation over 2000 steps.",
+    "difficulty": 0.61,
+    "continent": "Aṣọdun",
+    "ffi_language": "Python",
+    "julia_fn": "actor_critic",
+    "tags": [
+      "reinforcement",
+      "actor_critic",
+      "continuous"
+    ],
+    "parameters": [],
+    "outputs": []
+  },
+  {
+    "id": "veil:063",
+    "veil_number": 63,
+    "name": "Ìgbẹ́kẹ̀lé Àtúnṣe",
+    "technical_name": "DDPG",
+    "equation": "Deterministic policy gradient",
+    "category": "ml_ai",
+    "description": "DDPG for robotic arm reaching in continuous action space.",
+    "difficulty": 0.64,
+    "continent": "Aṣọdun",
+    "ffi_language": "Python",
+    "julia_fn": "ddpg",
+    "tags": [
+      "reinforcement",
+      "continuous",
+      "deterministic"
+    ],
+    "parameters": [],
+    "outputs": []
+  },
+  {
+    "id": "veil:064",
+    "veil_number": 64,
+    "name": "Inú Àwọ̀ Ìmọ̀",
+    "technical_name": "VAE",
+    "equation": "ELBO = E_q[log p(x|z)] - KL(q(z|x)||p(z))",
+    "category": "ml_ai",
+    "description": "VAE for anomalous sensor pattern detection. Reconstruction threshold.",
+    "difficulty": 0.6,
+    "continent": "Aṣọdun",
+    "ffi_language": "Python",
+    "julia_fn": "vae",
+    "tags": [
+      "generative",
+      "latent",
+      "reconstruction"
+    ],
+    "parameters": [],
+    "outputs": []
+  },
+  {
+    "id": "veil:065",
+    "veil_number": 65,
+    "name": "Ìjàkadì Àdájọ́",
+    "technical_name": "GAN",
+    "equation": "min max V(D,G) = E[log D(x)] + E[log(1-D(G(z)))]",
+    "category": "ml_ai",
+    "description": "GAN for synthetic sensor data augmentation. FID < 50.",
+    "difficulty": 0.65,
+    "continent": "Aṣọdun",
+    "ffi_language": "Python",
+    "julia_fn": "gan",
+    "tags": [
+      "generative",
+      "adversarial",
+      "synthesis"
+    ],
+    "parameters": [],
+    "outputs": []
+  },
+  {
+    "id": "veil:066",
+    "veil_number": 66,
+    "name": "Ijinna Ìtọ́",
+    "technical_name": "Wasserstein Distance",
+    "equation": "W(P,Q) = inf E[||X-Y||]",
+    "category": "ml_ai",
+    "description": "Wasserstein GAN training stability on trajectory distributions.",
+    "difficulty": 0.62,
+    "continent": "Aṣọdun",
+    "ffi_language": "Python",
+    "julia_fn": "wasserstein",
+    "tags": [
+      "distance",
+      "distribution",
+      "optimal_transport"
+    ],
+    "parameters": [],
+    "outputs": []
+  },
+  {
+    "id": "veil:067",
+    "veil_number": 67,
+    "name": "Ìpín Ìmọ̀ Papọ̀",
+    "technical_name": "Mutual Information",
+    "equation": "I(X;Y) = H(X) - H(X|Y)",
+    "category": "ml_ai",
+    "description": "Mutual information maximisation for sensor selection in fusion system.",
+    "difficulty": 0.55,
+    "continent": "Aṣọdun",
+    "ffi_language": "Python",
+    "julia_fn": "mutual_information",
+    "tags": [
+      "information",
+      "feature_selection",
+      "entropy"
+    ],
+    "parameters": [],
+    "outputs": []
+  },
+  {
+    "id": "veil:068",
+    "veil_number": 68,
+    "name": "Èrè Ìmọ̀",
+    "technical_name": "Information Gain",
+    "equation": "IG = H(S) - sum(|S_v|/|S| * H(S_v))",
+    "category": "ml_ai",
+    "description": "Information gain for feature importance ranking in fault tree.",
+    "difficulty": 0.5,
+    "continent": "Aṣọdun",
+    "ffi_language": "Python",
+    "julia_fn": "information_gain",
+    "tags": [
+      "information",
+      "feature_selection",
+      "entropy"
+    ],
+    "parameters": [],
+    "outputs": []
+  },
+  {
+    "id": "veil:069",
+    "veil_number": 69,
+    "name": "Ìdàrúdàpọ̀ Ìmọ̀",
+    "technical_name": "Perplexity",
+    "equation": "PP = 2^H(p)",
+    "category": "ml_ai",
+    "description": "LLM perplexity on technical manual corpus. PP < 15.",
+    "difficulty": 0.48,
+    "continent": "Aṣọdun",
+    "ffi_language": "Python",
+    "julia_fn": "perplexity",
+    "tags": [
+      "language",
+      "evaluation",
+      "entropy"
+    ],
+    "parameters": [],
+    "outputs": []
+  },
+  {
+    "id": "veil:070",
+    "veil_number": 70,
+    "name": "Ìdárójú Ọ̀rọ̀",
+    "technical_name": "BLEU Score",
+    "equation": "BLEU = BP * exp(sum(w_n * log p_n))",
+    "category": "ml_ai",
+    "description": "BLEU evaluation of robot instruction generation model.",
+    "difficulty": 0.45,
+    "continent": "Aṣọdun",
+    "ffi_language": "Python",
+    "julia_fn": "bleu_score",
+    "tags": [
+      "nlp",
+      "evaluation",
+      "translation"
+    ],
+    "parameters": [],
+    "outputs": []
+  },
+  {
+    "id": "veil:071",
+    "veil_number": 71,
+    "name": "Ìdájọ́ Ìṣẹ",
+    "technical_name": "F1 Score",
+    "equation": "F1 = 2*(precision*recall)/(precision+recall)",
+    "category": "ml_ai",
+    "description": "F1 score maximisation for imbalanced fault detection dataset.",
+    "difficulty": 0.43,
+    "continent": "Aṣọdun",
+    "ffi_language": "Python",
+    "julia_fn": "f1_score",
+    "tags": [
+      "evaluation",
+      "classification",
+      "metrics"
+    ],
+    "parameters": [],
+    "outputs": []
+  },
+  {
+    "id": "veil:072",
+    "veil_number": 72,
+    "name": "Ẹnu-Ọ̀nà Ìṣẹ",
+    "technical_name": "ROC-AUC",
+    "equation": "Area under receiver operating characteristic",
+    "category": "ml_ai",
+    "description": "ROC-AUC optimisation for sensor threshold selection.",
+    "difficulty": 0.44,
+    "continent": "Aṣọdun",
+    "ffi_language": "Python",
+    "julia_fn": "roc_auc",
+    "tags": [
+      "evaluation",
+      "classification",
+      "threshold"
+    ],
+    "parameters": [],
+    "outputs": []
+  },
+  {
+    "id": "veil:073",
+    "veil_number": 73,
+    "name": "Ìjọ Ìmọ̀",
+    "technical_name": "Cosine Similarity",
+    "equation": "cos(theta) = A.B/(||A||*||B||)",
+    "category": "ml_ai",
+    "description": "Cosine similarity for trajectory matching in sim-to-real transfer.",
+    "difficulty": 0.4,
+    "continent": "Aṣọdun",
+    "ffi_language": "Python",
+    "julia_fn": "cosine_similarity",
+    "tags": [
+      "similarity",
+      "distance",
+      "geometric"
+    ],
+    "parameters": [],
+    "outputs": []
+  },
+  {
+    "id": "veil:074",
+    "veil_number": 74,
+    "name": "Àdọ́pọ̀ Ìmọ̀",
+    "technical_name": "Jaccard Index",
+    "equation": "J(A,B) = |A intersect B|/|A union B|",
+    "category": "ml_ai",
+    "description": "Jaccard index for semantic map overlap between two robots.",
+    "difficulty": 0.41,
+    "continent": "Aṣọdun",
+    "ffi_language": "Python",
+    "julia_fn": "jaccard_index",
+    "tags": [
+      "similarity",
+      "sets",
+      "evaluation"
+    ],
+    "parameters": [],
+    "outputs": []
+  },
+  {
+    "id": "veil:075",
+    "veil_number": 75,
+    "name": "Ìbùjẹ Ìmọ̀",
+    "technical_name": "Entropy",
+    "equation": "H(X) = -sum(p(x)*log p(x))",
+    "category": "ml_ai",
+    "description": "Shannon entropy minimisation for efficient sensor encoding.",
+    "difficulty": 0.45,
+    "continent": "Aṣọdun",
+    "ffi_language": "Python",
+    "julia_fn": "entropy",
+    "tags": [
+      "information",
+      "uncertainty",
+      "entropy"
+    ],
+    "parameters": [],
+    "outputs": []
+  },
+  {
+    "id": "veil:076",
+    "veil_number": 76,
+    "name": "Omi Ìmọ̀",
+    "technical_name": "Fourier Transform",
+    "equation": "F(w) = integral f(t)*e^(-jwt) dt",
+    "category": "signal_processing",
+    "description": "Fourier analysis of drone vibration signature. Identify resonant modes.",
+    "difficulty": 0.48,
+    "continent": "Omi Àgbàdo",
+    "ffi_language": "Julia",
+    "julia_fn": "fourier_transform",
+    "tags": [
+      "frequency",
+      "transform",
+      "spectral"
+    ],
+    "parameters": [],
+    "outputs": []
+  },
+  {
+    "id": "veil:077",
+    "veil_number": 77,
+    "name": "Iṣiro Omi",
+    "technical_name": "DFT",
+    "equation": "X[k] = sum(x[n]*e^(-j2*pi*k*n/N))",
+    "category": "signal_processing",
+    "description": "DFT for IMU spectral analysis at 1 kHz. Frequency bin resolution.",
+    "difficulty": 0.45,
+    "continent": "Omi Àgbàdo",
+    "ffi_language": "Julia",
+    "julia_fn": "dft",
+    "tags": [
+      "frequency",
+      "discrete",
+      "spectral"
+    ],
+    "parameters": [],
+    "outputs": []
+  },
+  {
+    "id": "veil:078",
+    "veil_number": 78,
+    "name": "Iyara Omi",
+    "technical_name": "FFT",
+    "equation": "Cooley-Tukey algorithm",
+    "category": "signal_processing",
+    "description": "FFT-based vibration monitoring. Real-time processing at 10 kHz.",
+    "difficulty": 0.46,
+    "continent": "Omi Àgbàdo",
+    "ffi_language": "Rust",
+    "julia_fn": "fft",
+    "tags": [
+      "frequency",
+      "fast",
+      "realtime"
+    ],
+    "parameters": [],
+    "outputs": []
+  },
+  {
+    "id": "veil:079",
+    "veil_number": 79,
+    "name": "Omi Àkókò",
+    "technical_name": "Z-Transform",
+    "equation": "X(z) = sum(x[n]*z^-n)",
+    "category": "signal_processing",
+    "description": "Z-transform stability analysis of discrete control loop.",
+    "difficulty": 0.47,
+    "continent": "Omi Àgbàdo",
+    "ffi_language": "Julia",
+    "julia_fn": "z_transform",
+    "tags": [
+      "discrete",
+      "transform",
+      "stability"
+    ],
+    "parameters": [],
+    "outputs": []
+  },
+  {
+    "id": "veil:080",
+    "veil_number": 80,
+    "name": "Omi Àgbáye",
+    "technical_name": "Laplace Transform",
+    "equation": "F(s) = integral f(t)*e^-st dt",
+    "category": "signal_processing",
+    "description": "Laplace-domain analysis of mechanical system step response.",
+    "difficulty": 0.46,
+    "continent": "Omi Àgbàdo",
+    "ffi_language": "Julia",
+    "julia_fn": "laplace_transform",
+    "tags": [
+      "continuous",
+      "transform",
+      "analysis"
+    ],
+    "parameters": [],
+    "outputs": []
+  },
+  {
+    "id": "veil:081",
+    "veil_number": 81,
+    "name": "Omi Ìyípadà",
+    "technical_name": "Wavelet Transform",
+    "equation": "CWT(a,b) = integral f(t)*psi*((t-b)/a) dt",
+    "category": "signal_processing",
+    "description": "Wavelet denoising of bearing fault signal. SNR improvement > 10 dB.",
+    "difficulty": 0.52,
+    "continent": "Omi Àgbàdo",
+    "ffi_language": "Julia",
+    "julia_fn": "wavelet_transform",
+    "tags": [
+      "time_frequency",
+      "multiresolution",
+      "denoising"
+    ],
+    "parameters": [],
+    "outputs": []
+  },
+  {
+    "id": "veil:082",
+    "veil_number": 82,
+    "name": "Omi Tirẹ̀",
+    "technical_name": "Autocorrelation",
+    "equation": "Rxx(tau) = E[x(t)*x(t+tau)]",
+    "category": "signal_processing",
+    "description": "Autocorrelation for periodicity detection in sensor fault pattern.",
+    "difficulty": 0.44,
+    "continent": "Omi Àgbàdo",
+    "ffi_language": "Julia",
+    "julia_fn": "autocorrelation",
+    "tags": [
+      "statistics",
+      "periodicity",
+      "signal"
+    ],
+    "parameters": [],
+    "outputs": []
+  },
+  {
+    "id": "veil:083",
+    "veil_number": 83,
+    "name": "Omi Àjọ",
+    "technical_name": "Cross-correlation",
+    "equation": "Rxy(tau) = E[x(t)*y(t+tau)]",
+    "category": "signal_processing",
+    "description": "Cross-correlation for time-delay estimation between two sensors.",
+    "difficulty": 0.45,
+    "continent": "Omi Àgbàdo",
+    "ffi_language": "Julia",
+    "julia_fn": "cross_correlation",
+    "tags": [
+      "statistics",
+      "delay",
+      "signal"
+    ],
+    "parameters": [],
+    "outputs": []
+  },
+  {
+    "id": "veil:084",
+    "veil_number": 84,
+    "name": "Agbára Omi",
+    "technical_name": "Power Spectral Density",
+    "equation": "Sxx(w) = |X(w)|^2",
+    "category": "signal_processing",
+    "description": "PSD estimation for structural health monitoring. Peak frequency tracking.",
+    "difficulty": 0.47,
+    "continent": "Omi Àgbàdo",
+    "ffi_language": "Julia",
+    "julia_fn": "psd",
+    "tags": [
+      "frequency",
+      "power",
+      "spectral"
+    ],
+    "parameters": [],
+    "outputs": []
+  },
+  {
+    "id": "veil:085",
+    "veil_number": 85,
+    "name": "Ìpínnu Omi",
+    "technical_name": "Nyquist Theorem",
+    "equation": "fs >= 2*f_max",
+    "category": "signal_processing",
+    "description": "Nyquist sampling design for high-frequency vibration sensor at 5 kHz.",
+    "difficulty": 0.4,
+    "continent": "Omi Àgbàdo",
+    "ffi_language": "Rust",
+    "julia_fn": "nyquist",
+    "tags": [
+      "sampling",
+      "aliasing",
+      "theorem"
+    ],
+    "parameters": [],
+    "outputs": []
+  },
+  {
+    "id": "veil:086",
+    "veil_number": 86,
+    "name": "Àlẹ̀ Omi",
+    "technical_name": "Digital Filter",
+    "equation": "y[n] = sum(b_k*x[n-k]) - sum(a_k*y[n-k])",
+    "category": "signal_processing",
+    "description": "FIR+IIR filter bank design for multi-band sensor preprocessing.",
+    "difficulty": 0.48,
+    "continent": "Omi Àgbàdo",
+    "ffi_language": "Rust",
+    "julia_fn": "digital_filter",
+    "tags": [
+      "filter",
+      "discrete",
+      "processing"
+    ],
+    "parameters": [],
+    "outputs": []
+  },
+  {
+    "id": "veil:087",
+    "veil_number": 87,
+    "name": "Omi Àìgbòótọ́",
+    "technical_name": "IIR Filter",
+    "equation": "H(z) = sum(b_k*z^-k) / (1 + sum(a_k*z^-k))",
+    "category": "signal_processing",
+    "description": "IIR Butterworth design for anti-aliasing at 500 Hz cutoff.",
+    "difficulty": 0.47,
+    "continent": "Omi Àgbàdo",
+    "ffi_language": "Rust",
+    "julia_fn": "iir_filter",
+    "tags": [
+      "filter",
+      "infinite_impulse",
+      "recursive"
+    ],
+    "parameters": [],
+    "outputs": []
+  },
+  {
+    "id": "veil:088",
+    "veil_number": 88,
+    "name": "Omi Ìparí",
+    "technical_name": "FIR Filter",
+    "equation": "H(z) = sum(b_k*z^-k)",
+    "category": "signal_processing",
+    "description": "FIR linear-phase filter for ECG-like sensor signal. No phase distortion.",
+    "difficulty": 0.46,
+    "continent": "Omi Àgbàdo",
+    "ffi_language": "Rust",
+    "julia_fn": "fir_filter",
+    "tags": [
+      "filter",
+      "finite_impulse",
+      "linear_phase"
+    ],
+    "parameters": [],
+    "outputs": []
+  },
+  {
+    "id": "veil:089",
+    "veil_number": 89,
+    "name": "Omi Ìdọ́gbàlẹ̀",
+    "technical_name": "Butterworth Filter",
+    "equation": "|H(w)|^2 = 1/(1+(w/wc)^2n)",
+    "category": "signal_processing",
+    "description": "Butterworth filter order selection for maximally flat frequency response.",
+    "difficulty": 0.45,
+    "continent": "Omi Àgbàdo",
+    "ffi_language": "Julia",
+    "julia_fn": "butterworth_filter",
+    "tags": [
+      "filter",
+      "maximally_flat",
+      "analog"
+    ],
+    "parameters": [],
+    "outputs": []
+  },
+  {
+    "id": "veil:090",
+    "veil_number": 90,
+    "name": "Omi Àgbára",
+    "technical_name": "Chebyshev Filter",
+    "equation": "T_n(cos(theta)) = cos(n*theta)",
+    "category": "signal_processing",
+    "description": "Chebyshev Type I filter with 3 dB ripple, sharper rolloff than Butterworth.",
+    "difficulty": 0.46,
+    "continent": "Omi Àgbàdo",
+    "ffi_language": "Julia",
+    "julia_fn": "chebyshev_filter",
+    "tags": [
+      "filter",
+      "ripple",
+      "analog"
+    ],
+    "parameters": [],
+    "outputs": []
+  },
+  {
+    "id": "veil:091",
+    "veil_number": 91,
+    "name": "Omi Ìwọ̀ntúnwọ̀nsì",
+    "technical_name": "Bessel Filter",
+    "equation": "Maximally flat group delay",
+    "category": "signal_processing",
+    "description": "Bessel filter for constant group delay in control signal path.",
+    "difficulty": 0.47,
+    "continent": "Omi Àgbàdo",
+    "ffi_language": "Julia",
+    "julia_fn": "bessel_filter",
+    "tags": [
+      "filter",
+      "group_delay",
+      "linear_phase"
+    ],
+    "parameters": [],
+    "outputs": []
+  },
+  {
+    "id": "veil:092",
+    "veil_number": 92,
+    "name": "Omi Ọgbọ́n",
+    "technical_name": "Wiener Filter",
+    "equation": "W = R_xx^-1 * R_xy",
+    "category": "signal_processing",
+    "description": "Wiener filter for noise reduction in robot microphone array.",
+    "difficulty": 0.51,
+    "continent": "Omi Àgbàdo",
+    "ffi_language": "Julia",
+    "julia_fn": "wiener_filter",
+    "tags": [
+      "filter",
+      "optimal",
+      "noise_reduction"
+    ],
+    "parameters": [],
+    "outputs": []
+  },
+  {
+    "id": "veil:093",
+    "veil_number": 93,
+    "name": "Omi Ìkọ́",
+    "technical_name": "Adaptive Filter",
+    "equation": "LMS: w(n+1) = w(n) + mu*e(n)*x(n)",
+    "category": "signal_processing",
+    "description": "LMS adaptive filter for acoustic echo cancellation in robot voice.",
+    "difficulty": 0.52,
+    "continent": "Omi Àgbàdo",
+    "ffi_language": "Rust",
+    "julia_fn": "adaptive_filter",
+    "tags": [
+      "filter",
+      "adaptive",
+      "echo_cancellation"
+    ],
+    "parameters": [],
+    "outputs": []
+  },
+  {
+    "id": "veil:094",
+    "veil_number": 94,
+    "name": "Omi Ìṣọ̀kan",
+    "technical_name": "Matched Filter",
+    "equation": "h(t) = s*(T-t)",
+    "category": "signal_processing",
+    "description": "Matched filter for radar-like range estimation on UWB sensor.",
+    "difficulty": 0.5,
+    "continent": "Omi Àgbàdo",
+    "ffi_language": "Rust",
+    "julia_fn": "matched_filter",
+    "tags": [
+      "detection",
+      "optimal",
+      "radar"
+    ],
+    "parameters": [],
+    "outputs": []
+  },
+  {
+    "id": "veil:095",
+    "veil_number": 95,
+    "name": "Omi Àgbára Ìṣọ̀kan",
+    "technical_name": "Hilbert Transform",
+    "equation": "H{f}(t) = (1/pi)*integral f(tau)/(t-tau) dtau",
+    "category": "signal_processing",
+    "description": "Hilbert transform for envelope detection of AM-modulated sensor.",
+    "difficulty": 0.49,
+    "continent": "Omi Àgbàdo",
+    "ffi_language": "Julia",
+    "julia_fn": "hilbert_transform",
+    "tags": [
+      "analytic_signal",
+      "envelope",
+      "demodulation"
+    ],
+    "parameters": [],
+    "outputs": []
+  },
+  {
+    "id": "veil:096",
+    "veil_number": 96,
+    "name": "Omi Ìyípadà Padà",
+    "technical_name": "Cepstrum",
+    "equation": "c[n] = IFFT{log|FFT{x[n]}|}",
+    "category": "signal_processing",
+    "description": "Cepstral analysis for gear fault frequency identification.",
+    "difficulty": 0.53,
+    "continent": "Omi Àgbàdo",
+    "ffi_language": "Julia",
+    "julia_fn": "cepstrum",
+    "tags": [
+      "deconvolution",
+      "echo",
+      "gearbox"
+    ],
+    "parameters": [],
+    "outputs": []
+  },
+  {
+    "id": "veil:097",
+    "veil_number": 97,
+    "name": "Omi Àkókò Ìgbà",
+    "technical_name": "STFT",
+    "equation": "X(m,w) = sum(x[n]*w[n-m]*e^-jwn)",
+    "category": "signal_processing",
+    "description": "STFT spectrogram for drone motor fault classification over time.",
+    "difficulty": 0.5,
+    "continent": "Omi Àgbàdo",
+    "ffi_language": "Julia",
+    "julia_fn": "stft",
+    "tags": [
+      "time_frequency",
+      "spectrogram",
+      "windowed"
+    ],
+    "parameters": [],
+    "outputs": []
+  },
+  {
+    "id": "veil:098",
+    "veil_number": 98,
+    "name": "Omi Ohùn",
+    "technical_name": "Mel Scale",
+    "equation": "m = 2595*log10(1+f/700)",
+    "category": "signal_processing",
+    "description": "Mel-scale filterbank for speech command recognition on robot.",
+    "difficulty": 0.46,
+    "continent": "Omi Àgbàdo",
+    "ffi_language": "Python",
+    "julia_fn": "mel_scale",
+    "tags": [
+      "audio",
+      "perceptual",
+      "speech"
+    ],
+    "parameters": [],
+    "outputs": []
+  },
+  {
+    "id": "veil:099",
+    "veil_number": 99,
+    "name": "Omi Ìmọ̀ Ohùn",
+    "technical_name": "MFCC",
+    "equation": "Mel-frequency cepstral coefficients",
+    "category": "signal_processing",
+    "description": "MFCC feature extraction for keyword spotting on embedded device.",
+    "difficulty": 0.48,
+    "continent": "Omi Àgbàdo",
+    "ffi_language": "Python",
+    "julia_fn": "mfcc",
+    "tags": [
+      "audio",
+      "features",
+      "speech"
+    ],
+    "parameters": [],
+    "outputs": []
+  },
+  {
+    "id": "veil:100",
+    "veil_number": 100,
+    "name": "Omi Ọ̀kan Ìtẹ́wọ́gbà",
+    "technical_name": "Goertzel Algorithm",
+    "equation": "Single-frequency DFT",
+    "category": "signal_processing",
+    "description": "Goertzel for DTMF tone detection on IoT node with limited CPU.",
+    "difficulty": 0.43,
+    "continent": "Omi Àgbàdo",
+    "ffi_language": "Rust",
+    "julia_fn": "goertzel",
+    "tags": [
+      "frequency",
+      "efficient",
+      "tone_detection"
+    ],
+    "parameters": [],
+    "outputs": []
+  },
+  {
+    "id": "veil:101",
+    "veil_number": 101,
+    "name": "Ìlọsíwájú Ẹ̀rọ",
+    "technical_name": "Forward Kinematics",
+    "equation": "T = A1*A2*...*An",
+    "category": "robotics",
+    "description": "FK for 6-DOF arm: compute end-effector pose for 100 joint configs.",
+    "difficulty": 0.45,
+    "continent": "Ilẹ̀ Àárẹ̀",
+    "ffi_language": "Julia",
+    "julia_fn": "forward_kinematics",
+    "tags": [
+      "kinematics",
+      "robot_arm",
+      "geometry"
+    ],
+    "parameters": [],
+    "outputs": []
+  },
+  {
+    "id": "veil:102",
+    "veil_number": 102,
+    "name": "Ìpadà Ẹ̀rọ",
+    "technical_name": "Inverse Kinematics",
+    "equation": "theta = f^-1(x,y,z)",
+    "category": "robotics",
+    "description": "IK solver: reach 100 random targets within 1 mm tolerance.",
+    "difficulty": 0.55,
+    "continent": "Ilẹ̀ Àárẹ̀",
+    "ffi_language": "Julia",
+    "julia_fn": "inverse_kinematics",
+    "tags": [
+      "kinematics",
+      "robot_arm",
+      "solver"
+    ],
+    "parameters": [],
+    "outputs": []
+  },
+  {
+    "id": "veil:103",
+    "veil_number": 103,
+    "name": "Ìyípadà Ẹ̀rọ",
+    "technical_name": "Jacobian",
+    "equation": "J = df/dtheta",
+    "category": "robotics",
+    "description": "Jacobian computation and singularity detection for 7-DOF arm.",
+    "difficulty": 0.5,
+    "continent": "Ilẹ̀ Àárẹ̀",
+    "ffi_language": "Julia",
+    "julia_fn": "jacobian",
+    "tags": [
+      "kinematics",
+      "velocity",
+      "singularity"
+    ],
+    "parameters": [],
+    "outputs": []
+  },
+  {
+    "id": "veil:104",
+    "veil_number": 104,
+    "name": "Ọ̀nà DH",
+    "technical_name": "Denavit-Hartenberg",
+    "equation": "A_i = Rot(z_i-1,theta_i)*Trans(z,d_i)*Trans(x,a_i)*Rot(x,alpha_i)",
+    "category": "robotics",
+    "description": "DH parameterisation of KUKA-style arm. FK validation against simulation.",
+    "difficulty": 0.48,
+    "continent": "Ilẹ̀ Àárẹ̀",
+    "ffi_language": "Julia",
+    "julia_fn": "dh_params",
+    "tags": [
+      "kinematics",
+      "parameterization",
+      "standard"
+    ],
+    "parameters": [],
+    "outputs": []
+  },
+  {
+    "id": "veil:105",
+    "veil_number": 105,
+    "name": "Ìyára Ẹ̀rọ",
+    "technical_name": "Velocity Kinematics",
+    "equation": "x_dot = J*theta_dot",
+    "category": "robotics",
+    "description": "Velocity control for end-effector tracking moving target at 0.5 m/s.",
+    "difficulty": 0.5,
+    "continent": "Ilẹ̀ Àárẹ̀",
+    "ffi_language": "Julia",
+    "julia_fn": "velocity_kinematics",
+    "tags": [
+      "kinematics",
+      "velocity",
+      "control"
+    ],
+    "parameters": [],
+    "outputs": []
+  },
+  {
+    "id": "veil:106",
+    "veil_number": 106,
+    "name": "Ìyípadà Kékeré",
+    "technical_name": "Differential Kinematics",
+    "equation": "delta_x = J*delta_theta",
+    "category": "robotics",
+    "description": "Differential motion for precise peg-in-hole assembly, 0.5 mm clearance.",
+    "difficulty": 0.52,
+    "continent": "Ilẹ̀ Àárẹ̀",
+    "ffi_language": "Julia",
+    "julia_fn": "diff_kinematics",
+    "tags": [
+      "kinematics",
+      "differential",
+      "precision"
+    ],
+    "parameters": [],
+    "outputs": []
+  },
+  {
+    "id": "veil:107",
+    "veil_number": 107,
+    "name": "Àgbára Ìdarí",
+    "technical_name": "Manipulability",
+    "equation": "w = sqrt(det(J*J^T))",
+    "category": "robotics",
+    "description": "Manipulability-maximising configuration for high-dexterity task.",
+    "difficulty": 0.5,
+    "continent": "Ilẹ̀ Àárẹ̀",
+    "ffi_language": "Julia",
+    "julia_fn": "manipulability",
+    "tags": [
+      "kinematics",
+      "optimization",
+      "dexterity"
+    ],
+    "parameters": [],
+    "outputs": []
+  },
+  {
+    "id": "veil:108",
+    "veil_number": 108,
+    "name": "Ìdẹgbẹ Ẹ̀rọ",
+    "technical_name": "Singularity",
+    "equation": "det(J) = 0",
+    "category": "robotics",
+    "description": "Singularity avoidance during trajectory tracking for SCARA arm.",
+    "difficulty": 0.53,
+    "continent": "Ilẹ̀ Àárẹ̀",
+    "ffi_language": "Julia",
+    "julia_fn": "singularity",
+    "tags": [
+      "kinematics",
+      "singularity",
+      "avoidance"
+    ],
+    "parameters": [],
+    "outputs": []
+  },
+  {
+    "id": "veil:109",
+    "veil_number": 109,
+    "name": "Ìpadà Àgbára",
+    "technical_name": "Pseudoinverse",
+    "equation": "J+ = (J^T*J)^-1 * J^T",
+    "category": "robotics",
+    "description": "Moore-Penrose IK for redundant 7-DOF arm. Null-space exploitation.",
+    "difficulty": 0.53,
+    "continent": "Ilẹ̀ Àárẹ̀",
+    "ffi_language": "Julia",
+    "julia_fn": "pseudoinverse",
+    "tags": [
+      "kinematics",
+      "redundancy",
+      "optimization"
+    ],
+    "parameters": [],
+    "outputs": []
+  },
+  {
+    "id": "veil:110",
+    "veil_number": 110,
+    "name": "Ìgbẹ́kẹ̀lé Ìpadà",
+    "technical_name": "Damped Least Squares",
+    "equation": "J+ = J^T*(J*J^T + lambda*I)^-1",
+    "category": "robotics",
+    "description": "DLS IK near singularity: stable solution with lambda=0.01.",
+    "difficulty": 0.52,
+    "continent": "Ilẹ̀ Àárẹ̀",
+    "ffi_language": "Julia",
+    "julia_fn": "damped_least_squares",
+    "tags": [
+      "kinematics",
+      "stability",
+      "singularity"
+    ],
+    "parameters": [],
+    "outputs": []
+  },
+  {
+    "id": "veil:111",
+    "veil_number": 111,
+    "name": "Ìmọ̀ Newton",
+    "technical_name": "Newton-Raphson IK",
+    "equation": "theta_i+1 = theta_i - J^-1*f(theta_i)",
+    "category": "robotics",
+    "description": "Newton-Raphson IK convergence: 100 targets, < 5 iterations each.",
+    "difficulty": 0.54,
+    "continent": "Ilẹ̀ Àárẹ̀",
+    "ffi_language": "Julia",
+    "julia_fn": "newton_raphson_ik",
+    "tags": [
+      "kinematics",
+      "iterative",
+      "convergence"
+    ],
+    "parameters": [],
+    "outputs": []
+  },
+  {
+    "id": "veil:112",
+    "veil_number": 112,
+    "name": "Ìkọ́ Ìpadà Ẹ̀rọ",
+    "technical_name": "Gradient Descent IK",
+    "equation": "theta_dot = -alpha*J^T*e",
+    "category": "robotics",
+    "description": "Gradient descent IK with adaptive step size. Error < 0.1 mm.",
+    "difficulty": 0.5,
+    "continent": "Ilẹ̀ Àárẹ̀",
+    "ffi_language": "Julia",
+    "julia_fn": "gd_ik",
+    "tags": [
+      "kinematics",
+      "gradient",
+      "optimization"
+    ],
+    "parameters": [],
+    "outputs": []
+  },
+  {
+    "id": "veil:113",
+    "veil_number": 113,
+    "name": "Ìṣẹ Jẹjẹ",
+    "technical_name": "CCD IK",
+    "equation": "Optimize one joint at a time",
+    "category": "robotics",
+    "description": "CCD IK for 10-DOF snake robot navigating through constrained space.",
+    "difficulty": 0.49,
+    "continent": "Ilẹ̀ Àárẹ̀",
+    "ffi_language": "Julia",
+    "julia_fn": "ccd_ik",
+    "tags": [
+      "kinematics",
+      "iterative",
+      "snake_robot"
+    ],
+    "parameters": [],
+    "outputs": []
+  },
+  {
+    "id": "veil:114",
+    "veil_number": 114,
+    "name": "Ìdárí Padà Padà",
+    "technical_name": "FABRIK",
+    "equation": "Forward and backward reaching",
+    "category": "robotics",
+    "description": "FABRIK IK for 8-joint manipulator. Convergence in < 10 iterations.",
+    "difficulty": 0.48,
+    "continent": "Ilẹ̀ Àárẹ̀",
+    "ffi_language": "Julia",
+    "julia_fn": "fabrik",
+    "tags": [
+      "kinematics",
+      "iterative",
+      "fabrik"
+    ],
+    "parameters": [],
+    "outputs": []
+  },
+  {
+    "id": "veil:115",
+    "veil_number": 115,
+    "name": "Ojú Ẹ̀rọ",
+    "technical_name": "Euler Angles",
+    "equation": "R = Rz(gamma)*Ry(beta)*Rx(alpha)",
+    "category": "robotics",
+    "description": "Euler angle representation: detect gimbal lock, switch to quaternions.",
+    "difficulty": 0.43,
+    "continent": "Ilẹ̀ Àárẹ̀",
+    "ffi_language": "Julia",
+    "julia_fn": "euler_angles",
+    "tags": [
+      "rotation",
+      "representation",
+      "singularity"
+    ],
+    "parameters": [],
+    "outputs": []
+  },
+  {
+    "id": "veil:116",
+    "veil_number": 116,
+    "name": "Àárẹ̀ Ìyípadà",
+    "technical_name": "Quaternions",
+    "equation": "q = w + xi + yj + zk",
+    "category": "robotics",
+    "description": "Quaternion SLERP for smooth orientation interpolation over trajectory.",
+    "difficulty": 0.46,
+    "continent": "Ilẹ̀ Àárẹ̀",
+    "ffi_language": "Julia",
+    "julia_fn": "quaternions",
+    "tags": [
+      "rotation",
+      "quaternion",
+      "interpolation"
+    ],
+    "parameters": [],
+    "outputs": []
+  },
+  {
+    "id": "veil:117",
+    "veil_number": 117,
+    "name": "Ọ̀nà Àárín",
+    "technical_name": "Axis-Angle",
+    "equation": "R = I + sin(theta)*[K]x + (1-cos(theta))*[K]x^2",
+    "category": "robotics",
+    "description": "Axis-angle to rotation matrix: validate round-trip conversion error.",
+    "difficulty": 0.44,
+    "continent": "Ilẹ̀ Àárẹ̀",
+    "ffi_language": "Julia",
+    "julia_fn": "axis_angle",
+    "tags": [
+      "rotation",
+      "representation",
+      "conversion"
+    ],
+    "parameters": [],
+    "outputs": []
+  },
+  {
+    "id": "veil:118",
+    "veil_number": 118,
+    "name": "Fóòmúlà Rodrigues",
+    "technical_name": "Rodrigues Formula",
+    "equation": "R = I + sin(theta)*K + (1-cos(theta))*K^2",
+    "category": "robotics",
+    "description": "Rodrigues rotation for incremental joint update in IK loop.",
+    "difficulty": 0.45,
+    "continent": "Ilẹ̀ Àárẹ̀",
+    "ffi_language": "Julia",
+    "julia_fn": "rodrigues_formula",
+    "tags": [
+      "rotation",
+      "rodrigues",
+      "geometry"
+    ],
+    "parameters": [],
+    "outputs": []
+  },
+  {
+    "id": "veil:119",
+    "veil_number": 119,
+    "name": "Ìmọ̀ Ìdìpọ̀",
+    "technical_name": "Screw Theory",
+    "equation": "Twist = [omega; v]",
+    "category": "robotics",
+    "description": "Screw-based motion planning for robot assembly. Wrench analysis.",
+    "difficulty": 0.58,
+    "continent": "Ilẹ̀ Àárẹ̀",
+    "ffi_language": "Julia",
+    "julia_fn": "screw_theory",
+    "tags": [
+      "screw",
+      "motion",
+      "geometry"
+    ],
+    "parameters": [],
+    "outputs": []
+  },
+  {
+    "id": "veil:120",
+    "veil_number": 120,
+    "name": "Ọ̀nà Ìwọ̀n",
+    "technical_name": "Plucker Coordinates",
+    "equation": "Line representation in 3D",
+    "category": "robotics",
+    "description": "Plucker coordinate line intersection for dual-arm collision checking.",
+    "difficulty": 0.55,
+    "continent": "Ilẹ̀ Àárẹ̀",
+    "ffi_language": "Julia",
+    "julia_fn": "plucker_coords",
+    "tags": [
+      "geometry",
+      "collision",
+      "lines"
+    ],
+    "parameters": [],
+    "outputs": []
+  },
+  {
+    "id": "veil:121",
+    "veil_number": 121,
+    "name": "Ìyípadà Ìpapọ̀",
+    "technical_name": "Homogeneous Transform",
+    "equation": "[R t; 0 1]",
+    "category": "robotics",
+    "description": "Homogeneous transform chain for 5-link kinematic tree. Pose error < 0.1 mm.",
+    "difficulty": 0.45,
+    "continent": "Ilẹ̀ Àárẹ̀",
+    "ffi_language": "Julia",
+    "julia_fn": "homogeneous_transform",
+    "tags": [
+      "transform",
+      "kinematics",
+      "matrix"
+    ],
+    "parameters": [],
+    "outputs": []
+  },
+  {
+    "id": "veil:122",
+    "veil_number": 122,
+    "name": "Meji Quaternion",
+    "technical_name": "Dual Quaternions",
+    "equation": "q_hat = q_r + eps*q_d",
+    "category": "robotics",
+    "description": "Dual quaternion screw motion for smooth 6-DOF path interpolation.",
+    "difficulty": 0.57,
+    "continent": "Ilẹ̀ Àárẹ̀",
+    "ffi_language": "Julia",
+    "julia_fn": "dual_quaternions",
+    "tags": [
+      "rotation",
+      "translation",
+      "dual"
+    ],
+    "parameters": [],
+    "outputs": []
+  },
+  {
+    "id": "veil:123",
+    "veil_number": 123,
+    "name": "Àjọ Ìṣirò",
+    "technical_name": "Lie Groups",
+    "equation": "SO(3), SE(3)",
+    "category": "robotics",
+    "description": "SO(3) exponential map for orientation integration on IMU data.",
+    "difficulty": 0.6,
+    "continent": "Ilẹ̀ Àárẹ̀",
+    "ffi_language": "Julia",
+    "julia_fn": "lie_groups",
+    "tags": [
+      "lie",
+      "manifold",
+      "rotation"
+    ],
+    "parameters": [],
+    "outputs": []
+  },
+  {
+    "id": "veil:124",
+    "veil_number": 124,
+    "name": "Àpèsè Ìmọ̀",
+    "technical_name": "Exponential Map",
+    "equation": "exp([omega]x) = R",
+    "category": "robotics",
+    "description": "Exponential map for Lie group integration: compare with Euler.",
+    "difficulty": 0.58,
+    "continent": "Ilẹ̀ Àárẹ̀",
+    "ffi_language": "Julia",
+    "julia_fn": "exponential_map",
+    "tags": [
+      "lie",
+      "integration",
+      "rotation"
+    ],
+    "parameters": [],
+    "outputs": []
+  },
+  {
+    "id": "veil:125",
+    "veil_number": 125,
+    "name": "Ìpadà Ìmọ̀",
+    "technical_name": "Logarithmic Map",
+    "equation": "log(R) = [omega]x",
+    "category": "robotics",
+    "description": "Log map for rotation error computation in feedback control loop.",
+    "difficulty": 0.57,
+    "continent": "Ilẹ̀ Àárẹ̀",
+    "ffi_language": "Julia",
+    "julia_fn": "logarithmic_map",
+    "tags": [
+      "lie",
+      "error",
+      "rotation"
+    ],
+    "parameters": [],
+    "outputs": []
+  },
+  {
+    "id": "veil:126",
+    "veil_number": 126,
+    "name": "Ojú Ẹ̀rọ",
+    "technical_name": "Camera Model",
+    "equation": "x = K*[R|t]*X",
+    "category": "computer_vision",
+    "description": "Camera projection model calibration. Re-projection error < 0.5 px.",
+    "difficulty": 0.47,
+    "continent": "Ojú Ọ̀run",
+    "ffi_language": "Python",
+    "julia_fn": "camera_model",
+    "tags": [
+      "camera",
+      "projection",
+      "calibration"
+    ],
+    "parameters": [],
+    "outputs": []
+  },
+  {
+    "id": "veil:127",
+    "veil_number": 127,
+    "name": "Ìdàrú Ojú",
+    "technical_name": "Perspective Projection",
+    "equation": "u = fx*(X/Z) + cx",
+    "category": "computer_vision",
+    "description": "Perspective projection: depth from disparity in stereo pair.",
+    "difficulty": 0.46,
+    "continent": "Ojú Ọ̀run",
+    "ffi_language": "Python",
+    "julia_fn": "perspective_projection",
+    "tags": [
+      "camera",
+      "geometry",
+      "depth"
+    ],
+    "parameters": [],
+    "outputs": []
+  },
+  {
+    "id": "veil:128",
+    "veil_number": 128,
+    "name": "Ìyípadà Ojú",
+    "technical_name": "Homography",
+    "equation": "x' = H*x",
+    "category": "computer_vision",
+    "description": "Homography estimation for planar AR overlay. Mean error < 1 px.",
+    "difficulty": 0.48,
+    "continent": "Ojú Ọ̀run",
+    "ffi_language": "Python",
+    "julia_fn": "homography",
+    "tags": [
+      "projective",
+      "transform",
+      "ar"
+    ],
+    "parameters": [],
+    "outputs": []
+  },
+  {
+    "id": "veil:129",
+    "veil_number": 129,
+    "name": "Àkọọlẹ Ojú",
+    "technical_name": "Fundamental Matrix",
+    "equation": "x'^T * F * x = 0",
+    "category": "computer_vision",
+    "description": "Fundamental matrix estimation for stereo geometry. Epipolar error < 0.5 px.",
+    "difficulty": 0.51,
+    "continent": "Ojú Ọ̀run",
+    "ffi_language": "Python",
+    "julia_fn": "fundamental_matrix",
+    "tags": [
+      "stereo",
+      "epipolar",
+      "geometry"
+    ],
+    "parameters": [],
+    "outputs": []
+  },
+  {
+    "id": "veil:130",
+    "veil_number": 130,
+    "name": "Ìdọ́gbàlẹ̀ Ojú",
+    "technical_name": "Essential Matrix",
+    "equation": "E = [t]x * R",
+    "category": "computer_vision",
+    "description": "Essential matrix for metric stereo reconstruction. Scale recovery.",
+    "difficulty": 0.52,
+    "continent": "Ojú Ọ̀run",
+    "ffi_language": "Python",
+    "julia_fn": "essential_matrix",
+    "tags": [
+      "stereo",
+      "metric",
+      "reconstruction"
+    ],
+    "parameters": [],
+    "outputs": []
+  },
+  {
+    "id": "veil:131",
+    "veil_number": 131,
+    "name": "Ọ̀nà Ojú Méjì",
+    "technical_name": "Epipolar Constraint",
+    "equation": "Stereo geometry x'^T*F*x=0",
+    "category": "computer_vision",
+    "description": "Epipolar search for stereo matching in low-texture environment.",
+    "difficulty": 0.5,
+    "continent": "Ojú Ọ̀run",
+    "ffi_language": "Python",
+    "julia_fn": "epipolar_constraint",
+    "tags": [
+      "stereo",
+      "constraint",
+      "matching"
+    ],
+    "parameters": [],
+    "outputs": []
+  },
+  {
+    "id": "veil:132",
+    "veil_number": 132,
+    "name": "Ìgbékalẹ̀ Ojú",
+    "technical_name": "Bundle Adjustment",
+    "equation": "min sum||x_ij - pi(K_j,R_j,t_j,X_i)||^2",
+    "category": "computer_vision",
+    "description": "Bundle adjustment for 10-camera SfM. Convergence in < 100 iterations.",
+    "difficulty": 0.65,
+    "continent": "Ojú Ọ̀run",
+    "ffi_language": "Python",
+    "julia_fn": "bundle_adjustment",
+    "tags": [
+      "sfm",
+      "optimization",
+      "3d_reconstruction"
+    ],
+    "parameters": [],
+    "outputs": []
+  },
+  {
+    "id": "veil:133",
+    "veil_number": 133,
+    "name": "Ìgbẹ́kẹ̀lé Àlámọ̀",
+    "technical_name": "RANSAC",
+    "equation": "Random sample consensus",
+    "category": "computer_vision",
+    "description": "RANSAC for homography estimation with 40% outliers. 99% confidence.",
+    "difficulty": 0.5,
+    "continent": "Ojú Ọ̀run",
+    "ffi_language": "Python",
+    "julia_fn": "ransac",
+    "tags": [
+      "robust",
+      "estimation",
+      "outliers"
+    ],
+    "parameters": [],
+    "outputs": []
+  },
+  {
+    "id": "veil:134",
+    "veil_number": 134,
+    "name": "Ìgbọ́kàn Ojú",
+    "technical_name": "SIFT",
+    "equation": "Scale-invariant feature transform",
+    "category": "computer_vision",
+    "description": "SIFT matching across 30 degree viewpoint change. Match ratio > 0.7.",
+    "difficulty": 0.52,
+    "continent": "Ojú Ọ̀run",
+    "ffi_language": "Python",
+    "julia_fn": "sift",
+    "tags": [
+      "features",
+      "matching",
+      "invariant"
+    ],
+    "parameters": [],
+    "outputs": []
+  },
+  {
+    "id": "veil:135",
+    "veil_number": 135,
+    "name": "Ìyára Ojú",
+    "technical_name": "SURF",
+    "equation": "Speeded up robust features",
+    "category": "computer_vision",
+    "description": "SURF vs SIFT: speed/accuracy tradeoff on embedded drone camera.",
+    "difficulty": 0.51,
+    "continent": "Ojú Ọ̀run",
+    "ffi_language": "Python",
+    "julia_fn": "surf",
+    "tags": [
+      "features",
+      "matching",
+      "fast"
+    ],
+    "parameters": [],
+    "outputs": []
+  },
+  {
+    "id": "veil:136",
+    "veil_number": 136,
+    "name": "Ẹ̀yẹ Ojú",
+    "technical_name": "ORB",
+    "equation": "Oriented FAST and rotated BRIEF",
+    "category": "computer_vision",
+    "description": "ORB features for real-time visual odometry at 30 fps on mobile CPU.",
+    "difficulty": 0.5,
+    "continent": "Ojú Ọ̀run",
+    "ffi_language": "Python",
+    "julia_fn": "orb",
+    "tags": [
+      "features",
+      "realtime",
+      "efficient"
+    ],
+    "parameters": [],
+    "outputs": []
+  },
+  {
+    "id": "veil:137",
+    "veil_number": 137,
+    "name": "Ìgọ̀ Ojú",
+    "technical_name": "Harris Corner",
+    "equation": "det(M) - k*(trace(M))^2",
+    "category": "computer_vision",
+    "description": "Harris detector for structural corner extraction in warehouse map.",
+    "difficulty": 0.47,
+    "continent": "Ojú Ọ̀run",
+    "ffi_language": "Python",
+    "julia_fn": "harris_corner",
+    "tags": [
+      "corner",
+      "detection",
+      "interest_point"
+    ],
+    "parameters": [],
+    "outputs": []
+  },
+  {
+    "id": "veil:138",
+    "veil_number": 138,
+    "name": "Ìdábọ̀ Ojú",
+    "technical_name": "Shi-Tomasi",
+    "equation": "min(lambda1, lambda2) > threshold",
+    "category": "computer_vision",
+    "description": "Shi-Tomasi corner selection for KLT tracker initialisation.",
+    "difficulty": 0.46,
+    "continent": "Ojú Ọ̀run",
+    "ffi_language": "Python",
+    "julia_fn": "shi_tomasi",
+    "tags": [
+      "corner",
+      "selection",
+      "tracking"
+    ],
+    "parameters": [],
+    "outputs": []
+  },
+  {
+    "id": "veil:139",
+    "veil_number": 139,
+    "name": "Ìyára Ìgọ̀",
+    "technical_name": "FAST",
+    "equation": "Features from accelerated segment test",
+    "category": "computer_vision",
+    "description": "FAST corner detection at 1000 fps for high-speed tracking.",
+    "difficulty": 0.44,
+    "continent": "Ojú Ọ̀run",
+    "ffi_language": "Python",
+    "julia_fn": "fast_features",
+    "tags": [
+      "corner",
+      "fast",
+      "realtime"
+    ],
+    "parameters": [],
+    "outputs": []
+  },
+  {
+    "id": "veil:140",
+    "veil_number": 140,
+    "name": "Omi Ìrìn Ẹ̀rọ",
+    "technical_name": "Lucas-Kanade",
+    "equation": "Optical flow via brightness constancy",
+    "category": "computer_vision",
+    "description": "LK optical flow for drone ego-motion estimation. Angular error < 0.5 deg.",
+    "difficulty": 0.52,
+    "continent": "Ojú Ọ̀run",
+    "ffi_language": "Python",
+    "julia_fn": "lucas_kanade",
+    "tags": [
+      "optical_flow",
+      "tracking",
+      "motion"
+    ],
+    "parameters": [],
+    "outputs": []
+  },
+  {
+    "id": "veil:141",
+    "veil_number": 141,
+    "name": "Omi Gbogbo Ẹ̀rọ",
+    "technical_name": "Horn-Schunck",
+    "equation": "Global optical flow with smoothness",
+    "category": "computer_vision",
+    "description": "Horn-Schunck dense flow for deformable terrain change detection.",
+    "difficulty": 0.53,
+    "continent": "Ojú Ọ̀run",
+    "ffi_language": "Python",
+    "julia_fn": "horn_schunck",
+    "tags": [
+      "optical_flow",
+      "dense",
+      "global"
+    ],
+    "parameters": [],
+    "outputs": []
+  },
+  {
+    "id": "veil:142",
+    "veil_number": 142,
+    "name": "Ìgbékalẹ̀ 3D",
+    "technical_name": "Structure from Motion",
+    "equation": "3D reconstruction from 2D images",
+    "category": "computer_vision",
+    "description": "SfM pipeline: 50 images to dense point cloud. Reprojection < 1 px.",
+    "difficulty": 0.63,
+    "continent": "Ojú Ọ̀run",
+    "ffi_language": "Python",
+    "julia_fn": "structure_from_motion",
+    "tags": [
+      "3d",
+      "reconstruction",
+      "sfm"
+    ],
+    "parameters": [],
+    "outputs": []
+  },
+  {
+    "id": "veil:143",
+    "veil_number": 143,
+    "name": "Ojú Méjì Ìwọ̀n",
+    "technical_name": "Stereo Matching",
+    "equation": "Disparity = baseline*focal/depth",
+    "category": "computer_vision",
+    "description": "Semi-global matching stereo for obstacle depth map at 10 fps.",
+    "difficulty": 0.58,
+    "continent": "Ojú Ọ̀run",
+    "ffi_language": "Python",
+    "julia_fn": "stereo_matching",
+    "tags": [
+      "stereo",
+      "depth",
+      "disparity"
+    ],
+    "parameters": [],
+    "outputs": []
+  },
+  {
+    "id": "veil:144",
+    "veil_number": 144,
+    "name": "Ìwọ̀n 3D",
+    "technical_name": "Triangulation",
+    "equation": "3D point from 2D correspondences",
+    "category": "computer_vision",
+    "description": "Triangulation accuracy vs baseline distance in multi-view setup.",
+    "difficulty": 0.51,
+    "continent": "Ojú Ọ̀run",
+    "ffi_language": "Python",
+    "julia_fn": "triangulation",
+    "tags": [
+      "3d",
+      "geometry",
+      "reconstruction"
+    ],
+    "parameters": [],
+    "outputs": []
+  },
+  {
+    "id": "veil:145",
+    "veil_number": 145,
+    "name": "Ipò Ojú",
+    "technical_name": "PnP",
+    "equation": "Perspective-n-Point pose estimation",
+    "category": "computer_vision",
+    "description": "PnP pose estimation from 6 known 3D-2D correspondences. < 1 mm.",
+    "difficulty": 0.52,
+    "continent": "Ojú Ọ̀run",
+    "ffi_language": "Python",
+    "julia_fn": "pnp",
+    "tags": [
+      "pose",
+      "estimation",
+      "camera"
+    ],
+    "parameters": [],
+    "outputs": []
+  },
+  {
+    "id": "veil:146",
+    "veil_number": 146,
+    "name": "Ìpàdé Àgbàlù",
+    "technical_name": "ICP",
+    "equation": "Iterative closest point",
+    "category": "computer_vision",
+    "description": "ICP for LiDAR scan matching. Convergence in < 20 iterations, < 1 cm.",
+    "difficulty": 0.55,
+    "continent": "Ojú Ọ̀run",
+    "ffi_language": "Python",
+    "julia_fn": "icp",
+    "tags": [
+      "registration",
+      "lidar",
+      "3d"
+    ],
+    "parameters": [],
+    "outputs": []
+  },
+  {
+    "id": "veil:147",
+    "veil_number": 147,
+    "name": "Ìwádìí Ojú",
+    "technical_name": "Hough Transform",
+    "equation": "Line/circle detection via voting",
+    "category": "computer_vision",
+    "description": "Hough line detection for runway edge tracking from drone camera.",
+    "difficulty": 0.48,
+    "continent": "Ojú Ọ̀run",
+    "ffi_language": "Python",
+    "julia_fn": "hough_transform",
+    "tags": [
+      "detection",
+      "lines",
+      "voting"
+    ],
+    "parameters": [],
+    "outputs": []
+  },
+  {
+    "id": "veil:148",
+    "veil_number": 148,
+    "name": "Ojú Omi Ìpínyà",
+    "technical_name": "Watershed",
+    "equation": "Segmentation algorithm",
+    "category": "computer_vision",
+    "description": "Watershed segmentation for object instance separation in depth image.",
+    "difficulty": 0.49,
+    "continent": "Ojú Ọ̀run",
+    "ffi_language": "Python",
+    "julia_fn": "watershed",
+    "tags": [
+      "segmentation",
+      "morphology",
+      "instance"
+    ],
+    "parameters": [],
+    "outputs": []
+  },
+  {
+    "id": "veil:149",
+    "veil_number": 149,
+    "name": "Ojú Ìtọ́nà",
+    "technical_name": "Mean Shift",
+    "equation": "Mode-seeking density estimation",
+    "category": "computer_vision",
+    "description": "Mean shift clustering for colour-based object segmentation.",
+    "difficulty": 0.5,
+    "continent": "Ojú Ọ̀run",
+    "ffi_language": "Python",
+    "julia_fn": "mean_shift",
+    "tags": [
+      "clustering",
+      "segmentation",
+      "density"
+    ],
+    "parameters": [],
+    "outputs": []
+  },
+  {
+    "id": "veil:150",
+    "veil_number": 150,
+    "name": "Gige Ẹ̀ka",
+    "technical_name": "Graph Cuts",
+    "equation": "Energy minimization on MRF",
+    "category": "computer_vision",
+    "description": "Graph cut stereo disparity. MRF energy minimisation, < 2 px error.",
+    "difficulty": 0.57,
+    "continent": "Ojú Ọ̀run",
+    "ffi_language": "Python",
+    "julia_fn": "graph_cuts",
+    "tags": [
+      "segmentation",
+      "energy",
+      "mrf"
+    ],
+    "parameters": [],
+    "outputs": []
+  },
+  {
+    "id": "veil:151",
+    "veil_number": 151,
+    "name": "Ìpín Ìbáraẹnisọ̀rọ̀",
+    "technical_name": "Shannon Capacity",
+    "equation": "C = B*log2(1 + S/N)",
+    "category": "iot_networks",
+    "description": "Shannon capacity for LoRa link budget at -120 dBm.",
+    "difficulty": 0.45,
+    "continent": "Ìlú Àgbáye",
+    "ffi_language": "Rust",
+    "julia_fn": "shannon_capacity",
+    "tags": [
+      "information",
+      "channel",
+      "wireless"
+    ],
+    "parameters": [],
+    "outputs": []
+  },
+  {
+    "id": "veil:152",
+    "veil_number": 152,
+    "name": "Ètò Ìbáraẹnisọ̀rọ̀",
+    "technical_name": "CSMA/CA",
+    "equation": "Carrier sense multiple access with collision avoidance",
+    "category": "iot_networks",
+    "description": "CSMA/CA simulation for 20-node sensor network. Collision rate < 5%.",
+    "difficulty": 0.48,
+    "continent": "Ìlú Àgbáye",
+    "ffi_language": "Go",
+    "julia_fn": "csma_ca",
+    "tags": [
+      "mac",
+      "wireless",
+      "access"
+    ],
+    "parameters": [],
+    "outputs": []
+  },
+  {
+    "id": "veil:153",
+    "veil_number": 153,
+    "name": "Ẹ̀rọ Ìbáraẹnisọ̀rọ̀",
+    "technical_name": "TCP Congestion",
+    "equation": "cwnd: exponential start, linear growth, multiplicative decrease",
+    "category": "iot_networks",
+    "description": "TCP CUBIC vs BBR throughput simulation on 100 Mbps lossy link.",
+    "difficulty": 0.5,
+    "continent": "Ìlú Àgbáye",
+    "ffi_language": "Go",
+    "julia_fn": "tcp_congestion",
+    "tags": [
+      "tcp",
+      "congestion",
+      "transport"
+    ],
+    "parameters": [],
+    "outputs": []
+  },
+  {
+    "id": "veil:154",
+    "veil_number": 154,
+    "name": "Ìbáraẹnisọ̀rọ̀ Yíyára",
+    "technical_name": "UDP",
+    "equation": "Connectionless datagram protocol",
+    "category": "iot_networks",
+    "description": "UDP telemetry stream reliability vs latency tradeoff for drone control.",
+    "difficulty": 0.4,
+    "continent": "Ìlú Àgbáye",
+    "ffi_language": "Rust",
+    "julia_fn": "udp_protocol",
+    "tags": [
+      "udp",
+      "latency",
+      "realtime"
+    ],
+    "parameters": [],
+    "outputs": []
+  },
+  {
+    "id": "veil:155",
+    "veil_number": 155,
+    "name": "Ìfọ̀rọ̀wérọ̀ Ẹ̀rọ",
+    "technical_name": "MQTT",
+    "equation": "Message queuing telemetry transport",
+    "category": "iot_networks",
+    "description": "MQTT broker simulation for 1000 IoT sensors. Message latency < 10 ms.",
+    "difficulty": 0.46,
+    "continent": "Ìlú Àgbáye",
+    "ffi_language": "Go",
+    "julia_fn": "mqtt",
+    "tags": [
+      "iot",
+      "pubsub",
+      "messaging"
+    ],
+    "parameters": [],
+    "outputs": []
+  },
+  {
+    "id": "veil:156",
+    "veil_number": 156,
+    "name": "Ìfọ̀rọ̀wérọ̀ Kékeré",
+    "technical_name": "CoAP",
+    "equation": "Constrained application protocol",
+    "category": "iot_networks",
+    "description": "CoAP vs HTTP resource consumption on microcontroller. Memory < 8 KB.",
+    "difficulty": 0.47,
+    "continent": "Ìlú Àgbáye",
+    "ffi_language": "Rust",
+    "julia_fn": "coap",
+    "tags": [
+      "iot",
+      "constrained",
+      "protocol"
+    ],
+    "parameters": [],
+    "outputs": []
+  },
+  {
+    "id": "veil:157",
+    "veil_number": 157,
+    "name": "Ìbáraẹnisọ̀rọ̀ Jíjìn",
+    "technical_name": "LoRaWAN",
+    "equation": "Long range wide area network",
+    "category": "iot_networks",
+    "description": "LoRaWAN gateway capacity for 500 end-devices. ADR optimisation.",
+    "difficulty": 0.5,
+    "continent": "Ìlú Àgbáye",
+    "ffi_language": "Rust",
+    "julia_fn": "lorawan",
+    "tags": [
+      "lpwan",
+      "long_range",
+      "iot"
+    ],
+    "parameters": [],
+    "outputs": []
+  },
+  {
+    "id": "veil:158",
+    "veil_number": 158,
+    "name": "Ẹ̀ka Ìbáraẹnisọ̀rọ̀",
+    "technical_name": "Zigbee",
+    "equation": "IEEE 802.15.4 mesh networking",
+    "category": "iot_networks",
+    "description": "Zigbee mesh routing for 50-node factory floor. Coverage simulation.",
+    "difficulty": 0.48,
+    "continent": "Ìlú Àgbáye",
+    "ffi_language": "Go",
+    "julia_fn": "zigbee",
+    "tags": [
+      "mesh",
+      "802154",
+      "iot"
+    ],
+    "parameters": [],
+    "outputs": []
+  },
+  {
+    "id": "veil:159",
+    "veil_number": 159,
+    "name": "Ẹ̀rọ Agbára Kékeré",
+    "technical_name": "Bluetooth LE",
+    "equation": "Low energy wireless protocol",
+    "category": "iot_networks",
+    "description": "BLE advertisement scheduling for 10 devices. Scan interval optimisation.",
+    "difficulty": 0.44,
+    "continent": "Ìlú Àgbáye",
+    "ffi_language": "Rust",
+    "julia_fn": "bluetooth_le",
+    "tags": [
+      "ble",
+      "low_energy",
+      "wireless"
+    ],
+    "parameters": [],
+    "outputs": []
+  },
+  {
+    "id": "veil:160",
+    "veil_number": 160,
+    "name": "IPv6 Kékeré",
+    "technical_name": "6LoWPAN",
+    "equation": "IPv6 over low-power wireless networks",
+    "category": "iot_networks",
+    "description": "6LoWPAN header compression: overhead reduction on 20-hop mesh.",
+    "difficulty": 0.5,
+    "continent": "Ìlú Àgbáye",
+    "ffi_language": "Go",
+    "julia_fn": "sixlowpan",
+    "tags": [
+      "ipv6",
+      "compression",
+      "mesh"
+    ],
+    "parameters": [],
+    "outputs": []
+  },
+  {
+    "id": "veil:161",
+    "veil_number": 161,
+    "name": "Ọ̀nà Ẹ̀rọ LLN",
+    "technical_name": "RPL",
+    "equation": "Routing protocol for low-power lossy networks",
+    "category": "iot_networks",
+    "description": "RPL DODAG construction for 100-node sensor network. Stability time.",
+    "difficulty": 0.53,
+    "continent": "Ìlú Àgbáye",
+    "ffi_language": "Go",
+    "julia_fn": "rpl_routing",
+    "tags": [
+      "routing",
+      "mesh",
+      "iot"
+    ],
+    "parameters": [],
+    "outputs": []
+  },
+  {
+    "id": "veil:162",
+    "veil_number": 162,
+    "name": "Ọ̀nà Ìbéèrè",
+    "technical_name": "AODV",
+    "equation": "Ad hoc on-demand distance vector routing",
+    "category": "iot_networks",
+    "description": "AODV route discovery latency vs network density (10-100 nodes).",
+    "difficulty": 0.5,
+    "continent": "Ìlú Àgbáye",
+    "ffi_language": "Go",
+    "julia_fn": "aodv",
+    "tags": [
+      "routing",
+      "manet",
+      "ad_hoc"
+    ],
+    "parameters": [],
+    "outputs": []
+  },
+  {
+    "id": "veil:163",
+    "veil_number": 163,
+    "name": "Ọ̀nà Gbígbé",
+    "technical_name": "DSR",
+    "equation": "Dynamic source routing",
+    "category": "iot_networks",
+    "description": "DSR vs AODV overhead comparison in mobile robot mesh network.",
+    "difficulty": 0.5,
+    "continent": "Ìlú Àgbáye",
+    "ffi_language": "Go",
+    "julia_fn": "dsr_routing",
+    "tags": [
+      "routing",
+      "source",
+      "ad_hoc"
+    ],
+    "parameters": [],
+    "outputs": []
+  },
+  {
+    "id": "veil:164",
+    "veil_number": 164,
+    "name": "Ẹ̀ka Agbára Kékeré",
+    "technical_name": "LEACH",
+    "equation": "Low-energy adaptive clustering hierarchy",
+    "category": "iot_networks",
+    "description": "LEACH cluster formation for 200-node agricultural IoT network lifetime.",
+    "difficulty": 0.52,
+    "continent": "Ìlú Àgbáye",
+    "ffi_language": "Go",
+    "julia_fn": "leach",
+    "tags": [
+      "clustering",
+      "energy_harvesting",
+      "wsn"
+    ],
+    "parameters": [],
+    "outputs": []
+  },
+  {
+    "id": "veil:165",
+    "veil_number": 165,
+    "name": "Ìtàn Ìbáraẹnisọ̀rọ̀",
+    "technical_name": "Gossip Protocol",
+    "equation": "Epidemic information dissemination",
+    "category": "iot_networks",
+    "description": "Gossip protocol convergence for 50-node DePIN witness network.",
+    "difficulty": 0.48,
+    "continent": "Ìlú Àgbáye",
+    "ffi_language": "Go",
+    "julia_fn": "gossip_protocol",
+    "tags": [
+      "distributed",
+      "gossip",
+      "consensus"
+    ],
+    "parameters": [],
+    "outputs": []
+  },
+  {
+    "id": "veil:166",
+    "veil_number": 166,
+    "name": "Ìgbẹ́kẹ̀lé Àgbáye",
+    "technical_name": "Byzantine Consensus",
+    "equation": "f-fault tolerant agreement: n >= 3f+1",
+    "category": "iot_networks",
+    "description": "BFT consensus for 7-witness PoUS validation. 2-fault tolerance.",
+    "difficulty": 0.6,
+    "continent": "Ìlú Àgbáye",
+    "ffi_language": "Rust",
+    "julia_fn": "byzantine_consensus",
+    "tags": [
+      "consensus",
+      "fault_tolerance",
+      "bft"
+    ],
+    "parameters": [],
+    "outputs": []
+  },
+  {
+    "id": "veil:167",
+    "veil_number": 167,
+    "name": "Ìdìbò Olórí",
+    "technical_name": "Raft Consensus",
+    "equation": "Leader election and log replication",
+    "category": "iot_networks",
+    "description": "Raft leader election: recovery time after node failure < 150 ms.",
+    "difficulty": 0.55,
+    "continent": "Ìlú Àgbáye",
+    "ffi_language": "Go",
+    "julia_fn": "raft_consensus",
+    "tags": [
+      "consensus",
+      "leader_election",
+      "distributed"
+    ],
+    "parameters": [],
+    "outputs": []
+  },
+  {
+    "id": "veil:168",
+    "veil_number": 168,
+    "name": "PBFT Àgbáye",
+    "technical_name": "PBFT",
+    "equation": "Practical Byzantine fault tolerance",
+    "category": "iot_networks",
+    "description": "PBFT throughput vs replica count (4, 7, 13 nodes) for sim chain.",
+    "difficulty": 0.62,
+    "continent": "Ìlú Àgbáye",
+    "ffi_language": "Rust",
+    "julia_fn": "pbft",
+    "tags": [
+      "consensus",
+      "bft",
+      "throughput"
+    ],
+    "parameters": [],
+    "outputs": []
+  },
+  {
+    "id": "veil:169",
+    "veil_number": 169,
+    "name": "Àlẹ̀ Ìgbàgbọ́",
+    "technical_name": "Bloom Filter",
+    "equation": "Probabilistic set membership",
+    "category": "iot_networks",
+    "description": "Bloom filter for double-claim detection in PoUS ledger. FPR < 0.1%.",
+    "difficulty": 0.45,
+    "continent": "Ìlú Àgbáye",
+    "ffi_language": "Rust",
+    "julia_fn": "bloom_filter",
+    "tags": [
+      "probabilistic",
+      "data_structure",
+      "membership"
+    ],
+    "parameters": [],
+    "outputs": []
+  },
+  {
+    "id": "veil:170",
+    "veil_number": 170,
+    "name": "Ìgba Ìpín Àkókò",
+    "technical_name": "Consistent Hashing",
+    "equation": "Distributed load balancing via ring",
+    "category": "iot_networks",
+    "description": "Consistent hashing for job distribution across 20 sim worker nodes.",
+    "difficulty": 0.48,
+    "continent": "Ìlú Àgbáye",
+    "ffi_language": "Rust",
+    "julia_fn": "consistent_hashing",
+    "tags": [
+      "distributed",
+      "hashing",
+      "load_balance"
+    ],
+    "parameters": [],
+    "outputs": []
+  },
+  {
+    "id": "veil:171",
+    "veil_number": 171,
+    "name": "Tábìlì Ìpín",
+    "technical_name": "DHT",
+    "equation": "Distributed hash table",
+    "category": "iot_networks",
+    "description": "DHT lookup latency for Veil challenge registry with 1000 entries.",
+    "difficulty": 0.5,
+    "continent": "Ìlú Àgbáye",
+    "ffi_language": "Go",
+    "julia_fn": "dht",
+    "tags": [
+      "distributed",
+      "lookup",
+      "p2p"
+    ],
+    "parameters": [],
+    "outputs": []
+  },
+  {
+    "id": "veil:172",
+    "veil_number": 172,
+    "name": "Ìwádìí Ẹgbẹ́",
+    "technical_name": "Chord",
+    "equation": "Peer-to-peer lookup via ring",
+    "category": "iot_networks",
+    "description": "Chord ring stabilisation under 20% churn rate in witness network.",
+    "difficulty": 0.52,
+    "continent": "Ìlú Àgbáye",
+    "ffi_language": "Go",
+    "julia_fn": "chord",
+    "tags": [
+      "p2p",
+      "lookup",
+      "ring"
+    ],
+    "parameters": [],
+    "outputs": []
+  },
+  {
+    "id": "veil:173",
+    "veil_number": 173,
+    "name": "Ọ̀nà XOR",
+    "technical_name": "Kademlia",
+    "equation": "XOR-based distributed routing",
+    "category": "iot_networks",
+    "description": "Kademlia routing table refresh for OSOVM proof registry.",
+    "difficulty": 0.53,
+    "continent": "Ìlú Àgbáye",
+    "ffi_language": "Go",
+    "julia_fn": "kademlia",
+    "tags": [
+      "p2p",
+      "routing",
+      "xor"
+    ],
+    "parameters": [],
+    "outputs": []
+  },
+  {
+    "id": "veil:174",
+    "veil_number": 174,
+    "name": "Àkọọlẹ Ìpín",
+    "technical_name": "CAN",
+    "equation": "Content addressable network",
+    "category": "iot_networks",
+    "description": "CAN geometry for load-balanced simulation job lookup.",
+    "difficulty": 0.5,
+    "continent": "Ìlú Àgbáye",
+    "ffi_language": "Go",
+    "julia_fn": "can_network",
+    "tags": [
+      "p2p",
+      "geometric",
+      "addressing"
+    ],
+    "parameters": [],
+    "outputs": []
+  },
+  {
+    "id": "veil:175",
+    "veil_number": 175,
+    "name": "Ọ̀nà Ìpín Tuntun",
+    "technical_name": "Pastry",
+    "equation": "Scalable DHT with proximity routing",
+    "category": "iot_networks",
+    "description": "Pastry routing for 10000-node PoUS worker network. Hop count analysis.",
+    "difficulty": 0.54,
+    "continent": "Ìlú Àgbáye",
+    "ffi_language": "Go",
+    "julia_fn": "pastry",
+    "tags": [
+      "p2p",
+      "scalable",
+      "routing"
+    ],
+    "parameters": [],
+    "outputs": []
+  },
+  {
+    "id": "veil:176",
+    "veil_number": 176,
+    "name": "Ìmọ̀ Ìpínpín",
+    "technical_name": "Linear Programming",
+    "equation": "min c^T*x subject to A*x <= b",
+    "category": "optimization",
+    "description": "LP for resource allocation across 24 sector wallets. Optimal split.",
+    "difficulty": 0.47,
+    "continent": "Ọ̀nà Àánú",
+    "ffi_language": "Julia",
+    "julia_fn": "linear_programming",
+    "tags": [
+      "lp",
+      "optimization",
+      "allocation"
+    ],
+    "parameters": [],
+    "outputs": []
+  },
+  {
+    "id": "veil:177",
+    "veil_number": 177,
+    "name": "Ìmọ̀ Ìpínpín Meji",
+    "technical_name": "Quadratic Programming",
+    "equation": "min 1/2*x^T*Q*x + c^T*x",
+    "category": "optimization",
+    "description": "QP for MPC trajectory optimisation with joint limit constraints.",
+    "difficulty": 0.52,
+    "continent": "Ọ̀nà Àánú",
+    "ffi_language": "Julia",
+    "julia_fn": "quadratic_programming",
+    "tags": [
+      "qp",
+      "optimization",
+      "constraints"
+    ],
+    "parameters": [],
+    "outputs": []
+  },
+  {
+    "id": "veil:178",
+    "veil_number": 178,
+    "name": "Ọ̀nà Ìṣirò",
+    "technical_name": "Simplex Algorithm",
+    "equation": "Vertex traversal on LP feasible polytope",
+    "category": "optimization",
+    "description": "Simplex vs interior-point on 100-variable LP. Iteration count.",
+    "difficulty": 0.5,
+    "continent": "Ọ̀nà Àánú",
+    "ffi_language": "Julia",
+    "julia_fn": "simplex",
+    "tags": [
+      "lp",
+      "algorithm",
+      "linear"
+    ],
+    "parameters": [],
+    "outputs": []
+  },
+  {
+    "id": "veil:179",
+    "veil_number": 179,
+    "name": "Ọ̀nà Inú",
+    "technical_name": "Interior Point",
+    "equation": "Barrier method for constrained optimization",
+    "category": "optimization",
+    "description": "Interior-point for nonlinear trajectory optimisation.",
+    "difficulty": 0.55,
+    "continent": "Ọ̀nà Àánú",
+    "ffi_language": "Julia",
+    "julia_fn": "interior_point",
+    "tags": [
+      "nlp",
+      "barrier",
+      "optimization"
+    ],
+    "parameters": [],
+    "outputs": []
+  },
+  {
+    "id": "veil:180",
+    "veil_number": 180,
+    "name": "Ìdàgbàsókè Àṣà",
+    "technical_name": "Genetic Algorithm",
+    "equation": "Selection, crossover, mutation on population",
+    "category": "optimization",
+    "description": "Genetic algorithm for multi-modal swarm formation optimisation.",
+    "difficulty": 0.53,
+    "continent": "Ọ̀nà Àánú",
+    "ffi_language": "Julia",
+    "julia_fn": "genetic_algorithm",
+    "tags": [
+      "evolutionary",
+      "metaheuristic",
+      "global"
+    ],
+    "parameters": [],
+    "outputs": []
+  },
+  {
+    "id": "veil:181",
+    "veil_number": 181,
+    "name": "Ọgọ Àṣà",
+    "technical_name": "Particle Swarm",
+    "equation": "v_i = w*v_i + c1*r1*(p_best-x_i) + c2*r2*(g_best-x_i)",
+    "category": "optimization",
+    "description": "PSO for hyperparameter tuning of PoUS reward function.",
+    "difficulty": 0.52,
+    "continent": "Ọ̀nà Àánú",
+    "ffi_language": "Julia",
+    "julia_fn": "particle_swarm",
+    "tags": [
+      "swarm",
+      "metaheuristic",
+      "global"
+    ],
+    "parameters": [],
+    "outputs": []
+  },
+  {
+    "id": "veil:182",
+    "veil_number": 182,
+    "name": "Ìgbẹnagbẹna Ìṣirò",
+    "technical_name": "Simulated Annealing",
+    "equation": "P(accept) = exp(-dE/T)",
+    "category": "optimization",
+    "description": "SA for Veil challenge parameter search. Global optimum probability.",
+    "difficulty": 0.5,
+    "continent": "Ọ̀nà Àánú",
+    "ffi_language": "Julia",
+    "julia_fn": "simulated_annealing",
+    "tags": [
+      "metaheuristic",
+      "probabilistic",
+      "global"
+    ],
+    "parameters": [],
+    "outputs": []
+  },
+  {
+    "id": "veil:183",
+    "veil_number": 183,
+    "name": "Ẹ̀ka Àárín",
+    "technical_name": "Ant Colony",
+    "equation": "Pheromone update: tau_ij += Delta*tau_ij",
+    "category": "optimization",
+    "description": "ACO for shortest-path routing across 256 Odu tile world grid.",
+    "difficulty": 0.53,
+    "continent": "Ọ̀nà Àánú",
+    "ffi_language": "Julia",
+    "julia_fn": "ant_colony",
+    "tags": [
+      "swarm",
+      "path_planning",
+      "graph"
+    ],
+    "parameters": [],
+    "outputs": []
+  },
+  {
+    "id": "veil:184",
+    "veil_number": 184,
+    "name": "Ìwádìí Ìrántí",
+    "technical_name": "Tabu Search",
+    "equation": "Memory-based local search with forbidden moves",
+    "category": "optimization",
+    "description": "Tabu search for job scheduling across PoUS worker nodes.",
+    "difficulty": 0.52,
+    "continent": "Ọ̀nà Àánú",
+    "ffi_language": "Julia",
+    "julia_fn": "tabu_search",
+    "tags": [
+      "local_search",
+      "memory",
+      "scheduling"
+    ],
+    "parameters": [],
+    "outputs": []
+  },
+  {
+    "id": "veil:185",
+    "veil_number": 185,
+    "name": "Igi Àti Ìwọ̀n",
+    "technical_name": "Branch and Bound",
+    "equation": "Tree search with upper/lower bounds",
+    "category": "optimization",
+    "description": "B&B for task assignment to 20 robot nodes. Optimal in < 1 s.",
+    "difficulty": 0.56,
+    "continent": "Ọ̀nà Àánú",
+    "ffi_language": "Julia",
+    "julia_fn": "branch_and_bound",
+    "tags": [
+      "combinatorial",
+      "exact",
+      "tree_search"
+    ],
+    "parameters": [],
+    "outputs": []
+  },
+  {
+    "id": "veil:186",
+    "veil_number": 186,
+    "name": "Ìmọ̀ Ìpinnu Gígùn",
+    "technical_name": "Dynamic Programming",
+    "equation": "V(s) = max_a [R(s,a) + gamma*V(s')]",
+    "category": "optimization",
+    "description": "DP for optimal Veil challenge sequence in multi-step agent mission.",
+    "difficulty": 0.54,
+    "continent": "Ọ̀nà Àánú",
+    "ffi_language": "Julia",
+    "julia_fn": "dynamic_programming",
+    "tags": [
+      "dp",
+      "bellman",
+      "planning"
+    ],
+    "parameters": [],
+    "outputs": []
+  },
+  {
+    "id": "veil:187",
+    "veil_number": 187,
+    "name": "Ìwádìí Àánú",
+    "technical_name": "A* Search",
+    "equation": "f(n) = g(n) + h(n)",
+    "category": "optimization",
+    "description": "A* path planning on 256-tile Odu world grid. Optimal path, < 10 ms.",
+    "difficulty": 0.5,
+    "continent": "Ọ̀nà Àánú",
+    "ffi_language": "Julia",
+    "julia_fn": "astar_search",
+    "tags": [
+      "path_planning",
+      "heuristic",
+      "graph"
+    ],
+    "parameters": [],
+    "outputs": []
+  },
+  {
+    "id": "veil:188",
+    "veil_number": 188,
+    "name": "Ọ̀nà Àárín Kúkúrú",
+    "technical_name": "Dijkstra",
+    "equation": "Shortest path via priority queue",
+    "category": "optimization",
+    "description": "Dijkstra for multi-robot task allocation in weighted graph.",
+    "difficulty": 0.46,
+    "continent": "Ọ̀nà Àánú",
+    "ffi_language": "Julia",
+    "julia_fn": "dijkstra",
+    "tags": [
+      "shortest_path",
+      "graph",
+      "classic"
+    ],
+    "parameters": [],
+    "outputs": []
+  },
+  {
+    "id": "veil:189",
+    "veil_number": 189,
+    "name": "Igi Ìwádìí",
+    "technical_name": "RRT",
+    "equation": "Rapidly-exploring random tree",
+    "category": "optimization",
+    "description": "RRT for 3D drone path planning in cluttered environment. 30 obstacles.",
+    "difficulty": 0.54,
+    "continent": "Ọ̀nà Àánú",
+    "ffi_language": "Julia",
+    "julia_fn": "rrt",
+    "tags": [
+      "path_planning",
+      "sampling",
+      "3d"
+    ],
+    "parameters": [],
+    "outputs": []
+  },
+  {
+    "id": "veil:190",
+    "veil_number": 190,
+    "name": "Igi Ìwádìí Àánú",
+    "technical_name": "RRT*",
+    "equation": "Asymptotically optimal RRT",
+    "category": "optimization",
+    "description": "RRT* asymptotic optimality: cost convergence over 10000 samples.",
+    "difficulty": 0.57,
+    "continent": "Ọ̀nà Àánú",
+    "ffi_language": "Julia",
+    "julia_fn": "rrt_star",
+    "tags": [
+      "path_planning",
+      "optimal",
+      "sampling"
+    ],
+    "parameters": [],
+    "outputs": []
+  },
+  {
+    "id": "veil:191",
+    "veil_number": 191,
+    "name": "Ọ̀nà Àáárọ̀",
+    "technical_name": "PRM",
+    "equation": "Probabilistic roadmap for multi-query planning",
+    "category": "optimization",
+    "description": "PRM for multi-query planning in static factory environment.",
+    "difficulty": 0.55,
+    "continent": "Ọ̀nà Àánú",
+    "ffi_language": "Julia",
+    "julia_fn": "prm",
+    "tags": [
+      "path_planning",
+      "roadmap",
+      "sampling"
+    ],
+    "parameters": [],
+    "outputs": []
+  },
+  {
+    "id": "veil:192",
+    "veil_number": 192,
+    "name": "Agbára Ọ̀nà",
+    "technical_name": "Potential Fields",
+    "equation": "F = F_att + F_rep",
+    "category": "optimization",
+    "description": "Potential field navigation for drone avoiding 10 dynamic obstacles.",
+    "difficulty": 0.5,
+    "continent": "Ọ̀nà Àánú",
+    "ffi_language": "Julia",
+    "julia_fn": "potential_fields",
+    "tags": [
+      "navigation",
+      "reactive",
+      "forces"
+    ],
+    "parameters": [],
+    "outputs": []
+  },
+  {
+    "id": "veil:193",
+    "veil_number": 193,
+    "name": "Ìpinnu Asọtẹlẹ",
+    "technical_name": "MPC Planning",
+    "equation": "Receding horizon optimal control",
+    "category": "optimization",
+    "description": "MPC for autonomous vehicle lane change. 5-step horizon, 100 ms.",
+    "difficulty": 0.58,
+    "continent": "Ọ̀nà Àánú",
+    "ffi_language": "Julia",
+    "julia_fn": "mpc_planning",
+    "tags": [
+      "mpc",
+      "planning",
+      "autonomous"
+    ],
+    "parameters": [],
+    "outputs": []
+  },
+  {
+    "id": "veil:194",
+    "veil_number": 194,
+    "name": "Ìmọ̀ Ìpínpín Àìgbọ̀kàn",
+    "technical_name": "Nonlinear Programming",
+    "equation": "KKT: grad_f = lambda*grad_g",
+    "category": "optimization",
+    "description": "NLP with KKT for minimum-time trajectory under energy constraint.",
+    "difficulty": 0.6,
+    "continent": "Ọ̀nà Àánú",
+    "ffi_language": "Julia",
+    "julia_fn": "nlp_kkt",
+    "tags": [
+      "nlp",
+      "kkt",
+      "constraints"
+    ],
+    "parameters": [],
+    "outputs": []
+  },
+  {
+    "id": "veil:195",
+    "veil_number": 195,
+    "name": "Ìmọ̀ Tó Dára",
+    "technical_name": "Convex Optimization",
+    "equation": "min f(x) s.t. g_i(x)<=0, convex f",
+    "category": "optimization",
+    "description": "Convex reformulation of non-convex drone path problem via S-procedure.",
+    "difficulty": 0.58,
+    "continent": "Ọ̀nà Àánú",
+    "ffi_language": "Julia",
+    "julia_fn": "convex_optimization",
+    "tags": [
+      "convex",
+      "duality",
+      "optimization"
+    ],
+    "parameters": [],
+    "outputs": []
+  },
+  {
+    "id": "veil:196",
+    "veil_number": 196,
+    "name": "Ìmọ̀ Ìgbọ̀kàn",
+    "technical_name": "SDP",
+    "equation": "min c^T*x s.t. F0 + sum(x_i*F_i) >= 0",
+    "category": "optimization",
+    "description": "SDP for LMI stability conditions in robust controller design.",
+    "difficulty": 0.62,
+    "continent": "Ọ̀nà Àánú",
+    "ffi_language": "Julia",
+    "julia_fn": "sdp",
+    "tags": [
+      "sdp",
+      "lmi",
+      "stability"
+    ],
+    "parameters": [],
+    "outputs": []
+  },
+  {
+    "id": "veil:197",
+    "veil_number": 197,
+    "name": "Ìpínpín Ọ̀nà Keji",
+    "technical_name": "SOCP",
+    "equation": "min ||Ax+b||_2 s.t. c^T*x + d >= 0",
+    "category": "optimization",
+    "description": "SOCP for minimum-fuel rocket landing trajectory.",
+    "difficulty": 0.61,
+    "continent": "Ọ̀nà Àánú",
+    "ffi_language": "Julia",
+    "julia_fn": "socp",
+    "tags": [
+      "socp",
+      "conic",
+      "trajectory"
+    ],
+    "parameters": [],
+    "outputs": []
+  },
+  {
+    "id": "veil:198",
+    "veil_number": 198,
+    "name": "Ìdúróṣinṣin Ìpínpín",
+    "technical_name": "Robust Optimization",
+    "equation": "min max_{u in U} f(x,u)",
+    "category": "optimization",
+    "description": "Robust LP for PoUS reward under uncertain simulation quality.",
+    "difficulty": 0.58,
+    "continent": "Ọ̀nà Àánú",
+    "ffi_language": "Julia",
+    "julia_fn": "robust_optimization",
+    "tags": [
+      "robust",
+      "uncertainty",
+      "worst_case"
+    ],
+    "parameters": [],
+    "outputs": []
+  },
+  {
+    "id": "veil:199",
+    "veil_number": 199,
+    "name": "Ìmọ̀ Àìdánilójú",
+    "technical_name": "Stochastic Programming",
+    "equation": "min E_xi[f(x,xi)] s.t. g(x,xi)<=0",
+    "category": "optimization",
+    "description": "Two-stage stochastic program for job allocation under worker dropout.",
+    "difficulty": 0.6,
+    "continent": "Ọ̀nà Àánú",
+    "ffi_language": "Julia",
+    "julia_fn": "stochastic_programming",
+    "tags": [
+      "stochastic",
+      "uncertainty",
+      "two_stage"
+    ],
+    "parameters": [],
+    "outputs": []
+  },
+  {
+    "id": "veil:200",
+    "veil_number": 200,
+    "name": "Ìpínpín Ojú Pupọ",
+    "technical_name": "Multi-objective Optimization",
+    "equation": "Pareto front: min [f1(x), f2(x), ...]",
+    "category": "optimization",
+    "description": "Pareto front for F1-score vs computational cost across Veil challenges.",
+    "difficulty": 0.62,
+    "continent": "Ọ̀nà Àánú",
+    "ffi_language": "Julia",
+    "julia_fn": "multi_objective",
+    "tags": [
+      "pareto",
+      "multi_objective",
+      "tradeoff"
+    ],
+    "parameters": [],
+    "outputs": []
+  }
 ]

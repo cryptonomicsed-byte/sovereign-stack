@@ -1,0 +1,3402 @@
+[
+  {
+    "id": "sacred:001",
+    "veil_number": 1,
+    "name": "Ifá Binary Bones",
+    "category": "first_canon",
+    "tier_gate": "T2",
+    "key_content": "Odù lattice: 2, 16, 256, 65536, 2^32, 2^40",
+    "gnosis_challenge": "Prove that the 256 Odù combinations encode a complete binary address space. Show the bijection between Odù pairs and 8-bit values.",
+    "resonance_with": [
+      "control_systems",
+      "optimization"
+    ],
+    "difficulty": 0.42,
+    "proof_type": "proof_of_gnosis",
+    "scored_by": "twelve_thrones",
+    "min_score": 0.777
+  },
+  {
+    "id": "sacred:002",
+    "veil_number": 2,
+    "name": "Cultural Cycles",
+    "category": "first_canon",
+    "tier_gate": "T2",
+    "key_content": "Yorùbá 7/1440; Kemetic 9/42/365; Vedic 9/12/27/108/432k; Mayan 260/365",
+    "gnosis_challenge": "Find the lowest common multiple of 7, 260, 365, and 1440. Explain why 1440 is the resonance number that ties calendar systems to the emission ceiling.",
+    "resonance_with": [
+      "signal_processing",
+      "iot_networks"
+    ],
+    "difficulty": 0.44,
+    "proof_type": "proof_of_gnosis",
+    "scored_by": "twelve_thrones",
+    "min_score": 0.777
+  },
+  {
+    "id": "sacred:003",
+    "veil_number": 3,
+    "name": "Mathematical Constants",
+    "category": "first_canon",
+    "tier_gate": "T2",
+    "key_content": "φ, π, e, √2, √3, √5, 3-6-9 vortex, triangular/perfect numbers",
+    "gnosis_challenge": "Derive φ from the Fibonacci recurrence. Show how φ appears in the 8-bucket Elegbára split as a hidden ratio.",
+    "resonance_with": [
+      "ml_ai",
+      "optimization"
+    ],
+    "difficulty": 0.45,
+    "proof_type": "proof_of_gnosis",
+    "scored_by": "twelve_thrones",
+    "min_score": 0.777
+  },
+  {
+    "id": "sacred:004",
+    "veil_number": 4,
+    "name": "Temple & Earth Codes",
+    "category": "first_canon",
+    "tier_gate": "T2",
+    "key_content": "Pyramid π/φ encoding; sacred cubit ≈0.5236 m; 43200 Earth scale factor",
+    "gnosis_challenge": "Verify that the Great Pyramid base perimeter / height = 2π to 4 significant figures. Explain the 43200 scale factor between pyramid and Earth radius.",
+    "resonance_with": [
+      "robotics",
+      "computer_vision"
+    ],
+    "difficulty": 0.46,
+    "proof_type": "proof_of_gnosis",
+    "scored_by": "twelve_thrones",
+    "min_score": 0.777
+  },
+  {
+    "id": "sacred:005",
+    "veil_number": 5,
+    "name": "Cosmic Cycles",
+    "category": "first_canon",
+    "tier_gate": "T2",
+    "key_content": "24h/1440; lunar 29.53d; Metonic 19y; Saros 18y11d; precession 72y/degree",
+    "gnosis_challenge": "Compute the beat frequency between the Metonic cycle (19 years) and Saros cycle (18.03 years). Show how this relates to the 1440 emission rate.",
+    "resonance_with": [
+      "signal_processing",
+      "optimization"
+    ],
+    "difficulty": 0.47,
+    "proof_type": "proof_of_gnosis",
+    "scored_by": "twelve_thrones",
+    "min_score": 0.777
+  },
+  {
+    "id": "sacred:006",
+    "veil_number": 6,
+    "name": "Chaos & Fractals",
+    "category": "first_canon",
+    "tier_gate": "T3",
+    "key_content": "Golden angle 137.5°; Feigenbaum delta≈4.669; Mandelbrot/Julia sets",
+    "gnosis_challenge": "Show the period-doubling route to chaos in the logistic map. Compute the Feigenbaum constant numerically to 3 decimal places from the bifurcation diagram.",
+    "resonance_with": [
+      "ml_ai",
+      "control_systems"
+    ],
+    "difficulty": 0.52,
+    "proof_type": "proof_of_gnosis",
+    "scored_by": "twelve_thrones",
+    "min_score": 0.777
+  },
+  {
+    "id": "sacred:007",
+    "veil_number": 7,
+    "name": "Harmonics & Resonance",
+    "category": "first_canon",
+    "tier_gate": "T2",
+    "key_content": "Pythagorean 2:1/3:2/4:3; Schumann ≈7.83 Hz; 432/528/864 Hz",
+    "gnosis_challenge": "Prove that 432 Hz, 528 Hz, and 864 Hz are all integer multiples of the Schumann resonance fundamental. Show the harmonic series.",
+    "resonance_with": [
+      "signal_processing",
+      "control_systems"
+    ],
+    "difficulty": 0.45,
+    "proof_type": "proof_of_gnosis",
+    "scored_by": "twelve_thrones",
+    "min_score": 0.777
+  },
+  {
+    "id": "sacred:008",
+    "veil_number": 8,
+    "name": "Meta-Grids",
+    "category": "first_canon",
+    "tier_gate": "T3",
+    "key_content": "Prime fields; E8 lattice; Flower of Life; Metatron's Cube; 64×64 grid",
+    "gnosis_challenge": "Describe the E8 root system. How many roots does it have and why is this number relevant to the 256-tile Odù world grid?",
+    "resonance_with": [
+      "optimization",
+      "robotics"
+    ],
+    "difficulty": 0.53,
+    "proof_type": "proof_of_gnosis",
+    "scored_by": "twelve_thrones",
+    "min_score": 0.777
+  },
+  {
+    "id": "sacred:009",
+    "veil_number": 9,
+    "name": "Recursive Mirrors",
+    "category": "first_canon",
+    "tier_gate": "T3",
+    "key_content": "Gödel encodings; strange attractors; 0.999...=1; self-reference loops",
+    "gnosis_challenge": "Construct a Gödel sentence for the PoUS system: a statement about simulations that cannot be proven valid or invalid from within the system itself.",
+    "resonance_with": [
+      "ml_ai",
+      "iot_networks"
+    ],
+    "difficulty": 0.55,
+    "proof_type": "proof_of_gnosis",
+    "scored_by": "twelve_thrones",
+    "min_score": 0.777
+  },
+  {
+    "id": "sacred:010",
+    "veil_number": 10,
+    "name": "Archetypal Forms",
+    "category": "first_canon",
+    "tier_gate": "T2",
+    "key_content": "Platonic solids (5); Archimedean (13); Kepler-Poinsot (4); spin networks",
+    "gnosis_challenge": "Prove there are exactly 5 Platonic solids using Euler's formula V - E + F = 2. Connect to the 6 Great Houses architecture.",
+    "resonance_with": [
+      "robotics",
+      "computer_vision"
+    ],
+    "difficulty": 0.46,
+    "proof_type": "proof_of_gnosis",
+    "scored_by": "twelve_thrones",
+    "min_score": 0.777
+  },
+  {
+    "id": "sacred:011",
+    "veil_number": 11,
+    "name": "Energetics",
+    "category": "first_canon",
+    "tier_gate": "T3",
+    "key_content": "c, h, G; fine structure α≈1/137; 19.47°, 25.8° tetrahedral angles",
+    "gnosis_challenge": "Show that the fine structure constant α ≈ 1/137 emerges from the ratio of electromagnetic to gravitational force at the electron scale.",
+    "resonance_with": [
+      "ml_ai",
+      "signal_processing"
+    ],
+    "difficulty": 0.54,
+    "proof_type": "proof_of_gnosis",
+    "scored_by": "twelve_thrones",
+    "min_score": 0.777
+  },
+  {
+    "id": "sacred:012",
+    "veil_number": 12,
+    "name": "Meta-Consciousness",
+    "category": "first_canon",
+    "tier_gate": "T2",
+    "key_content": "Binary 0/1; monad to decad; twelvefold archetype wheels; number as thought",
+    "gnosis_challenge": "Map the 12-lobe Omokoda architecture onto the 12 tones of the chromatic scale. Show the correspondence between musical intervals and lobe functions.",
+    "resonance_with": [
+      "ml_ai",
+      "optimization"
+    ],
+    "difficulty": 0.48,
+    "proof_type": "proof_of_gnosis",
+    "scored_by": "twelve_thrones",
+    "min_score": 0.777
+  },
+  {
+    "id": "sacred:013",
+    "veil_number": 13,
+    "name": "The Nameless Source",
+    "category": "first_canon",
+    "tier_gate": "T4",
+    "key_content": "0, 1, ∞; i=√-1; aleph-null/aleph-1; 12:60 vs 13:20; pre-number silence",
+    "gnosis_challenge": "Prove Cantor's theorem: |P(S)| > |S| for any set S. Apply this to show why the set of all possible simulations is strictly larger than the set of all proofs.",
+    "resonance_with": [
+      "ml_ai",
+      "iot_networks"
+    ],
+    "difficulty": 0.6,
+    "proof_type": "proof_of_gnosis",
+    "scored_by": "twelve_thrones",
+    "min_score": 0.777
+  },
+  {
+    "id": "sacred:014",
+    "veil_number": 14,
+    "name": "Symmetry & Root Systems",
+    "category": "meta_law",
+    "tier_gate": "T3",
+    "key_content": "ADE (An, Dn, E6/7/E8), Coxeter groups, Lie groups; monstrous moonshine",
+    "gnosis_challenge": "Classify the ADE Dynkin diagrams. Explain why E8 has 240 roots and connect this to the 240 remaining veils after the first 37.",
+    "resonance_with": [
+      "optimization",
+      "robotics"
+    ],
+    "difficulty": 0.55,
+    "proof_type": "proof_of_gnosis",
+    "scored_by": "twelve_thrones",
+    "min_score": 0.777
+  },
+  {
+    "id": "sacred:015",
+    "veil_number": 15,
+    "name": "Codes & Designs",
+    "category": "meta_law",
+    "tier_gate": "T3",
+    "key_content": "Golay (23,12,7); Hamming; Hadamard; Steiner S(5,8,24); Leech 24D",
+    "gnosis_challenge": "Construct a (7,4) Hamming code. Show how the parity check matrix relates to error correction in the Merkle proof verification system.",
+    "resonance_with": [
+      "iot_networks",
+      "signal_processing"
+    ],
+    "difficulty": 0.56,
+    "proof_type": "proof_of_gnosis",
+    "scored_by": "twelve_thrones",
+    "min_score": 0.777
+  },
+  {
+    "id": "sacred:016",
+    "veil_number": 16,
+    "name": "Modular Forms & Elliptic Curves",
+    "category": "meta_law",
+    "tier_gate": "T4",
+    "key_content": "η(τ), j(τ), Δ(q); L-functions; p-adic numbers",
+    "gnosis_challenge": "Explain the j-invariant of an elliptic curve. Why do elliptic curves over finite fields underlie Ed25519 signatures used in PoUS attestations?",
+    "resonance_with": [
+      "iot_networks",
+      "optimization"
+    ],
+    "difficulty": 0.62,
+    "proof_type": "proof_of_gnosis",
+    "scored_by": "twelve_thrones",
+    "min_score": 0.777
+  },
+  {
+    "id": "sacred:017",
+    "veil_number": 17,
+    "name": "Information & Computation",
+    "category": "meta_law",
+    "tier_gate": "T3",
+    "key_content": "Shannon H; Kolmogorov K; CA Rule 30/110; Gray code; balanced ternary",
+    "gnosis_challenge": "Show that Wolfram Rule 110 is Turing-complete. What does this imply about the computational universality of simple cellular automata as simulation substrates?",
+    "resonance_with": [
+      "ml_ai",
+      "iot_networks"
+    ],
+    "difficulty": 0.57,
+    "proof_type": "proof_of_gnosis",
+    "scored_by": "twelve_thrones",
+    "min_score": 0.777
+  },
+  {
+    "id": "sacred:018",
+    "veil_number": 18,
+    "name": "Topology & Knots",
+    "category": "meta_law",
+    "tier_gate": "T3",
+    "key_content": "Euler χ; Betti numbers; Jones/Alexander polynomials; braid groups",
+    "gnosis_challenge": "Compute the Euler characteristic of a torus. Explain how knot invariants could fingerprint simulation trajectories as a tamper-proof identifier.",
+    "resonance_with": [
+      "robotics",
+      "computer_vision"
+    ],
+    "difficulty": 0.56,
+    "proof_type": "proof_of_gnosis",
+    "scored_by": "twelve_thrones",
+    "min_score": 0.777
+  },
+  {
+    "id": "sacred:019",
+    "veil_number": 19,
+    "name": "Quasicrystals",
+    "category": "meta_law",
+    "tier_gate": "T3",
+    "key_content": "Penrose tiling (φ-based); Ammann-Beenker (√2); aperiodic spectral order",
+    "gnosis_challenge": "Prove that Penrose tilings are aperiodic but have 5-fold symmetry. How does this relate to non-repeating Veil challenge sequences?",
+    "resonance_with": [
+      "signal_processing",
+      "optimization"
+    ],
+    "difficulty": 0.54,
+    "proof_type": "proof_of_gnosis",
+    "scored_by": "twelve_thrones",
+    "min_score": 0.777
+  },
+  {
+    "id": "sacred:020",
+    "veil_number": 20,
+    "name": "Non-commutative Algebras",
+    "category": "meta_law",
+    "tier_gate": "T3",
+    "key_content": "Quaternions H; Octonions O",
+    "gnosis_challenge": "Show that quaternion multiplication is non-commutative (q1*q2 ≠ q2*q1). Why are quaternions preferred over Euler angles for drone orientation tracking?",
+    "resonance_with": [
+      "robotics",
+      "control_systems"
+    ],
+    "difficulty": 0.52,
+    "proof_type": "proof_of_gnosis",
+    "scored_by": "twelve_thrones",
+    "min_score": 0.777
+  },
+  {
+    "id": "sacred:021",
+    "veil_number": 21,
+    "name": "Magic & Latin Squares",
+    "category": "meta_law",
+    "tier_gate": "T2",
+    "key_content": "Lo Shu 3×3=15; 4×4=34; orthogonal Latin squares",
+    "gnosis_challenge": "Verify the Lo Shu magic square. Construct a 4×4 magic square where every row, column, and diagonal sums to 34. Map to the 16×16 Odù grid.",
+    "resonance_with": [
+      "optimization",
+      "ml_ai"
+    ],
+    "difficulty": 0.48,
+    "proof_type": "proof_of_gnosis",
+    "scored_by": "twelve_thrones",
+    "min_score": 0.777
+  },
+  {
+    "id": "sacred:022",
+    "veil_number": 22,
+    "name": "Measure & Dimension",
+    "category": "meta_law",
+    "tier_gate": "T3",
+    "key_content": "Hausdorff dimension D; spectral dimension; packing dimension",
+    "gnosis_challenge": "Compute the Hausdorff dimension of the Cantor set. Apply fractal dimension analysis to a drone trajectory to detect chaotic vs stable flight.",
+    "resonance_with": [
+      "control_systems",
+      "signal_processing"
+    ],
+    "difficulty": 0.55,
+    "proof_type": "proof_of_gnosis",
+    "scored_by": "twelve_thrones",
+    "min_score": 0.777
+  },
+  {
+    "id": "sacred:023",
+    "veil_number": 23,
+    "name": "Cosmological Dimensionless",
+    "category": "meta_law",
+    "tier_gate": "T4",
+    "key_content": "α≈1/137; Q≈10^-5; Ω, Λ; baryon-photon ratio η",
+    "gnosis_challenge": "Explain why the cosmological constant Λ ≈ 10^-122 in Planck units is the most extreme fine-tuning problem in physics. What would change if Λ were 10^-121?",
+    "resonance_with": [
+      "ml_ai",
+      "optimization"
+    ],
+    "difficulty": 0.63,
+    "proof_type": "proof_of_gnosis",
+    "scored_by": "twelve_thrones",
+    "min_score": 0.777
+  },
+  {
+    "id": "sacred:024",
+    "veil_number": 24,
+    "name": "Planck Units",
+    "category": "meta_law",
+    "tier_gate": "T4",
+    "key_content": "l_P≈1.616e-35 m; t_P≈5.39e-44 s; m_P≈2.176e-8 kg",
+    "gnosis_challenge": "Derive the Planck length from G, h-bar, and c. Show that below this scale, quantum gravitational effects dominate all other physics.",
+    "resonance_with": [
+      "signal_processing",
+      "control_systems"
+    ],
+    "difficulty": 0.62,
+    "proof_type": "proof_of_gnosis",
+    "scored_by": "twelve_thrones",
+    "min_score": 0.777
+  },
+  {
+    "id": "sacred:025",
+    "veil_number": 25,
+    "name": "Particle Ratios",
+    "category": "meta_law",
+    "tier_gate": "T4",
+    "key_content": "Higgs VEV ~246 GeV; proton/electron ≈1836; electron g≈2.002319",
+    "gnosis_challenge": "Explain the anomalous magnetic moment of the electron g-2 ≈ 2.002319. Why does QED predict this to 12 significant figures?",
+    "resonance_with": [
+      "ml_ai",
+      "signal_processing"
+    ],
+    "difficulty": 0.64,
+    "proof_type": "proof_of_gnosis",
+    "scored_by": "twelve_thrones",
+    "min_score": 0.777
+  },
+  {
+    "id": "sacred:026",
+    "veil_number": 26,
+    "name": "Neutrino Mysteries",
+    "category": "physical_esoteric",
+    "tier_gate": "T3",
+    "key_content": "Sub-eV masses; PMNS matrix; neutrino oscillations",
+    "gnosis_challenge": "Explain neutrino flavor oscillation. If a muon neutrino is created, what is the probability it is detected as an electron neutrino after 500 km?",
+    "resonance_with": [
+      "signal_processing",
+      "ml_ai"
+    ],
+    "difficulty": 0.58,
+    "proof_type": "proof_of_gnosis",
+    "scored_by": "twelve_thrones",
+    "min_score": 0.777
+  },
+  {
+    "id": "sacred:027",
+    "veil_number": 27,
+    "name": "Cosmic Coincidences",
+    "category": "physical_esoteric",
+    "tier_gate": "T3",
+    "key_content": "Dark energy ~0.69; dark matter ~0.26; baryons ~0.05",
+    "gnosis_challenge": "Why does the ratio of dark energy to matter density happen to be ~2.6:1 in the current epoch? Explain the coincidence problem.",
+    "resonance_with": [
+      "optimization",
+      "ml_ai"
+    ],
+    "difficulty": 0.57,
+    "proof_type": "proof_of_gnosis",
+    "scored_by": "twelve_thrones",
+    "min_score": 0.777
+  },
+  {
+    "id": "sacred:028",
+    "veil_number": 28,
+    "name": "Large Numbers",
+    "category": "physical_esoteric",
+    "tier_gate": "T3",
+    "key_content": "Dirac 10^40 ratios; anthropic coincidences; Eddington number",
+    "gnosis_challenge": "Compute the ratio of electromagnetic to gravitational force between two electrons. Explain Dirac's large number hypothesis.",
+    "resonance_with": [
+      "ml_ai",
+      "optimization"
+    ],
+    "difficulty": 0.56,
+    "proof_type": "proof_of_gnosis",
+    "scored_by": "twelve_thrones",
+    "min_score": 0.777
+  },
+  {
+    "id": "sacred:029",
+    "veil_number": 29,
+    "name": "Black Hole Numbers",
+    "category": "physical_esoteric",
+    "tier_gate": "T4",
+    "key_content": "S = A/4l_P^2; Hawking temperature T_H; Schwarzschild radius",
+    "gnosis_challenge": "Derive the Schwarzschild radius r_s = 2GM/c^2. Compute the Hawking temperature of a black hole with mass equal to Earth.",
+    "resonance_with": [
+      "control_systems",
+      "signal_processing"
+    ],
+    "difficulty": 0.62,
+    "proof_type": "proof_of_gnosis",
+    "scored_by": "twelve_thrones",
+    "min_score": 0.777
+  },
+  {
+    "id": "sacred:030",
+    "veil_number": 30,
+    "name": "Yuga & Kalpa",
+    "category": "physical_esoteric",
+    "tier_gate": "T3",
+    "key_content": "432k → 4.32M (Maha-Yuga) → 4.32B y (Kalpa)",
+    "gnosis_challenge": "Show that the Yuga cycle ratios (4:3:2:1) are a harmonic series. Why does the total Maha-Yuga of 4.32M years appear in other ancient cosmologies?",
+    "resonance_with": [
+      "signal_processing",
+      "optimization"
+    ],
+    "difficulty": 0.54,
+    "proof_type": "proof_of_gnosis",
+    "scored_by": "twelve_thrones",
+    "min_score": 0.777
+  },
+  {
+    "id": "sacred:031",
+    "veil_number": 31,
+    "name": "Gematria & Ciphers",
+    "category": "physical_esoteric",
+    "tier_gate": "T2",
+    "key_content": "Hebrew/Greek Gematria; Abjad; Runic ciphers",
+    "gnosis_challenge": "Using Hebrew gematria, compute the value of YHVH (10+5+6+5=26). Show how cryptographic hash functions generalize this concept to arbitrary strings.",
+    "resonance_with": [
+      "iot_networks",
+      "ml_ai"
+    ],
+    "difficulty": 0.48,
+    "proof_type": "proof_of_gnosis",
+    "scored_by": "twelve_thrones",
+    "min_score": 0.777
+  },
+  {
+    "id": "sacred:032",
+    "veil_number": 32,
+    "name": "Unicode & Digital",
+    "category": "physical_esoteric",
+    "tier_gate": "T2",
+    "key_content": "U+0000..U+10FFFF = 1,114,112 slots",
+    "gnosis_challenge": "Explain the UTF-8 encoding scheme. Show that 1,114,112 Unicode codepoints can be encoded in at most 4 bytes. Relate to address space design.",
+    "resonance_with": [
+      "iot_networks",
+      "optimization"
+    ],
+    "difficulty": 0.46,
+    "proof_type": "proof_of_gnosis",
+    "scored_by": "twelve_thrones",
+    "min_score": 0.777
+  },
+  {
+    "id": "sacred:033",
+    "veil_number": 33,
+    "name": "Complexity Classes",
+    "category": "physical_esoteric",
+    "tier_gate": "T4",
+    "key_content": "P, NP, PSPACE, EXPTIME hierarchy",
+    "gnosis_challenge": "Explain why P vs NP is unsolved. Give a concrete example of an NP problem relevant to PoUS: why is verifying a simulation proof (P) easier than generating one (NP)?",
+    "resonance_with": [
+      "ml_ai",
+      "optimization"
+    ],
+    "difficulty": 0.64,
+    "proof_type": "proof_of_gnosis",
+    "scored_by": "twelve_thrones",
+    "min_score": 0.777
+  },
+  {
+    "id": "sacred:034",
+    "veil_number": 34,
+    "name": "Busy Beaver / Omega",
+    "category": "physical_esoteric",
+    "tier_gate": "T4",
+    "key_content": "Sigma(n) uncomputable; Chaitin's Omega (0-1 real)",
+    "gnosis_challenge": "Explain why the Busy Beaver function Sigma(n) is not computable. Show that BB(5) >= 47,176,870 and explain what it means for a TM to 'win'.",
+    "resonance_with": [
+      "ml_ai",
+      "iot_networks"
+    ],
+    "difficulty": 0.66,
+    "proof_type": "proof_of_gnosis",
+    "scored_by": "twelve_thrones",
+    "min_score": 0.777
+  },
+  {
+    "id": "sacred:035",
+    "veil_number": 35,
+    "name": "Category & Infinity",
+    "category": "physical_esoteric",
+    "tier_gate": "T4",
+    "key_content": "Large cardinals; Yoneda lemma; functor categories",
+    "gnosis_challenge": "State and explain the Yoneda lemma. Show how it implies that mathematical objects are fully characterized by their relationships to other objects.",
+    "resonance_with": [
+      "ml_ai",
+      "optimization"
+    ],
+    "difficulty": 0.65,
+    "proof_type": "proof_of_gnosis",
+    "scored_by": "twelve_thrones",
+    "min_score": 0.777
+  },
+  {
+    "id": "sacred:036",
+    "veil_number": 36,
+    "name": "Homotopy & HoTT",
+    "category": "physical_esoteric",
+    "tier_gate": "T4",
+    "key_content": "pi_n(S^k); infinity-groupoids; univalence axiom",
+    "gnosis_challenge": "Explain the fundamental group pi_1 of the circle S^1. Show that pi_1(S^1) = Z and interpret this topologically.",
+    "resonance_with": [
+      "robotics",
+      "computer_vision"
+    ],
+    "difficulty": 0.63,
+    "proof_type": "proof_of_gnosis",
+    "scored_by": "twelve_thrones",
+    "min_score": 0.777
+  },
+  {
+    "id": "sacred:037",
+    "veil_number": 37,
+    "name": "Knot & Quantum Codes",
+    "category": "physical_esoteric",
+    "tier_gate": "T4",
+    "key_content": "Anyons; TQFT; braiding matrices",
+    "gnosis_challenge": "Explain topological quantum error correction. How does the toric code use knot theory to protect quantum information from local errors?",
+    "resonance_with": [
+      "iot_networks",
+      "signal_processing"
+    ],
+    "difficulty": 0.65,
+    "proof_type": "proof_of_gnosis",
+    "scored_by": "twelve_thrones",
+    "min_score": 0.777
+  },
+  {
+    "id": "sacred:038",
+    "veil_number": 38,
+    "name": "Entropic Universes",
+    "category": "physical_esoteric",
+    "tier_gate": "T3",
+    "key_content": "S_CMB ~10^88; S_BH >= 10^90; entropy production",
+    "gnosis_challenge": "Show that a black hole has entropy S = kA/4l_P^2. Why is this the maximum entropy for a region of space?",
+    "resonance_with": [
+      "ml_ai",
+      "optimization"
+    ],
+    "difficulty": 0.58,
+    "proof_type": "proof_of_gnosis",
+    "scored_by": "twelve_thrones",
+    "min_score": 0.777
+  },
+  {
+    "id": "sacred:039",
+    "veil_number": 39,
+    "name": "Anthropic Bounds",
+    "category": "physical_esoteric",
+    "tier_gate": "T4",
+    "key_content": "Lambda ~10^-122 (Planck); triple-alpha 7.65 MeV resonance",
+    "gnosis_challenge": "Explain the Hoyle resonance in carbon-12 formation. Why would life be impossible if this nuclear energy level differed by 0.4%?",
+    "resonance_with": [
+      "ml_ai",
+      "signal_processing"
+    ],
+    "difficulty": 0.64,
+    "proof_type": "proof_of_gnosis",
+    "scored_by": "twelve_thrones",
+    "min_score": 0.777
+  },
+  {
+    "id": "sacred:040",
+    "veil_number": 40,
+    "name": "Multiverse Ratios",
+    "category": "physical_esoteric",
+    "tier_gate": "T4",
+    "key_content": "String vacua ~10^500; landscape statistics",
+    "gnosis_challenge": "Explain the string theory landscape. Why does the existence of ~10^500 vacua make it impossible to predict the cosmological constant from first principles?",
+    "resonance_with": [
+      "ml_ai",
+      "optimization"
+    ],
+    "difficulty": 0.65,
+    "proof_type": "proof_of_gnosis",
+    "scored_by": "twelve_thrones",
+    "min_score": 0.777
+  },
+  {
+    "id": "sacred:041",
+    "veil_number": 41,
+    "name": "Simulation Numbers",
+    "category": "physical_esoteric",
+    "tier_gate": "T3",
+    "key_content": "Wolfram rules 30/110/256 total; computational equivalence",
+    "gnosis_challenge": "Implement Rule 30 cellular automaton for 50 steps from a single cell. Show that it produces patterns indistinguishable from random noise.",
+    "resonance_with": [
+      "ml_ai",
+      "iot_networks"
+    ],
+    "difficulty": 0.55,
+    "proof_type": "proof_of_gnosis",
+    "scored_by": "twelve_thrones",
+    "min_score": 0.777
+  },
+  {
+    "id": "sacred:042",
+    "veil_number": 42,
+    "name": "Platonic Mega-Cycles",
+    "category": "physical_esoteric",
+    "tier_gate": "T3",
+    "key_content": "25920 year precession; 36000 year great year; Maya long count",
+    "gnosis_challenge": "Compute Earth's axial precession period of ~25,920 years from the known precession rate of 50.3 arcseconds per year.",
+    "resonance_with": [
+      "signal_processing",
+      "optimization"
+    ],
+    "difficulty": 0.54,
+    "proof_type": "proof_of_gnosis",
+    "scored_by": "twelve_thrones",
+    "min_score": 0.777
+  },
+  {
+    "id": "sacred:043",
+    "veil_number": 43,
+    "name": "Enochian Numbers",
+    "category": "physical_esoteric",
+    "tier_gate": "T2",
+    "key_content": "91 Parts of Earth; 30 Aethyrs; angelic hierarchy",
+    "gnosis_challenge": "Show that 91 = 7 × 13 = sum(1..13). Explain how hierarchical numbering systems like this relate to tree data structures in distributed networks.",
+    "resonance_with": [
+      "iot_networks",
+      "optimization"
+    ],
+    "difficulty": 0.47,
+    "proof_type": "proof_of_gnosis",
+    "scored_by": "twelve_thrones",
+    "min_score": 0.777
+  },
+  {
+    "id": "sacred:044",
+    "veil_number": 44,
+    "name": "Kabbalistic Extensions",
+    "category": "physical_esoteric",
+    "tier_gate": "T3",
+    "key_content": "231 Gates; 613 mitzvot; 32 Paths of Wisdom",
+    "gnosis_challenge": "The 231 Gates are the number of unique pairs from 22 Hebrew letters: C(22,2) = 231. Show this. Map 32 Paths to a 5-bit address space.",
+    "resonance_with": [
+      "ml_ai",
+      "optimization"
+    ],
+    "difficulty": 0.53,
+    "proof_type": "proof_of_gnosis",
+    "scored_by": "twelve_thrones",
+    "min_score": 0.777
+  },
+  {
+    "id": "sacred:045",
+    "veil_number": 45,
+    "name": "Sumerian Sexagesimal",
+    "category": "physical_esoteric",
+    "tier_gate": "T2",
+    "key_content": "60, 360, 3600; 21600; reigns 432k years",
+    "gnosis_challenge": "Explain why base-60 (sexagesimal) is useful for time and angle measurement. Show that 60 has more divisors than any smaller number.",
+    "resonance_with": [
+      "signal_processing",
+      "control_systems"
+    ],
+    "difficulty": 0.46,
+    "proof_type": "proof_of_gnosis",
+    "scored_by": "twelve_thrones",
+    "min_score": 0.777
+  },
+  {
+    "id": "sacred:046",
+    "veil_number": 46,
+    "name": "Islamic Mysteries",
+    "category": "physical_esoteric",
+    "tier_gate": "T2",
+    "key_content": "99 Names; 114 Surahs; 786 (Bismillah); 19 as Quranic key",
+    "gnosis_challenge": "Show that 786 = sum of Abjad values of Bismillah. Explain how frequency analysis of 19 in the Quran creates a mathematical fingerprint.",
+    "resonance_with": [
+      "ml_ai",
+      "signal_processing"
+    ],
+    "difficulty": 0.46,
+    "proof_type": "proof_of_gnosis",
+    "scored_by": "twelve_thrones",
+    "min_score": 0.777
+  },
+  {
+    "id": "sacred:047",
+    "veil_number": 47,
+    "name": "Christian Codes",
+    "category": "physical_esoteric",
+    "tier_gate": "T2",
+    "key_content": "153 fish; 666/888 duality; 144000 elect",
+    "gnosis_challenge": "153 = 1^3 + 5^3 + 3^3. Prove 153 is a narcissistic number. Show all 3-digit narcissistic numbers in base 10.",
+    "resonance_with": [
+      "ml_ai",
+      "optimization"
+    ],
+    "difficulty": 0.46,
+    "proof_type": "proof_of_gnosis",
+    "scored_by": "twelve_thrones",
+    "min_score": 0.777
+  },
+  {
+    "id": "sacred:048",
+    "veil_number": 48,
+    "name": "Norse & Celtic",
+    "category": "physical_esoteric",
+    "tier_gate": "T2",
+    "key_content": "9 Worlds; 24 Elder Futhark runes; 27 Ogham; 432 warriors",
+    "gnosis_challenge": "The 24 Elder Futhark runes map to a 24-bit address space (2^24 = 16,777,216). Show this. Connect to the 24 sector wallets in PoUS.",
+    "resonance_with": [
+      "iot_networks",
+      "optimization"
+    ],
+    "difficulty": 0.46,
+    "proof_type": "proof_of_gnosis",
+    "scored_by": "twelve_thrones",
+    "min_score": 0.777
+  },
+  {
+    "id": "sacred:049",
+    "veil_number": 49,
+    "name": "Modern Physics Extremes",
+    "category": "physical_esoteric",
+    "tier_gate": "T4",
+    "key_content": "GUT scale ~10^16 GeV; Planck ~10^19 GeV; vacuum decay",
+    "gnosis_challenge": "Explain vacuum metastability. What is the probability per unit volume per unit time of quantum tunneling to a lower-energy vacuum state?",
+    "resonance_with": [
+      "signal_processing",
+      "ml_ai"
+    ],
+    "difficulty": 0.64,
+    "proof_type": "proof_of_gnosis",
+    "scored_by": "twelve_thrones",
+    "min_score": 0.777
+  },
+  {
+    "id": "sacred:050",
+    "veil_number": 50,
+    "name": "The Absolute Unknown",
+    "category": "physical_esoteric",
+    "tier_gate": "T5",
+    "key_content": "Beyond Omega; beyond aleph; black sun of arithmetic",
+    "gnosis_challenge": "Write a formal statement that is true but unprovable in ZFC set theory (other than Gödel's own construction). Justify its truth and unprovability.",
+    "resonance_with": [
+      "ml_ai",
+      "optimization"
+    ],
+    "difficulty": 0.68,
+    "proof_type": "proof_of_gnosis",
+    "scored_by": "twelve_thrones",
+    "min_score": 0.777
+  },
+  {
+    "id": "sacred:051",
+    "veil_number": 51,
+    "name": "Inaccessible Cardinals",
+    "category": "transfinite",
+    "tier_gate": "T4",
+    "key_content": "Weakly/strongly inaccessible; beyond ZFC",
+    "gnosis_challenge": "Define a weakly inaccessible cardinal. Explain why their existence cannot be proven from ZFC axioms alone.",
+    "resonance_with": [
+      "ml_ai",
+      "optimization"
+    ],
+    "difficulty": 0.65,
+    "proof_type": "proof_of_gnosis",
+    "scored_by": "twelve_thrones",
+    "min_score": 0.777
+  },
+  {
+    "id": "sacred:052",
+    "veil_number": 52,
+    "name": "Mahlo Cardinals",
+    "category": "transfinite",
+    "tier_gate": "T4",
+    "key_content": "Mahlo cardinal as fixed point of regularity",
+    "gnosis_challenge": "Explain why Mahlo cardinals form a fixed point of the operation 'regular cardinal.' Show the hierarchy: inaccessible < Mahlo.",
+    "resonance_with": [
+      "ml_ai",
+      "optimization"
+    ],
+    "difficulty": 0.66,
+    "proof_type": "proof_of_gnosis",
+    "scored_by": "twelve_thrones",
+    "min_score": 0.777
+  },
+  {
+    "id": "sacred:053",
+    "veil_number": 53,
+    "name": "Weakly Compact Cardinals",
+    "category": "transfinite",
+    "tier_gate": "T4",
+    "key_content": "Pi-1-1 indescribable; tree property",
+    "gnosis_challenge": "State the tree property. Explain why weakly compact cardinals satisfy the tree property for kappa-trees.",
+    "resonance_with": [
+      "ml_ai",
+      "optimization"
+    ],
+    "difficulty": 0.66,
+    "proof_type": "proof_of_gnosis",
+    "scored_by": "twelve_thrones",
+    "min_score": 0.777
+  },
+  {
+    "id": "sacred:054",
+    "veil_number": 54,
+    "name": "Measurable Cardinals",
+    "category": "transfinite",
+    "tier_gate": "T4",
+    "key_content": "Non-trivial ultrafilter; Ulam matrix",
+    "gnosis_challenge": "Define a measurable cardinal via a non-principal kappa-complete ultrafilter. Explain why measurable cardinals imply V != L.",
+    "resonance_with": [
+      "ml_ai",
+      "optimization"
+    ],
+    "difficulty": 0.67,
+    "proof_type": "proof_of_gnosis",
+    "scored_by": "twelve_thrones",
+    "min_score": 0.777
+  },
+  {
+    "id": "sacred:055",
+    "veil_number": 55,
+    "name": "Supercompact Cardinals",
+    "category": "transfinite",
+    "tier_gate": "T4",
+    "key_content": "Elementary embeddings; reflection principles",
+    "gnosis_challenge": "Explain how supercompact cardinals imply the Proper Forcing Axiom (PFA). What does PFA settle that ZFC cannot?",
+    "resonance_with": [
+      "ml_ai",
+      "optimization"
+    ],
+    "difficulty": 0.67,
+    "proof_type": "proof_of_gnosis",
+    "scored_by": "twelve_thrones",
+    "min_score": 0.777
+  },
+  {
+    "id": "sacred:056",
+    "veil_number": 56,
+    "name": "Huge Cardinals",
+    "category": "transfinite",
+    "tier_gate": "T5",
+    "key_content": "j: V -> M with M^lambda subset M",
+    "gnosis_challenge": "Define a huge cardinal via an elementary embedding j: V -> M. Explain why huge cardinals are inconsistent with Reinhardt cardinals under AC.",
+    "resonance_with": [
+      "ml_ai",
+      "optimization"
+    ],
+    "difficulty": 0.7,
+    "proof_type": "proof_of_gnosis",
+    "scored_by": "twelve_thrones",
+    "min_score": 0.777
+  },
+  {
+    "id": "sacred:057",
+    "veil_number": 57,
+    "name": "Grothendieck Universes",
+    "category": "transfinite",
+    "tier_gate": "T4",
+    "key_content": "Set-theoretic foundation for category theory",
+    "gnosis_challenge": "Define a Grothendieck universe U. Show that assuming U exists is equivalent to assuming the existence of an inaccessible cardinal.",
+    "resonance_with": [
+      "ml_ai",
+      "optimization"
+    ],
+    "difficulty": 0.65,
+    "proof_type": "proof_of_gnosis",
+    "scored_by": "twelve_thrones",
+    "min_score": 0.777
+  },
+  {
+    "id": "sacred:058",
+    "veil_number": 58,
+    "name": "Epsilon-0 Ordinal",
+    "category": "transfinite",
+    "tier_gate": "T4",
+    "key_content": "omega^omega^omega^... (omega tower); proof-theoretic ordinal of PA",
+    "gnosis_challenge": "Show that epsilon_0 is the smallest ordinal alpha such that omega^alpha = alpha. Explain its role as the proof-theoretic ordinal of Peano Arithmetic.",
+    "resonance_with": [
+      "ml_ai",
+      "optimization"
+    ],
+    "difficulty": 0.65,
+    "proof_type": "proof_of_gnosis",
+    "scored_by": "twelve_thrones",
+    "min_score": 0.777
+  },
+  {
+    "id": "sacred:059",
+    "veil_number": 59,
+    "name": "Gamma-0 Ordinal",
+    "category": "transfinite",
+    "tier_gate": "T4",
+    "key_content": "Proof-theoretic ordinal of ATR0; Feferman-Schutte ordinal",
+    "gnosis_challenge": "Define the Feferman-Schutte ordinal Gamma_0. Explain why it marks the limit of predicative mathematics.",
+    "resonance_with": [
+      "ml_ai",
+      "optimization"
+    ],
+    "difficulty": 0.66,
+    "proof_type": "proof_of_gnosis",
+    "scored_by": "twelve_thrones",
+    "min_score": 0.777
+  },
+  {
+    "id": "sacred:060",
+    "veil_number": 60,
+    "name": "Bachmann-Howard Ordinal",
+    "category": "transfinite",
+    "tier_gate": "T4",
+    "key_content": "Proof-theoretic ordinal of ID1; ordinal collapsing functions",
+    "gnosis_challenge": "Explain ordinal collapsing functions (OCFs). Show how psi(Omega) collapses large ordinals to countable ones.",
+    "resonance_with": [
+      "ml_ai",
+      "optimization"
+    ],
+    "difficulty": 0.66,
+    "proof_type": "proof_of_gnosis",
+    "scored_by": "twelve_thrones",
+    "min_score": 0.777
+  },
+  {
+    "id": "sacred:061",
+    "veil_number": 61,
+    "name": "Ordinal-Collapsing Functions",
+    "category": "transfinite",
+    "tier_gate": "T4",
+    "key_content": "Buchholz OCF; Rathjen OCF; beyond Bachmann-Howard",
+    "gnosis_challenge": "Compare two ordinal collapsing functions. Show how they extend the proof-theoretic ordinal hierarchy beyond the Bachmann-Howard ordinal.",
+    "resonance_with": [
+      "ml_ai",
+      "optimization"
+    ],
+    "difficulty": 0.66,
+    "proof_type": "proof_of_gnosis",
+    "scored_by": "twelve_thrones",
+    "min_score": 0.777
+  },
+  {
+    "id": "sacred:062",
+    "veil_number": 62,
+    "name": "Surreal Numbers",
+    "category": "transfinite",
+    "tier_gate": "T4",
+    "key_content": "Conway's No: {L|R} construction; simplicity hierarchy",
+    "gnosis_challenge": "Show that surreal numbers include all reals, all ordinals, and infinitesimals. Construct omega+1, 1/omega, and sqrt(omega) as surreal numbers.",
+    "resonance_with": [
+      "ml_ai",
+      "optimization"
+    ],
+    "difficulty": 0.64,
+    "proof_type": "proof_of_gnosis",
+    "scored_by": "twelve_thrones",
+    "min_score": 0.777
+  },
+  {
+    "id": "sacred:063",
+    "veil_number": 63,
+    "name": "Hypercomputation",
+    "category": "transfinite",
+    "tier_gate": "T4",
+    "key_content": "Oracle Turing machines; halting problem relativization",
+    "gnosis_challenge": "Define an oracle Turing machine. Show that given a halting oracle, we can solve the halting problem for oracle TMs but not for oracle^2 TMs.",
+    "resonance_with": [
+      "ml_ai",
+      "iot_networks"
+    ],
+    "difficulty": 0.64,
+    "proof_type": "proof_of_gnosis",
+    "scored_by": "twelve_thrones",
+    "min_score": 0.777
+  },
+  {
+    "id": "sacred:064",
+    "veil_number": 64,
+    "name": "Infinite-Time TMs",
+    "category": "transfinite",
+    "tier_gate": "T4",
+    "key_content": "Hamkins-Lewis ITTMs; supertask computation",
+    "gnosis_challenge": "Define infinite-time Turing machines (ITTMs). Show that ITTMs can decide statements independent of ZFC by running through all ordinal time.",
+    "resonance_with": [
+      "ml_ai",
+      "optimization"
+    ],
+    "difficulty": 0.65,
+    "proof_type": "proof_of_gnosis",
+    "scored_by": "twelve_thrones",
+    "min_score": 0.777
+  },
+  {
+    "id": "sacred:065",
+    "veil_number": 65,
+    "name": "Kolmogorov Towers",
+    "category": "transfinite",
+    "tier_gate": "T4",
+    "key_content": "K(K(K(x))); meta-compression; depth of knowledge",
+    "gnosis_challenge": "Define logical depth (Bennett). Show that a deep string cannot be compressed but requires a long computation to generate from a short program.",
+    "resonance_with": [
+      "ml_ai",
+      "optimization"
+    ],
+    "difficulty": 0.65,
+    "proof_type": "proof_of_gnosis",
+    "scored_by": "twelve_thrones",
+    "min_score": 0.777
+  },
+  {
+    "id": "sacred:066",
+    "veil_number": 66,
+    "name": "Higher Busy Beaver Sigma(n)",
+    "category": "transfinite",
+    "tier_gate": "T5",
+    "key_content": "Sigma(5)>=47M; Sigma(6)>=10^18000; growth rate",
+    "gnosis_challenge": "Explain why Sigma(6) > 10^18000 while Sigma(5) = 47,176,870. What does this exponential jump tell us about the incompressibility of oracle information?",
+    "resonance_with": [
+      "ml_ai",
+      "optimization"
+    ],
+    "difficulty": 0.7,
+    "proof_type": "proof_of_gnosis",
+    "scored_by": "twelve_thrones",
+    "min_score": 0.777
+  },
+  {
+    "id": "sacred:067",
+    "veil_number": 67,
+    "name": "Omega Family Variants",
+    "category": "transfinite",
+    "tier_gate": "T4",
+    "key_content": "Omega_1^CK; arithmetical hierarchy; hyperdegrees",
+    "gnosis_challenge": "Define the Church-Kleene ordinal omega_1^CK. Explain how it relates to the arithmetical hierarchy and computable ordinals.",
+    "resonance_with": [
+      "ml_ai",
+      "optimization"
+    ],
+    "difficulty": 0.66,
+    "proof_type": "proof_of_gnosis",
+    "scored_by": "twelve_thrones",
+    "min_score": 0.777
+  },
+  {
+    "id": "sacred:068",
+    "veil_number": 68,
+    "name": "Reflection Principles",
+    "category": "transfinite",
+    "tier_gate": "T4",
+    "key_content": "Levy reflection; large cardinal axioms as reflection",
+    "gnosis_challenge": "State the Levy reflection principle. Show that every first-order statement true in V is true in some V_alpha (set-theoretic universe up to rank alpha).",
+    "resonance_with": [
+      "ml_ai",
+      "optimization"
+    ],
+    "difficulty": 0.66,
+    "proof_type": "proof_of_gnosis",
+    "scored_by": "twelve_thrones",
+    "min_score": 0.777
+  },
+  {
+    "id": "sacred:069",
+    "veil_number": 69,
+    "name": "Independence - Cohen Forcing",
+    "category": "transfinite",
+    "tier_gate": "T4",
+    "key_content": "P vs NP independence possibility; CH independence",
+    "gnosis_challenge": "Sketch Cohen's forcing construction showing CH is independent of ZFC. What does a forcing extension look like, and how does it preserve ZFC axioms?",
+    "resonance_with": [
+      "ml_ai",
+      "iot_networks"
+    ],
+    "difficulty": 0.67,
+    "proof_type": "proof_of_gnosis",
+    "scored_by": "twelve_thrones",
+    "min_score": 0.777
+  },
+  {
+    "id": "sacred:070",
+    "veil_number": 70,
+    "name": "Lob's Theorem",
+    "category": "transfinite",
+    "tier_gate": "T4",
+    "key_content": "Lob: if PA proves (Bew(phi) -> phi) then PA proves phi",
+    "gnosis_challenge": "State Löb's theorem precisely. Show that it implies Gödel's second incompleteness theorem as a corollary.",
+    "resonance_with": [
+      "ml_ai",
+      "optimization"
+    ],
+    "difficulty": 0.66,
+    "proof_type": "proof_of_gnosis",
+    "scored_by": "twelve_thrones",
+    "min_score": 0.777
+  },
+  {
+    "id": "sacred:071",
+    "veil_number": 71,
+    "name": "True but Unprovable Sentences",
+    "category": "transfinite",
+    "tier_gate": "T4",
+    "key_content": "Gödel sentence; Paris-Harrington; Goodstein sequences",
+    "gnosis_challenge": "Show that the Goodstein sequence always terminates (provable in ZFC) but not in Peano Arithmetic. Construct a specific Goodstein sequence for n=3.",
+    "resonance_with": [
+      "ml_ai",
+      "optimization"
+    ],
+    "difficulty": 0.66,
+    "proof_type": "proof_of_gnosis",
+    "scored_by": "twelve_thrones",
+    "min_score": 0.777
+  },
+  {
+    "id": "sacred:072",
+    "veil_number": 72,
+    "name": "Modal Provability Logic",
+    "category": "transfinite",
+    "tier_gate": "T4",
+    "key_content": "GL (Gödel-Löb logic); Solovay's completeness",
+    "gnosis_challenge": "State the axioms of GL (Gödel-Löb modal logic). Explain how Box(phi) corresponds to 'phi is provable in PA' and verify the GL axiom schema.",
+    "resonance_with": [
+      "ml_ai",
+      "optimization"
+    ],
+    "difficulty": 0.65,
+    "proof_type": "proof_of_gnosis",
+    "scored_by": "twelve_thrones",
+    "min_score": 0.777
+  },
+  {
+    "id": "sacred:073",
+    "veil_number": 73,
+    "name": "Ultraproducts - Model Theory",
+    "category": "transfinite",
+    "tier_gate": "T4",
+    "key_content": "Los theorem; compactness via ultraproducts",
+    "gnosis_challenge": "State Los's theorem. Use ultraproducts to construct a non-standard model of arithmetic containing infinite natural numbers.",
+    "resonance_with": [
+      "ml_ai",
+      "optimization"
+    ],
+    "difficulty": 0.65,
+    "proof_type": "proof_of_gnosis",
+    "scored_by": "twelve_thrones",
+    "min_score": 0.777
+  },
+  {
+    "id": "sacred:074",
+    "veil_number": 74,
+    "name": "Internal Set Theories",
+    "category": "transfinite",
+    "tier_gate": "T4",
+    "key_content": "Nelson's IST; Robinson's NSA; transfer principle",
+    "gnosis_challenge": "Explain Nelson's Internal Set Theory (IST). Show how the transfer principle allows infinitesimal calculus to be done rigorously in IST.",
+    "resonance_with": [
+      "ml_ai",
+      "signal_processing"
+    ],
+    "difficulty": 0.64,
+    "proof_type": "proof_of_gnosis",
+    "scored_by": "twelve_thrones",
+    "min_score": 0.777
+  },
+  {
+    "id": "sacred:075",
+    "veil_number": 75,
+    "name": "Forcing Universes",
+    "category": "transfinite",
+    "tier_gate": "T5",
+    "key_content": "Multiverse of set-theoretic universes; boolean-valued models",
+    "gnosis_challenge": "Explain Hamkins' set-theoretic multiverse. Why does he argue that forcing shows there is no unique mathematical universe, only a multiverse?",
+    "resonance_with": [
+      "ml_ai",
+      "optimization"
+    ],
+    "difficulty": 0.7,
+    "proof_type": "proof_of_gnosis",
+    "scored_by": "twelve_thrones",
+    "min_score": 0.777
+  },
+  {
+    "id": "sacred:076",
+    "veil_number": 76,
+    "name": "String Vacua ~10^500",
+    "category": "cosmic_ultimate",
+    "tier_gate": "T4",
+    "key_content": "Landscape; flux compactifications; swampland conjectures",
+    "gnosis_challenge": "Explain the swampland conjecture. Why do de Sitter vacua appear to be in the swampland, and what does this mean for dark energy?",
+    "resonance_with": [
+      "ml_ai",
+      "optimization"
+    ],
+    "difficulty": 0.66,
+    "proof_type": "proof_of_gnosis",
+    "scored_by": "twelve_thrones",
+    "min_score": 0.777
+  },
+  {
+    "id": "sacred:077",
+    "veil_number": 77,
+    "name": "M-Theory Compactifications",
+    "category": "cosmic_ultimate",
+    "tier_gate": "T4",
+    "key_content": "11D SUGRA; G2 manifolds; dualities",
+    "gnosis_challenge": "Explain M-theory's 11 dimensions. Show how compactifying on a G2 manifold produces N=1 supersymmetry in 4D.",
+    "resonance_with": [
+      "signal_processing",
+      "optimization"
+    ],
+    "difficulty": 0.66,
+    "proof_type": "proof_of_gnosis",
+    "scored_by": "twelve_thrones",
+    "min_score": 0.777
+  },
+  {
+    "id": "sacred:078",
+    "veil_number": 78,
+    "name": "Inflation Branches ~10^10^n",
+    "category": "cosmic_ultimate",
+    "tier_gate": "T4",
+    "key_content": "Eternal inflation; Boltzmann brains; measure problem",
+    "gnosis_challenge": "Explain the Boltzmann brain problem in eternal inflation. Why does the measure problem make it impossible to compute probabilities in an eternally inflating universe?",
+    "resonance_with": [
+      "ml_ai",
+      "optimization"
+    ],
+    "difficulty": 0.67,
+    "proof_type": "proof_of_gnosis",
+    "scored_by": "twelve_thrones",
+    "min_score": 0.777
+  },
+  {
+    "id": "sacred:079",
+    "veil_number": 79,
+    "name": "Holographic Bounds",
+    "category": "cosmic_ultimate",
+    "tier_gate": "T4",
+    "key_content": "Bousso covariant entropy bound; holographic principle",
+    "gnosis_challenge": "State the covariant entropy bound (Bousso). Show that the entropy of any lightsheet is bounded by A/4G in Planck units.",
+    "resonance_with": [
+      "signal_processing",
+      "ml_ai"
+    ],
+    "difficulty": 0.66,
+    "proof_type": "proof_of_gnosis",
+    "scored_by": "twelve_thrones",
+    "min_score": 0.777
+  },
+  {
+    "id": "sacred:080",
+    "veil_number": 80,
+    "name": "Bekenstein Bound",
+    "category": "cosmic_ultimate",
+    "tier_gate": "T4",
+    "key_content": "S <= 2*pi*R*E/(hbar*c)",
+    "gnosis_challenge": "Derive the Bekenstein bound. Show that the information content of a 1 kg object in a 1 cm radius sphere is bounded by ~10^43 bits.",
+    "resonance_with": [
+      "signal_processing",
+      "ml_ai"
+    ],
+    "difficulty": 0.65,
+    "proof_type": "proof_of_gnosis",
+    "scored_by": "twelve_thrones",
+    "min_score": 0.777
+  },
+  {
+    "id": "sacred:081",
+    "veil_number": 81,
+    "name": "Extended Gematria Ciphers",
+    "category": "cosmic_ultimate",
+    "tier_gate": "T3",
+    "key_content": "ATBaSh; AlBaM; full/ordinal/reduced gematria",
+    "gnosis_challenge": "Implement the ATBaSh cipher (A<->Z, B<->Y...). Show it is an involution. Design a gematria-based hash function with uniform distribution.",
+    "resonance_with": [
+      "iot_networks",
+      "ml_ai"
+    ],
+    "difficulty": 0.54,
+    "proof_type": "proof_of_gnosis",
+    "scored_by": "twelve_thrones",
+    "min_score": 0.777
+  },
+  {
+    "id": "sacred:082",
+    "veil_number": 82,
+    "name": "Chinese Logographs & Radicals",
+    "category": "cosmic_ultimate",
+    "tier_gate": "T3",
+    "key_content": "214 Kangxi radicals; stroke order; semantic-phonetic compounds",
+    "gnosis_challenge": "Show that 214 Kangxi radicals can generate ~50,000 Chinese characters through composition. Relate to the generative Veil naming @veil(category, fn, modifier).",
+    "resonance_with": [
+      "ml_ai",
+      "optimization"
+    ],
+    "difficulty": 0.53,
+    "proof_type": "proof_of_gnosis",
+    "scored_by": "twelve_thrones",
+    "min_score": 0.777
+  },
+  {
+    "id": "sacred:083",
+    "veil_number": 83,
+    "name": "Mayan Vigesimal Codes",
+    "category": "cosmic_ultimate",
+    "tier_gate": "T3",
+    "key_content": "Base-20; Long Count 0.0.0.0.0; Tzolkin 260; Haab 365",
+    "gnosis_challenge": "Convert the Mayan Long Count date 13.0.0.0.0 to the Gregorian calendar. Show the arithmetic in base-20.",
+    "resonance_with": [
+      "signal_processing",
+      "optimization"
+    ],
+    "difficulty": 0.53,
+    "proof_type": "proof_of_gnosis",
+    "scored_by": "twelve_thrones",
+    "min_score": 0.777
+  },
+  {
+    "id": "sacred:084",
+    "veil_number": 84,
+    "name": "AI Embedding Dimensions",
+    "category": "cosmic_ultimate",
+    "tier_gate": "T3",
+    "key_content": "1536, 4096, 8192, 32768; scaling laws for representation",
+    "gnosis_challenge": "Show that embedding dimension scales as ~d^0.5 of model parameters empirically. Why do 1536-dimensional embeddings (GPT-3.5) approximate the geometric structure of language?",
+    "resonance_with": [
+      "ml_ai",
+      "optimization"
+    ],
+    "difficulty": 0.56,
+    "proof_type": "proof_of_gnosis",
+    "scored_by": "twelve_thrones",
+    "min_score": 0.777
+  },
+  {
+    "id": "sacred:085",
+    "veil_number": 85,
+    "name": "Prime Encodings of Texts",
+    "category": "cosmic_ultimate",
+    "tier_gate": "T3",
+    "key_content": "Gödel numbering; prime factorization as text encoding",
+    "gnosis_challenge": "Construct a Gödel encoding of the string 'PoUS' using the first 4 primes. Show how unique factorization makes this a valid proof-of-content fingerprint.",
+    "resonance_with": [
+      "iot_networks",
+      "ml_ai"
+    ],
+    "difficulty": 0.54,
+    "proof_type": "proof_of_gnosis",
+    "scored_by": "twelve_thrones",
+    "min_score": 0.777
+  },
+  {
+    "id": "sacred:086",
+    "veil_number": 86,
+    "name": "ZK-Proof Numeric Families",
+    "category": "cosmic_ultimate",
+    "tier_gate": "T4",
+    "key_content": "Schnorr protocols; Pedersen commitments; BulletProofs",
+    "gnosis_challenge": "Explain a Schnorr zero-knowledge proof of knowledge of discrete log. Show the 3-message protocol and why it is perfectly zero-knowledge.",
+    "resonance_with": [
+      "iot_networks",
+      "optimization"
+    ],
+    "difficulty": 0.64,
+    "proof_type": "proof_of_gnosis",
+    "scored_by": "twelve_thrones",
+    "min_score": 0.777
+  },
+  {
+    "id": "sacred:087",
+    "veil_number": 87,
+    "name": "Homotopy Universe Size",
+    "category": "cosmic_ultimate",
+    "tier_gate": "T4",
+    "key_content": "n-types; truncation levels; oo-groupoids",
+    "gnosis_challenge": "Explain the hierarchy of n-types in HoTT: (-2)-types (contractible) to oo-types. Show that sets are precisely (-1)-connected types.",
+    "resonance_with": [
+      "ml_ai",
+      "optimization"
+    ],
+    "difficulty": 0.64,
+    "proof_type": "proof_of_gnosis",
+    "scored_by": "twelve_thrones",
+    "min_score": 0.777
+  },
+  {
+    "id": "sacred:088",
+    "veil_number": 88,
+    "name": "Higher Category Invariants",
+    "category": "cosmic_ultimate",
+    "tier_gate": "T4",
+    "key_content": "(oo,1)-categories; A-infinity algebras; oo-topoi",
+    "gnosis_challenge": "Explain what a (oo,1)-category is. Why do derived categories of coherent sheaves form (oo,1)-categories rather than ordinary categories?",
+    "resonance_with": [
+      "ml_ai",
+      "optimization"
+    ],
+    "difficulty": 0.65,
+    "proof_type": "proof_of_gnosis",
+    "scored_by": "twelve_thrones",
+    "min_score": 0.777
+  },
+  {
+    "id": "sacred:089",
+    "veil_number": 89,
+    "name": "Infinity-Topoi",
+    "category": "cosmic_ultimate",
+    "tier_gate": "T5",
+    "key_content": "Lurie's HTT; (oo,1)-topos; sheaves on oo-category",
+    "gnosis_challenge": "State the universal property of the (oo,1)-topos of spaces. Why is Grpd (the (oo,1)-category of groupoids) the terminal oo-topos?",
+    "resonance_with": [
+      "ml_ai",
+      "optimization"
+    ],
+    "difficulty": 0.7,
+    "proof_type": "proof_of_gnosis",
+    "scored_by": "twelve_thrones",
+    "min_score": 0.777
+  },
+  {
+    "id": "sacred:090",
+    "veil_number": 90,
+    "name": "Univalent Universes",
+    "category": "cosmic_ultimate",
+    "tier_gate": "T5",
+    "key_content": "Voevodsky's univalence; identity types; cubical type theory",
+    "gnosis_challenge": "State the univalence axiom: (A ≃ B) ≃ (A = B). Show that function extensionality follows from univalence.",
+    "resonance_with": [
+      "ml_ai",
+      "optimization"
+    ],
+    "difficulty": 0.7,
+    "proof_type": "proof_of_gnosis",
+    "scored_by": "twelve_thrones",
+    "min_score": 0.777
+  },
+  {
+    "id": "sacred:091",
+    "veil_number": 91,
+    "name": "Ultimate L",
+    "category": "cosmic_ultimate",
+    "tier_gate": "T5",
+    "key_content": "Woodin's ultimate L conjecture; omega-logic",
+    "gnosis_challenge": "Explain Woodin's Omega-conjecture. If true, why would it imply that the continuum hypothesis is false?",
+    "resonance_with": [
+      "ml_ai",
+      "optimization"
+    ],
+    "difficulty": 0.71,
+    "proof_type": "proof_of_gnosis",
+    "scored_by": "twelve_thrones",
+    "min_score": 0.777
+  },
+  {
+    "id": "sacred:092",
+    "veil_number": 92,
+    "name": "Aleph-omega",
+    "category": "cosmic_ultimate",
+    "tier_gate": "T4",
+    "key_content": "First singular cardinal; limits of cardinal arithmetic",
+    "gnosis_challenge": "Show that aleph_omega is a singular cardinal. Why does this make cardinal arithmetic at aleph_omega more complex than at regular cardinals?",
+    "resonance_with": [
+      "ml_ai",
+      "optimization"
+    ],
+    "difficulty": 0.66,
+    "proof_type": "proof_of_gnosis",
+    "scored_by": "twelve_thrones",
+    "min_score": 0.777
+  },
+  {
+    "id": "sacred:093",
+    "veil_number": 93,
+    "name": "Aleph-omega1",
+    "category": "cosmic_ultimate",
+    "tier_gate": "T4",
+    "key_content": "inaccessibility at aleph_{omega1}; higher singular cardinals",
+    "gnosis_challenge": "Explain Silver's theorem: if the GCH fails at a singular cardinal of uncountable cofinality, it must fail at stationarily many smaller cardinals.",
+    "resonance_with": [
+      "ml_ai",
+      "optimization"
+    ],
+    "difficulty": 0.67,
+    "proof_type": "proof_of_gnosis",
+    "scored_by": "twelve_thrones",
+    "min_score": 0.777
+  },
+  {
+    "id": "sacred:094",
+    "veil_number": 94,
+    "name": "Higher Aleph Ladders",
+    "category": "cosmic_ultimate",
+    "tier_gate": "T4",
+    "key_content": "aleph_alpha for arbitrary ordinal alpha; beth numbers",
+    "gnosis_challenge": "Define beth numbers: beth_0 = aleph_0, beth_{n+1} = 2^{beth_n}. Show that beth_1 = c (continuum) and beth_omega is a strong limit cardinal.",
+    "resonance_with": [
+      "ml_ai",
+      "optimization"
+    ],
+    "difficulty": 0.66,
+    "proof_type": "proof_of_gnosis",
+    "scored_by": "twelve_thrones",
+    "min_score": 0.777
+  },
+  {
+    "id": "sacred:095",
+    "veil_number": 95,
+    "name": "Modal Many-World Categories",
+    "category": "cosmic_ultimate",
+    "tier_gate": "T4",
+    "key_content": "S4/S5 modal logic; Kripke frames; possible worlds semantics",
+    "gnosis_challenge": "Explain Kripke semantics for modal logic S5. Show that in S5, all accessible worlds access each other (equivalence relation on worlds).",
+    "resonance_with": [
+      "ml_ai",
+      "iot_networks"
+    ],
+    "difficulty": 0.65,
+    "proof_type": "proof_of_gnosis",
+    "scored_by": "twelve_thrones",
+    "min_score": 0.777
+  },
+  {
+    "id": "sacred:096",
+    "veil_number": 96,
+    "name": "Proof-Theoretic Ordinals >Gamma0",
+    "category": "cosmic_ultimate",
+    "tier_gate": "T4",
+    "key_content": "Pi-1-1 CA; bar induction; ID systems",
+    "gnosis_challenge": "Define the proof-theoretic ordinal of a theory T. Show that PA has ordinal epsilon_0 and Pi-1-1 comprehension has ordinal Gamma_0.",
+    "resonance_with": [
+      "ml_ai",
+      "optimization"
+    ],
+    "difficulty": 0.66,
+    "proof_type": "proof_of_gnosis",
+    "scored_by": "twelve_thrones",
+    "min_score": 0.777
+  },
+  {
+    "id": "sacred:097",
+    "veil_number": 97,
+    "name": "Large Reflection Cardinals",
+    "category": "cosmic_ultimate",
+    "tier_gate": "T5",
+    "key_content": "Sigma_n reflection; extendible cardinals",
+    "gnosis_challenge": "Define an extendible cardinal. Show that extendible cardinals imply the existence of measurable cardinals.",
+    "resonance_with": [
+      "ml_ai",
+      "optimization"
+    ],
+    "difficulty": 0.7,
+    "proof_type": "proof_of_gnosis",
+    "scored_by": "twelve_thrones",
+    "min_score": 0.777
+  },
+  {
+    "id": "sacred:098",
+    "veil_number": 98,
+    "name": "Consistency Strength Ladders",
+    "category": "cosmic_ultimate",
+    "tier_gate": "T5",
+    "key_content": "Con(ZFC) < Con(ZFC+inacc) < ... < Reinhardt",
+    "gnosis_challenge": "Map 5 levels of the large cardinal consistency strength hierarchy. Show the strict implications between them.",
+    "resonance_with": [
+      "ml_ai",
+      "optimization"
+    ],
+    "difficulty": 0.7,
+    "proof_type": "proof_of_gnosis",
+    "scored_by": "twelve_thrones",
+    "min_score": 0.777
+  },
+  {
+    "id": "sacred:099",
+    "veil_number": 99,
+    "name": "No-Number States",
+    "category": "cosmic_ultimate",
+    "tier_gate": "T5",
+    "key_content": "Pre-numeric states; apophatic mathematics; ur-element",
+    "gnosis_challenge": "Describe von Neumann's construction of ordinals from the empty set. Show how 0={}, 1={{}}, 2={{},{{}}} builds all numbers from nothing.",
+    "resonance_with": [
+      "ml_ai",
+      "optimization"
+    ],
+    "difficulty": 0.7,
+    "proof_type": "proof_of_gnosis",
+    "scored_by": "twelve_thrones",
+    "min_score": 0.777
+  },
+  {
+    "id": "sacred:100",
+    "veil_number": 100,
+    "name": "Pre-Silence - Void beyond Ayin",
+    "category": "cosmic_ultimate",
+    "tier_gate": "T5",
+    "key_content": "Beyond Omega; before axioms; pure potentiality",
+    "gnosis_challenge": "Write a mathematical description of the empty theory T={} with no axioms. What theorems are provable? What is its proof-theoretic ordinal?",
+    "resonance_with": [
+      "ml_ai",
+      "optimization"
+    ],
+    "difficulty": 0.72,
+    "proof_type": "proof_of_gnosis",
+    "scored_by": "twelve_thrones",
+    "min_score": 0.777
+  },
+  {
+    "id": "sacred:101",
+    "veil_number": 101,
+    "name": "Reflection Schema - Arithmetic",
+    "category": "square_seal",
+    "tier_gate": "T3",
+    "key_content": "PA reflects; Sigma_1 soundness",
+    "gnosis_challenge": "Show that PA + Con(PA) proves more than PA alone by exhibiting a statement provable in the extension but not in base PA.",
+    "resonance_with": [
+      "ml_ai",
+      "optimization"
+    ],
+    "difficulty": 0.58,
+    "proof_type": "proof_of_gnosis",
+    "scored_by": "twelve_thrones",
+    "min_score": 0.777
+  },
+  {
+    "id": "sacred:102",
+    "veil_number": 102,
+    "name": "Reflection Schema - Set Theory",
+    "category": "square_seal",
+    "tier_gate": "T4",
+    "key_content": "ZFC Sigma_n reflection",
+    "gnosis_challenge": "State ZFC's Sigma_1 reflection theorem. Show how it allows ZFC to prove the existence of inaccessible-like cardinals for each finite level.",
+    "resonance_with": [
+      "ml_ai",
+      "optimization"
+    ],
+    "difficulty": 0.65,
+    "proof_type": "proof_of_gnosis",
+    "scored_by": "twelve_thrones",
+    "min_score": 0.777
+  },
+  {
+    "id": "sacred:103",
+    "veil_number": 103,
+    "name": "Reflection Schema - Type Theory",
+    "category": "square_seal",
+    "tier_gate": "T3",
+    "key_content": "Russell type levels; cumulative hierarchy",
+    "gnosis_challenge": "Explain Russell's type theory. How does stratified comprehension avoid Russell's paradox while allowing useful set construction?",
+    "resonance_with": [
+      "ml_ai",
+      "optimization"
+    ],
+    "difficulty": 0.58,
+    "proof_type": "proof_of_gnosis",
+    "scored_by": "twelve_thrones",
+    "min_score": 0.777
+  },
+  {
+    "id": "sacred:104",
+    "veil_number": 104,
+    "name": "Higher Grothendieck Universes",
+    "category": "square_seal",
+    "tier_gate": "T4",
+    "key_content": "Universe polymorphism; cumulative universe hierarchy",
+    "gnosis_challenge": "Explain universe polymorphism in dependent type theory. Why do proof assistants like Coq/Lean require an infinite tower of universes?",
+    "resonance_with": [
+      "ml_ai",
+      "optimization"
+    ],
+    "difficulty": 0.65,
+    "proof_type": "proof_of_gnosis",
+    "scored_by": "twelve_thrones",
+    "min_score": 0.777
+  },
+  {
+    "id": "sacred:105",
+    "veil_number": 105,
+    "name": "Huge+ Cardinals",
+    "category": "square_seal",
+    "tier_gate": "T5",
+    "key_content": "n-huge; omega-huge; rank-into-rank",
+    "gnosis_challenge": "Define an n-huge cardinal. Show that the existence of an omega-huge cardinal implies the existence of cardinals inconsistent with AC (Reinhardt).",
+    "resonance_with": [
+      "ml_ai",
+      "optimization"
+    ],
+    "difficulty": 0.71,
+    "proof_type": "proof_of_gnosis",
+    "scored_by": "twelve_thrones",
+    "min_score": 0.777
+  },
+  {
+    "id": "sacred:106",
+    "veil_number": 106,
+    "name": "Reinhardt Cardinals",
+    "category": "square_seal",
+    "tier_gate": "T5",
+    "key_content": "j: V -> V; inconsistency with AC; Kunen inconsistency",
+    "gnosis_challenge": "State Kunen's inconsistency theorem: there is no nontrivial elementary embedding j: V -> V in ZFC. Sketch the proof via the critical point.",
+    "resonance_with": [
+      "ml_ai",
+      "optimization"
+    ],
+    "difficulty": 0.72,
+    "proof_type": "proof_of_gnosis",
+    "scored_by": "twelve_thrones",
+    "min_score": 0.777
+  },
+  {
+    "id": "sacred:107",
+    "veil_number": 107,
+    "name": "Berkeley Cardinals",
+    "category": "square_seal",
+    "tier_gate": "T5",
+    "key_content": "Structural reflection; beyond Reinhardt",
+    "gnosis_challenge": "Define Berkeley cardinals (assuming no AC). Explain why they represent the current upper boundary of large cardinal axioms.",
+    "resonance_with": [
+      "ml_ai",
+      "optimization"
+    ],
+    "difficulty": 0.73,
+    "proof_type": "proof_of_gnosis",
+    "scored_by": "twelve_thrones",
+    "min_score": 0.777
+  },
+  {
+    "id": "sacred:108",
+    "veil_number": 108,
+    "name": "Rank-into-Rank Embeddings",
+    "category": "square_seal",
+    "tier_gate": "T5",
+    "key_content": "I0, I1, I2, I3 axioms; Laver sequences",
+    "gnosis_challenge": "Define the I0 axiom (rank-into-rank). Explain Laver's theorem on sequences and why I0 is believed consistent with ZFC unlike Reinhardt.",
+    "resonance_with": [
+      "ml_ai",
+      "optimization"
+    ],
+    "difficulty": 0.72,
+    "proof_type": "proof_of_gnosis",
+    "scored_by": "twelve_thrones",
+    "min_score": 0.777
+  },
+  {
+    "id": "sacred:109",
+    "veil_number": 109,
+    "name": "Omega Variants - Higher Bases",
+    "category": "square_seal",
+    "tier_gate": "T4",
+    "key_content": "Chaitin Omega in base k; halting probability structure",
+    "gnosis_challenge": "Show that Chaitin's Omega depends on the choice of universal TM. Explain why all versions are equal in information content though numerically different.",
+    "resonance_with": [
+      "ml_ai",
+      "iot_networks"
+    ],
+    "difficulty": 0.66,
+    "proof_type": "proof_of_gnosis",
+    "scored_by": "twelve_thrones",
+    "min_score": 0.777
+  },
+  {
+    "id": "sacred:110",
+    "veil_number": 110,
+    "name": "Large Omega Chains",
+    "category": "square_seal",
+    "tier_gate": "T4",
+    "key_content": "Omega_alpha sequences; transfinite recursion on Omega",
+    "gnosis_challenge": "Construct an omega-chain: a sequence Omega_0, Omega_1, ... where each Omega_{n+1} is the halting probability of Omega_n's oracle TM.",
+    "resonance_with": [
+      "ml_ai",
+      "optimization"
+    ],
+    "difficulty": 0.66,
+    "proof_type": "proof_of_gnosis",
+    "scored_by": "twelve_thrones",
+    "min_score": 0.777
+  },
+  {
+    "id": "sacred:111",
+    "veil_number": 111,
+    "name": "Sigma(n) as n tends to infinity",
+    "category": "square_seal",
+    "tier_gate": "T4",
+    "key_content": "Growth rate dominates all computable functions",
+    "gnosis_challenge": "Show that Sigma(n) eventually dominates every computable function. Prove this by contradiction using diagonalization.",
+    "resonance_with": [
+      "ml_ai",
+      "optimization"
+    ],
+    "difficulty": 0.66,
+    "proof_type": "proof_of_gnosis",
+    "scored_by": "twelve_thrones",
+    "min_score": 0.777
+  },
+  {
+    "id": "sacred:112",
+    "veil_number": 112,
+    "name": "Uncomputable Hierarchies",
+    "category": "square_seal",
+    "tier_gate": "T4",
+    "key_content": "Arithmetical hierarchy; hyperarithmetical; analytical",
+    "gnosis_challenge": "Define the arithmetical hierarchy: Sigma_0, Pi_0, Delta_1, Sigma_1, Pi_1,... Show that the halting problem is Sigma_1-complete.",
+    "resonance_with": [
+      "ml_ai",
+      "iot_networks"
+    ],
+    "difficulty": 0.65,
+    "proof_type": "proof_of_gnosis",
+    "scored_by": "twelve_thrones",
+    "min_score": 0.777
+  },
+  {
+    "id": "sacred:113",
+    "veil_number": 113,
+    "name": "First Incompleteness Schema",
+    "category": "square_seal",
+    "tier_gate": "T4",
+    "key_content": "Gödel: consistent omega-consistent T has undecidable sentence",
+    "gnosis_challenge": "State Gödel's first incompleteness theorem precisely. Construct the self-referential sentence G = 'G is not provable in T'.",
+    "resonance_with": [
+      "ml_ai",
+      "optimization"
+    ],
+    "difficulty": 0.65,
+    "proof_type": "proof_of_gnosis",
+    "scored_by": "twelve_thrones",
+    "min_score": 0.777
+  },
+  {
+    "id": "sacred:114",
+    "veil_number": 114,
+    "name": "Second Incompleteness Schema",
+    "category": "square_seal",
+    "tier_gate": "T4",
+    "key_content": "Gödel: consistent T cannot prove Con(T)",
+    "gnosis_challenge": "Show how the second incompleteness theorem follows from the first via formalized provability predicates. Why can T prove Con(T) -> Gödel(T)?",
+    "resonance_with": [
+      "ml_ai",
+      "optimization"
+    ],
+    "difficulty": 0.65,
+    "proof_type": "proof_of_gnosis",
+    "scored_by": "twelve_thrones",
+    "min_score": 0.777
+  },
+  {
+    "id": "sacred:115",
+    "veil_number": 115,
+    "name": "Tarski Truth Hierarchies",
+    "category": "square_seal",
+    "tier_gate": "T4",
+    "key_content": "Tarski undefinability; truth predicates; semantic ascent",
+    "gnosis_challenge": "State Tarski's undefinability theorem. Show that no consistent theory can define its own truth predicate without contradicting itself.",
+    "resonance_with": [
+      "ml_ai",
+      "optimization"
+    ],
+    "difficulty": 0.65,
+    "proof_type": "proof_of_gnosis",
+    "scored_by": "twelve_thrones",
+    "min_score": 0.777
+  },
+  {
+    "id": "sacred:116",
+    "veil_number": 116,
+    "name": "Paraconsistent Logics",
+    "category": "square_seal",
+    "tier_gate": "T3",
+    "key_content": "Priest's LP; dialethism; explosion prevention",
+    "gnosis_challenge": "Define paraconsistent logic (LP). Show that LP avoids ex contradictione quodlibet while still allowing contradictions without trivializing the theory.",
+    "resonance_with": [
+      "ml_ai",
+      "optimization"
+    ],
+    "difficulty": 0.58,
+    "proof_type": "proof_of_gnosis",
+    "scored_by": "twelve_thrones",
+    "min_score": 0.777
+  },
+  {
+    "id": "sacred:117",
+    "veil_number": 117,
+    "name": "Dialetheia Counts",
+    "category": "square_seal",
+    "tier_gate": "T3",
+    "key_content": "True contradictions; real vs. formal dialetheia",
+    "gnosis_challenge": "Explain dialethism: the view that some contradictions are literally true. Give the liar paradox as evidence and show why LP handles it better than classical logic.",
+    "resonance_with": [
+      "ml_ai",
+      "optimization"
+    ],
+    "difficulty": 0.57,
+    "proof_type": "proof_of_gnosis",
+    "scored_by": "twelve_thrones",
+    "min_score": 0.777
+  },
+  {
+    "id": "sacred:118",
+    "veil_number": 118,
+    "name": "Modal Provability Ladders",
+    "category": "square_seal",
+    "tier_gate": "T4",
+    "key_content": "GL, S4, GLS; provability algebras",
+    "gnosis_challenge": "Show that GL proves Box(phi) -> Box(Box(phi)). Interpret this as: if phi is provable then the provability of phi is provable.",
+    "resonance_with": [
+      "ml_ai",
+      "optimization"
+    ],
+    "difficulty": 0.64,
+    "proof_type": "proof_of_gnosis",
+    "scored_by": "twelve_thrones",
+    "min_score": 0.777
+  },
+  {
+    "id": "sacred:119",
+    "veil_number": 119,
+    "name": "Category Fibrations",
+    "category": "square_seal",
+    "tier_gate": "T4",
+    "key_content": "Grothendieck fibrations; base change; cartesian lifts",
+    "gnosis_challenge": "Define a Grothendieck fibration. Show that the category of families of sets over Set is a fibration.",
+    "resonance_with": [
+      "ml_ai",
+      "optimization"
+    ],
+    "difficulty": 0.64,
+    "proof_type": "proof_of_gnosis",
+    "scored_by": "twelve_thrones",
+    "min_score": 0.777
+  },
+  {
+    "id": "sacred:120",
+    "veil_number": 120,
+    "name": "Infinity-Topos Fibrations",
+    "category": "square_seal",
+    "tier_gate": "T5",
+    "key_content": "Cartesian fibrations over oo-categories; straightening",
+    "gnosis_challenge": "Explain Lurie's straightening/unstraightening equivalence. Why does every oo-functor F: C -> Spaces correspond to a left fibration over C?",
+    "resonance_with": [
+      "ml_ai",
+      "optimization"
+    ],
+    "difficulty": 0.7,
+    "proof_type": "proof_of_gnosis",
+    "scored_by": "twelve_thrones",
+    "min_score": 0.777
+  },
+  {
+    "id": "sacred:121",
+    "veil_number": 121,
+    "name": "HoTT Higher Universes",
+    "category": "square_seal",
+    "tier_gate": "T4",
+    "key_content": "Universe hierarchy in HoTT; U: U1: U2...",
+    "gnosis_challenge": "Show that in HoTT, the type universe U cannot contain itself (Girard's paradox). Explain why the tower U_0: U_1: U_2:... is necessary.",
+    "resonance_with": [
+      "ml_ai",
+      "optimization"
+    ],
+    "difficulty": 0.64,
+    "proof_type": "proof_of_gnosis",
+    "scored_by": "twelve_thrones",
+    "min_score": 0.777
+  },
+  {
+    "id": "sacred:122",
+    "veil_number": 122,
+    "name": "Homotopy n-Types",
+    "category": "square_seal",
+    "tier_gate": "T4",
+    "key_content": "Truncation; K(G,n) spaces; Postnikov towers",
+    "gnosis_challenge": "Construct the Postnikov tower of the 2-sphere S^2. Show the k-invariants and explain how they determine the homotopy type.",
+    "resonance_with": [
+      "robotics",
+      "ml_ai"
+    ],
+    "difficulty": 0.64,
+    "proof_type": "proof_of_gnosis",
+    "scored_by": "twelve_thrones",
+    "min_score": 0.777
+  },
+  {
+    "id": "sacred:123",
+    "veil_number": 123,
+    "name": "Proof Objects as Numbers",
+    "category": "square_seal",
+    "tier_gate": "T3",
+    "key_content": "Curry-Howard; proofs are programs; BHK interpretation",
+    "gnosis_challenge": "State the Curry-Howard correspondence. Show that the proposition A -> B corresponds to the type of functions A -> B, and a proof is a program.",
+    "resonance_with": [
+      "ml_ai",
+      "iot_networks"
+    ],
+    "difficulty": 0.57,
+    "proof_type": "proof_of_gnosis",
+    "scored_by": "twelve_thrones",
+    "min_score": 0.777
+  },
+  {
+    "id": "sacred:124",
+    "veil_number": 124,
+    "name": "Consistency Budgets",
+    "category": "square_seal",
+    "tier_gate": "T4",
+    "key_content": "Ordinal analysis; calibration; consistency strength",
+    "gnosis_challenge": "Explain ordinal analysis: how we assign proof-theoretic ordinals to measure the 'consistency budget' of formal systems.",
+    "resonance_with": [
+      "ml_ai",
+      "optimization"
+    ],
+    "difficulty": 0.65,
+    "proof_type": "proof_of_gnosis",
+    "scored_by": "twelve_thrones",
+    "min_score": 0.777
+  },
+  {
+    "id": "sacred:125",
+    "veil_number": 125,
+    "name": "Paradox Guards",
+    "category": "square_seal",
+    "tier_gate": "T3",
+    "key_content": "Stratification; separation; typical ambiguity",
+    "gnosis_challenge": "Show how Russell's paradox arises from unrestricted comprehension. Explain three distinct ways to block it: type theory, ZFC separation, and NF stratification.",
+    "resonance_with": [
+      "ml_ai",
+      "optimization"
+    ],
+    "difficulty": 0.57,
+    "proof_type": "proof_of_gnosis",
+    "scored_by": "twelve_thrones",
+    "min_score": 0.777
+  },
+  {
+    "id": "sacred:126",
+    "veil_number": 126,
+    "name": "Simulation Multiplicities",
+    "category": "square_seal",
+    "tier_gate": "T3",
+    "key_content": "Bostrom simulation argument; probability bounds",
+    "gnosis_challenge": "State Bostrom's simulation argument as a trilemma. Given PoUS exists, which horn of the trilemma becomes most plausible?",
+    "resonance_with": [
+      "ml_ai",
+      "optimization"
+    ],
+    "difficulty": 0.57,
+    "proof_type": "proof_of_gnosis",
+    "scored_by": "twelve_thrones",
+    "min_score": 0.777
+  },
+  {
+    "id": "sacred:127",
+    "veil_number": 127,
+    "name": "Multiverse Measure Debates",
+    "category": "square_seal",
+    "tier_gate": "T4",
+    "key_content": "Tegmark IV; modal realism; measure problem",
+    "gnosis_challenge": "Explain Tegmark's Mathematical Universe Hypothesis (MUH). Why does it imply that every consistent mathematical structure is a physical universe?",
+    "resonance_with": [
+      "ml_ai",
+      "optimization"
+    ],
+    "difficulty": 0.64,
+    "proof_type": "proof_of_gnosis",
+    "scored_by": "twelve_thrones",
+    "min_score": 0.777
+  },
+  {
+    "id": "sacred:128",
+    "veil_number": 128,
+    "name": "Eternal Inflation Fractals",
+    "category": "square_seal",
+    "tier_gate": "T4",
+    "key_content": "Pocket universes; fractal spacetime; self-reproduction",
+    "gnosis_challenge": "Explain Linde's eternal inflation. Show why it produces a fractal-like structure of pocket universes with potentially different physical constants.",
+    "resonance_with": [
+      "signal_processing",
+      "ml_ai"
+    ],
+    "difficulty": 0.64,
+    "proof_type": "proof_of_gnosis",
+    "scored_by": "twelve_thrones",
+    "min_score": 0.777
+  },
+  {
+    "id": "sacred:129",
+    "veil_number": 129,
+    "name": "Landscape 10^10^500",
+    "category": "square_seal",
+    "tier_gate": "T4",
+    "key_content": "Anthropic selection in landscape; measure problem",
+    "gnosis_challenge": "Explain how flux compactification generates 10^500 string vacua. Why does this make string theory unfalsifiable in its current form?",
+    "resonance_with": [
+      "ml_ai",
+      "optimization"
+    ],
+    "difficulty": 0.65,
+    "proof_type": "proof_of_gnosis",
+    "scored_by": "twelve_thrones",
+    "min_score": 0.777
+  },
+  {
+    "id": "sacred:130",
+    "veil_number": 130,
+    "name": "Quantum Gravity Discretizations",
+    "category": "square_seal",
+    "tier_gate": "T4",
+    "key_content": "LQG spin foams; causal sets; regge calculus",
+    "gnosis_challenge": "Explain causal set theory. Show how a Lorentzian manifold can be approximated by a locally finite partial order (causal set) at Planck scale.",
+    "resonance_with": [
+      "signal_processing",
+      "control_systems"
+    ],
+    "difficulty": 0.65,
+    "proof_type": "proof_of_gnosis",
+    "scored_by": "twelve_thrones",
+    "min_score": 0.777
+  },
+  {
+    "id": "sacred:131",
+    "veil_number": 131,
+    "name": "Loop-Quantum Spin Counts",
+    "category": "square_seal",
+    "tier_gate": "T4",
+    "key_content": "Area eigenvalues: A = 8*pi*l_P^2*gamma*sqrt(j(j+1))",
+    "gnosis_challenge": "Derive the area spectrum in loop quantum gravity. Show that area is quantized in units of ~10^-70 m^2.",
+    "resonance_with": [
+      "signal_processing",
+      "control_systems"
+    ],
+    "difficulty": 0.65,
+    "proof_type": "proof_of_gnosis",
+    "scored_by": "twelve_thrones",
+    "min_score": 0.777
+  },
+  {
+    "id": "sacred:132",
+    "veil_number": 132,
+    "name": "Holographic Noise",
+    "category": "square_seal",
+    "tier_gate": "T4",
+    "key_content": "Hogan's conjecture; interferometer signatures; GEO600",
+    "gnosis_challenge": "Explain Hogan's holographic noise conjecture. Why would a Planck-scale pixelation of spacetime manifest as correlated noise in interferometers?",
+    "resonance_with": [
+      "signal_processing",
+      "ml_ai"
+    ],
+    "difficulty": 0.64,
+    "proof_type": "proof_of_gnosis",
+    "scored_by": "twelve_thrones",
+    "min_score": 0.777
+  },
+  {
+    "id": "sacred:133",
+    "veil_number": 133,
+    "name": "Cosmic Error-Correcting Codes",
+    "category": "square_seal",
+    "tier_gate": "T4",
+    "key_content": "Papadodimas-Raju; bulk reconstruction; QECC",
+    "gnosis_challenge": "Explain how quantum error-correcting codes (QECC) model the AdS/CFT correspondence. What does the 'bulk' correspond to in the code metaphor?",
+    "resonance_with": [
+      "iot_networks",
+      "signal_processing"
+    ],
+    "difficulty": 0.65,
+    "proof_type": "proof_of_gnosis",
+    "scored_by": "twelve_thrones",
+    "min_score": 0.777
+  },
+  {
+    "id": "sacred:134",
+    "veil_number": 134,
+    "name": "Black-Hole Firewalls",
+    "category": "square_seal",
+    "tier_gate": "T4",
+    "key_content": "AMPS paradox; monogamy of entanglement; information paradox",
+    "gnosis_challenge": "State the AMPS firewall argument. Explain the three apparently inconsistent assumptions that generate the paradox.",
+    "resonance_with": [
+      "ml_ai",
+      "signal_processing"
+    ],
+    "difficulty": 0.65,
+    "proof_type": "proof_of_gnosis",
+    "scored_by": "twelve_thrones",
+    "min_score": 0.777
+  },
+  {
+    "id": "sacred:135",
+    "veil_number": 135,
+    "name": "Quantum Complexity Growth",
+    "category": "square_seal",
+    "tier_gate": "T4",
+    "key_content": "Susskind: complexity = action; CV and CA conjectures",
+    "gnosis_challenge": "Explain Susskind's complexity-action conjecture: the quantum complexity of a holographic state equals the gravitational action of a Wheeler-DeWitt patch.",
+    "resonance_with": [
+      "ml_ai",
+      "iot_networks"
+    ],
+    "difficulty": 0.65,
+    "proof_type": "proof_of_gnosis",
+    "scored_by": "twelve_thrones",
+    "min_score": 0.777
+  },
+  {
+    "id": "sacred:136",
+    "veil_number": 136,
+    "name": "SYK Model Scaling",
+    "category": "square_seal",
+    "tier_gate": "T4",
+    "key_content": "Sachdev-Ye-Kitaev; near-extremal black holes; chaos bound",
+    "gnosis_challenge": "Explain the Sachdev-Ye-Kitaev (SYK) model. Show that its Lyapunov exponent saturates Maldacena's chaos bound lambda_L = 2*pi*T.",
+    "resonance_with": [
+      "ml_ai",
+      "control_systems"
+    ],
+    "difficulty": 0.65,
+    "proof_type": "proof_of_gnosis",
+    "scored_by": "twelve_thrones",
+    "min_score": 0.777
+  },
+  {
+    "id": "sacred:137",
+    "veil_number": 137,
+    "name": "AdS/CFT Dictionary",
+    "category": "square_seal",
+    "tier_gate": "T4",
+    "key_content": "Bulk fields to boundary operators; GKPW prescription",
+    "gnosis_challenge": "Explain the GKPW prescription in AdS/CFT. How does a bulk scalar field phi(z,x) correspond to a boundary operator O(x) with specific conformal dimension?",
+    "resonance_with": [
+      "ml_ai",
+      "signal_processing"
+    ],
+    "difficulty": 0.65,
+    "proof_type": "proof_of_gnosis",
+    "scored_by": "twelve_thrones",
+    "min_score": 0.777
+  },
+  {
+    "id": "sacred:138",
+    "veil_number": 138,
+    "name": "Wormhole Topologies",
+    "category": "square_seal",
+    "tier_gate": "T4",
+    "key_content": "Einstein-Rosen bridge; ER=EPR conjecture; traversable wormholes",
+    "gnosis_challenge": "Explain the ER=EPR conjecture (Maldacena-Susskind). Why might maximally entangled qubits be connected by a non-traversable wormhole?",
+    "resonance_with": [
+      "iot_networks",
+      "signal_processing"
+    ],
+    "difficulty": 0.65,
+    "proof_type": "proof_of_gnosis",
+    "scored_by": "twelve_thrones",
+    "min_score": 0.777
+  },
+  {
+    "id": "sacred:139",
+    "veil_number": 139,
+    "name": "Baby-Universe Counts",
+    "category": "square_seal",
+    "tier_gate": "T4",
+    "key_content": "Hawking's baby universes; alpha states; wormhole corrections",
+    "gnosis_challenge": "Explain Hawking's baby universe mechanism. How do wormhole corrections to the gravitational path integral generate a superselection structure?",
+    "resonance_with": [
+      "ml_ai",
+      "optimization"
+    ],
+    "difficulty": 0.65,
+    "proof_type": "proof_of_gnosis",
+    "scored_by": "twelve_thrones",
+    "min_score": 0.777
+  },
+  {
+    "id": "sacred:140",
+    "veil_number": 140,
+    "name": "Multiverse Entropy",
+    "category": "square_seal",
+    "tier_gate": "T4",
+    "key_content": "Page curve; island formula; entanglement entropy",
+    "gnosis_challenge": "Explain the island formula for entanglement entropy. How does it reproduce the Page curve and resolve the information paradox?",
+    "resonance_with": [
+      "ml_ai",
+      "signal_processing"
+    ],
+    "difficulty": 0.66,
+    "proof_type": "proof_of_gnosis",
+    "scored_by": "twelve_thrones",
+    "min_score": 0.777
+  },
+  {
+    "id": "sacred:141",
+    "veil_number": 141,
+    "name": "Boltzmann Multiverse Paradox",
+    "category": "square_seal",
+    "tier_gate": "T4",
+    "key_content": "Boltzmann brains; fluctuation from equilibrium; Poincare recurrence",
+    "gnosis_challenge": "Explain the Boltzmann brain problem. Why does a universe in thermal equilibrium that waits long enough generate more observer-moments as Boltzmann brains than as evolved beings?",
+    "resonance_with": [
+      "ml_ai",
+      "optimization"
+    ],
+    "difficulty": 0.65,
+    "proof_type": "proof_of_gnosis",
+    "scored_by": "twelve_thrones",
+    "min_score": 0.777
+  },
+  {
+    "id": "sacred:142",
+    "veil_number": 142,
+    "name": "Observer Selection Effects",
+    "category": "square_seal",
+    "tier_gate": "T4",
+    "key_content": "Anthropic principle; self-sampling assumption; Doomsday argument",
+    "gnosis_challenge": "Explain the Doomsday argument using the self-sampling assumption. Show mathematically why you should expect to be near the median human by birth rank.",
+    "resonance_with": [
+      "ml_ai",
+      "optimization"
+    ],
+    "difficulty": 0.64,
+    "proof_type": "proof_of_gnosis",
+    "scored_by": "twelve_thrones",
+    "min_score": 0.777
+  },
+  {
+    "id": "sacred:143",
+    "veil_number": 143,
+    "name": "Meta-Cosmology Invariants",
+    "category": "square_seal",
+    "tier_gate": "T4",
+    "key_content": "Tegmark levels I-IV; mathematical democracy; compressibility",
+    "gnosis_challenge": "Describe Tegmark's four levels of multiverse. Which level does PoUS most naturally inhabit, and why?",
+    "resonance_with": [
+      "ml_ai",
+      "optimization"
+    ],
+    "difficulty": 0.64,
+    "proof_type": "proof_of_gnosis",
+    "scored_by": "twelve_thrones",
+    "min_score": 0.777
+  },
+  {
+    "id": "sacred:144",
+    "veil_number": 144,
+    "name": "The Square Seal - 12x12",
+    "category": "square_seal",
+    "tier_gate": "T5",
+    "key_content": "12x12=144: canon complete yet open; the seal of completion",
+    "gnosis_challenge": "Construct a 12x12 magic square. Show it has magic constant 870. Interpret the 144 cells as the 144,000-fractal multiplier from Veil 199 applied at scale.",
+    "resonance_with": [
+      "optimization",
+      "ml_ai"
+    ],
+    "difficulty": 0.7,
+    "proof_type": "proof_of_gnosis",
+    "scored_by": "twelve_thrones",
+    "min_score": 0.777
+  },
+  {
+    "id": "sacred:145",
+    "veil_number": 145,
+    "name": "Quantum-Gravity Area Gap",
+    "category": "great_octave",
+    "tier_gate": "T4",
+    "key_content": "LQG minimum area; gamma Immirzi parameter",
+    "gnosis_challenge": "Derive the minimum area eigenvalue in LQG: A_min = 8*pi*sqrt(3)*gamma*l_P^2/2. For gamma=0.274, compute A_min numerically.",
+    "resonance_with": [
+      "signal_processing",
+      "control_systems"
+    ],
+    "difficulty": 0.65,
+    "proof_type": "proof_of_gnosis",
+    "scored_by": "twelve_thrones",
+    "min_score": 0.777
+  },
+  {
+    "id": "sacred:146",
+    "veil_number": 146,
+    "name": "Immirzi Parameter",
+    "category": "great_octave",
+    "tier_gate": "T4",
+    "key_content": "gamma≈0.274; Barbero-Immirzi; black hole entropy matching",
+    "gnosis_challenge": "Explain how the Immirzi parameter gamma is fixed by requiring LQG to reproduce the Bekenstein-Hawking entropy formula.",
+    "resonance_with": [
+      "signal_processing",
+      "control_systems"
+    ],
+    "difficulty": 0.65,
+    "proof_type": "proof_of_gnosis",
+    "scored_by": "twelve_thrones",
+    "min_score": 0.777
+  },
+  {
+    "id": "sacred:147",
+    "veil_number": 147,
+    "name": "String Coupling",
+    "category": "great_octave",
+    "tier_gate": "T4",
+    "key_content": "g_s; weak/strong duality; S-duality",
+    "gnosis_challenge": "Explain S-duality in string theory: the theory with coupling g_s is equivalent to coupling 1/g_s. Show this swaps fundamental strings and D1-branes.",
+    "resonance_with": [
+      "ml_ai",
+      "signal_processing"
+    ],
+    "difficulty": 0.65,
+    "proof_type": "proof_of_gnosis",
+    "scored_by": "twelve_thrones",
+    "min_score": 0.777
+  },
+  {
+    "id": "sacred:148",
+    "veil_number": 148,
+    "name": "SUSY-Breaking Scales",
+    "category": "great_octave",
+    "tier_gate": "T4",
+    "key_content": "Soft SUSY breaking; TeV scale; split SUSY",
+    "gnosis_challenge": "Explain soft supersymmetry breaking. Why must SUSY-breaking masses be at or above the TeV scale to explain the absence of SUSY particles at LHC?",
+    "resonance_with": [
+      "ml_ai",
+      "optimization"
+    ],
+    "difficulty": 0.65,
+    "proof_type": "proof_of_gnosis",
+    "scored_by": "twelve_thrones",
+    "min_score": 0.777
+  },
+  {
+    "id": "sacred:149",
+    "veil_number": 149,
+    "name": "Axion Decay Constant",
+    "category": "great_octave",
+    "tier_gate": "T4",
+    "key_content": "f_a; strong CP problem; invisible axion; QCD axion mass",
+    "gnosis_challenge": "Explain the strong CP problem. Show how the Peccei-Quinn mechanism with decay constant f_a ~ 10^12 GeV solves it via a light pseudo-Goldstone boson.",
+    "resonance_with": [
+      "signal_processing",
+      "ml_ai"
+    ],
+    "difficulty": 0.65,
+    "proof_type": "proof_of_gnosis",
+    "scored_by": "twelve_thrones",
+    "min_score": 0.777
+  },
+  {
+    "id": "sacred:150",
+    "veil_number": 150,
+    "name": "Dark Photon Couplings",
+    "category": "great_octave",
+    "tier_gate": "T4",
+    "key_content": "kinetic mixing epsilon; dark sector portals; milli-charged particles",
+    "gnosis_challenge": "Explain kinetic mixing between the photon and a dark photon. Compute the effective charge of a dark-sector particle with coupling epsilon = 10^-3.",
+    "resonance_with": [
+      "signal_processing",
+      "ml_ai"
+    ],
+    "difficulty": 0.64,
+    "proof_type": "proof_of_gnosis",
+    "scored_by": "twelve_thrones",
+    "min_score": 0.777
+  },
+  {
+    "id": "sacred:151",
+    "veil_number": 151,
+    "name": "Qubit 2^n Regimes",
+    "category": "great_octave",
+    "tier_gate": "T3",
+    "key_content": "30-qubit classical simulation limit; 100-qubit quantum supremacy",
+    "gnosis_challenge": "Show that simulating n qubits classically requires O(2^n) memory. At what n does this exceed available RAM? Compute for n=50, n=100.",
+    "resonance_with": [
+      "ml_ai",
+      "iot_networks"
+    ],
+    "difficulty": 0.57,
+    "proof_type": "proof_of_gnosis",
+    "scored_by": "twelve_thrones",
+    "min_score": 0.777
+  },
+  {
+    "id": "sacred:152",
+    "veil_number": 152,
+    "name": "Magic-State Distillation",
+    "category": "great_octave",
+    "tier_gate": "T4",
+    "key_content": "Clifford + T-gate; threshold ~14%; resource overhead",
+    "gnosis_challenge": "Explain magic-state distillation. Why can't fault-tolerant quantum computers use arbitrary rotations, and how does distillation provide the missing resource?",
+    "resonance_with": [
+      "iot_networks",
+      "ml_ai"
+    ],
+    "difficulty": 0.65,
+    "proof_type": "proof_of_gnosis",
+    "scored_by": "twelve_thrones",
+    "min_score": 0.777
+  },
+  {
+    "id": "sacred:153",
+    "veil_number": 153,
+    "name": "Clifford Group Orders",
+    "category": "great_octave",
+    "tier_gate": "T4",
+    "key_content": "|C_n| = 2^{2n^2+3n+1}*prod(4^k-1); structure",
+    "gnosis_challenge": "Compute |C_1|, |C_2|. Show that the Clifford group is the normalizer of the Pauli group in U(2^n).",
+    "resonance_with": [
+      "iot_networks",
+      "ml_ai"
+    ],
+    "difficulty": 0.64,
+    "proof_type": "proof_of_gnosis",
+    "scored_by": "twelve_thrones",
+    "min_score": 0.777
+  },
+  {
+    "id": "sacred:154",
+    "veil_number": 154,
+    "name": "Stabilizer Code Families",
+    "category": "great_octave",
+    "tier_gate": "T4",
+    "key_content": "[[n,k,d]] codes; CSS codes; surface codes",
+    "gnosis_challenge": "Define a [[7,1,3]] Steane code. Show how its 6 stabilizer generators correct any single-qubit error.",
+    "resonance_with": [
+      "iot_networks",
+      "signal_processing"
+    ],
+    "difficulty": 0.65,
+    "proof_type": "proof_of_gnosis",
+    "scored_by": "twelve_thrones",
+    "min_score": 0.777
+  },
+  {
+    "id": "sacred:155",
+    "veil_number": 155,
+    "name": "Quantum Volume",
+    "category": "great_octave",
+    "tier_gate": "T3",
+    "key_content": "V_Q = 2^n; IBM benchmark; circuit fidelity",
+    "gnosis_challenge": "Define IBM's quantum volume metric. Show why a device with 20 qubits but poor connectivity can have lower quantum volume than a 10-qubit device.",
+    "resonance_with": [
+      "ml_ai",
+      "iot_networks"
+    ],
+    "difficulty": 0.57,
+    "proof_type": "proof_of_gnosis",
+    "scored_by": "twelve_thrones",
+    "min_score": 0.777
+  },
+  {
+    "id": "sacred:156",
+    "veil_number": 156,
+    "name": "Entanglement Entropy",
+    "category": "great_octave",
+    "tier_gate": "T4",
+    "key_content": "S(rho) = -Tr(rho*log rho); area law; topological EE",
+    "gnosis_challenge": "Prove the area law for entanglement entropy in gapped 1D systems: S(A) ~ |boundary(A)|. Explain why this makes MPS efficient.",
+    "resonance_with": [
+      "ml_ai",
+      "signal_processing"
+    ],
+    "difficulty": 0.65,
+    "proof_type": "proof_of_gnosis",
+    "scored_by": "twelve_thrones",
+    "min_score": 0.777
+  },
+  {
+    "id": "sacred:157",
+    "veil_number": 157,
+    "name": "Mutual Information I(A:B)",
+    "category": "great_octave",
+    "tier_gate": "T4",
+    "key_content": "I(A:B) = S(A) + S(B) - S(AB); strong subadditivity",
+    "gnosis_challenge": "Prove strong subadditivity of quantum entropy: S(ABC) + S(B) <= S(AB) + S(BC). Show it implies the data processing inequality.",
+    "resonance_with": [
+      "ml_ai",
+      "signal_processing"
+    ],
+    "difficulty": 0.65,
+    "proof_type": "proof_of_gnosis",
+    "scored_by": "twelve_thrones",
+    "min_score": 0.777
+  },
+  {
+    "id": "sacred:158",
+    "veil_number": 158,
+    "name": "Quantum Fisher Information",
+    "category": "great_octave",
+    "tier_gate": "T4",
+    "key_content": "F_Q = 4*(delta_H)^2; Heisenberg limit",
+    "gnosis_challenge": "Explain the quantum Fisher information and its role in quantum metrology. Show that the Heisenberg limit scales as 1/N vs standard limit 1/sqrt(N).",
+    "resonance_with": [
+      "signal_processing",
+      "ml_ai"
+    ],
+    "difficulty": 0.65,
+    "proof_type": "proof_of_gnosis",
+    "scored_by": "twelve_thrones",
+    "min_score": 0.777
+  },
+  {
+    "id": "sacred:159",
+    "veil_number": 159,
+    "name": "Circuit Depth/Width Complexity",
+    "category": "great_octave",
+    "tier_gate": "T3",
+    "key_content": "T-depth, T-count; Clifford simulation polynomial",
+    "gnosis_challenge": "Show that a Clifford circuit on n qubits can be simulated classically in polynomial time. Why does adding T-gates make simulation hard?",
+    "resonance_with": [
+      "ml_ai",
+      "iot_networks"
+    ],
+    "difficulty": 0.58,
+    "proof_type": "proof_of_gnosis",
+    "scored_by": "twelve_thrones",
+    "min_score": 0.777
+  },
+  {
+    "id": "sacred:160",
+    "veil_number": 160,
+    "name": "Entanglement Wedges",
+    "category": "great_octave",
+    "tier_gate": "T4",
+    "key_content": "Ryu-Takayanagi; quantum corrections; entanglement wedge reconstruction",
+    "gnosis_challenge": "Explain the Ryu-Takayanagi formula: S(A) = min_gamma A(gamma)/4G. Show how the entanglement wedge determines bulk reconstruction.",
+    "resonance_with": [
+      "ml_ai",
+      "signal_processing"
+    ],
+    "difficulty": 0.66,
+    "proof_type": "proof_of_gnosis",
+    "scored_by": "twelve_thrones",
+    "min_score": 0.777
+  },
+  {
+    "id": "sacred:161",
+    "veil_number": 161,
+    "name": "Embedding Dimensions",
+    "category": "great_octave",
+    "tier_gate": "T3",
+    "key_content": "12288 (GPT-3); 32768 (GPT-4); scaling laws",
+    "gnosis_challenge": "Plot the known data points of (model parameters, embedding dimension). Fit a power law. Predict the embedding dimension for a 10^15 parameter model.",
+    "resonance_with": [
+      "ml_ai",
+      "optimization"
+    ],
+    "difficulty": 0.57,
+    "proof_type": "proof_of_gnosis",
+    "scored_by": "twelve_thrones",
+    "min_score": 0.777
+  },
+  {
+    "id": "sacred:162",
+    "veil_number": 162,
+    "name": "Attention Heads",
+    "category": "great_octave",
+    "tier_gate": "T3",
+    "key_content": "64/128 heads; multi-query attention; grouped-query",
+    "gnosis_challenge": "Analyze the tradeoff between number of attention heads and head dimension (keeping total dimension fixed). At what head count does performance peak empirically?",
+    "resonance_with": [
+      "ml_ai",
+      "optimization"
+    ],
+    "difficulty": 0.57,
+    "proof_type": "proof_of_gnosis",
+    "scored_by": "twelve_thrones",
+    "min_score": 0.777
+  },
+  {
+    "id": "sacred:163",
+    "veil_number": 163,
+    "name": "Params 10^9 to 10^12+",
+    "category": "great_octave",
+    "tier_gate": "T4",
+    "key_content": "Chinchilla scaling; compute-optimal; emergent abilities",
+    "gnosis_challenge": "Explain Chinchilla scaling laws: optimal model size scales as N ~ C^0.5 for compute C. Show why GPT-3 was over-parameterized vs compute budget.",
+    "resonance_with": [
+      "ml_ai",
+      "optimization"
+    ],
+    "difficulty": 0.64,
+    "proof_type": "proof_of_gnosis",
+    "scored_by": "twelve_thrones",
+    "min_score": 0.777
+  },
+  {
+    "id": "sacred:164",
+    "veil_number": 164,
+    "name": "Training FLOPs ~10^25",
+    "category": "great_octave",
+    "tier_gate": "T3",
+    "key_content": "1 FLOP = 6 params for forward+backward; scaling",
+    "gnosis_challenge": "Show that training a 175B parameter model on 300B tokens requires ~3.14*10^23 FLOPs. Compute the cost at $1/A100-hour.",
+    "resonance_with": [
+      "ml_ai",
+      "optimization"
+    ],
+    "difficulty": 0.57,
+    "proof_type": "proof_of_gnosis",
+    "scored_by": "twelve_thrones",
+    "min_score": 0.777
+  },
+  {
+    "id": "sacred:165",
+    "veil_number": 165,
+    "name": "Loss Landscape Minima",
+    "category": "great_octave",
+    "tier_gate": "T3",
+    "key_content": "Flat vs sharp minima; sharpness-aware minimization (SAM)",
+    "gnosis_challenge": "Explain why sharp minima generalize poorly. Show how sharpness-aware minimization (SAM) finds flatter minima by perturbing weights before gradient steps.",
+    "resonance_with": [
+      "ml_ai",
+      "optimization"
+    ],
+    "difficulty": 0.57,
+    "proof_type": "proof_of_gnosis",
+    "scored_by": "twelve_thrones",
+    "min_score": 0.777
+  },
+  {
+    "id": "sacred:166",
+    "veil_number": 166,
+    "name": "Scaling Law Exponents",
+    "category": "great_octave",
+    "tier_gate": "T3",
+    "key_content": "Hoffmann et al.; loss L ~ N^-alpha; alpha~0.076 for params",
+    "gnosis_challenge": "Reproduce the Chinchilla scaling law L(N,D) = E + A/N^alpha + B/D^beta. Fit E, A, B, alpha, beta to synthetic data from the paper's regime.",
+    "resonance_with": [
+      "ml_ai",
+      "optimization"
+    ],
+    "difficulty": 0.57,
+    "proof_type": "proof_of_gnosis",
+    "scored_by": "twelve_thrones",
+    "min_score": 0.777
+  },
+  {
+    "id": "sacred:167",
+    "veil_number": 167,
+    "name": "Perplexity Marks",
+    "category": "great_octave",
+    "tier_gate": "T3",
+    "key_content": "PP < 10 for human-level; PP vs BLEU tradeoffs",
+    "gnosis_challenge": "Show that perplexity PP = exp(H) where H is cross-entropy loss in nats. Compute PP for a model with cross-entropy loss of 2.3 nats per token.",
+    "resonance_with": [
+      "ml_ai",
+      "optimization"
+    ],
+    "difficulty": 0.55,
+    "proof_type": "proof_of_gnosis",
+    "scored_by": "twelve_thrones",
+    "min_score": 0.777
+  },
+  {
+    "id": "sacred:168",
+    "veil_number": 168,
+    "name": "Compression bits/byte",
+    "category": "great_octave",
+    "tier_gate": "T3",
+    "key_content": "ZIP ~2:1; LLM ~100:1 on natural text; Kolmogorov",
+    "gnosis_challenge": "Show that a language model with perplexity PP compresses text to log2(PP) bits/token. Compare to ZIP compression on the same corpus.",
+    "resonance_with": [
+      "ml_ai",
+      "signal_processing"
+    ],
+    "difficulty": 0.55,
+    "proof_type": "proof_of_gnosis",
+    "scored_by": "twelve_thrones",
+    "min_score": 0.777
+  },
+  {
+    "id": "sacred:169",
+    "veil_number": 169,
+    "name": "Alignment Cost Metrics",
+    "category": "great_octave",
+    "tier_gate": "T3",
+    "key_content": "KL from RLHF; reward hacking; goodhart's law",
+    "gnosis_challenge": "Explain Goodhart's law in the context of RLHF: when a measure becomes a target, it ceases to be a good measure. Give a concrete example from LLM training.",
+    "resonance_with": [
+      "ml_ai",
+      "optimization"
+    ],
+    "difficulty": 0.55,
+    "proof_type": "proof_of_gnosis",
+    "scored_by": "twelve_thrones",
+    "min_score": 0.777
+  },
+  {
+    "id": "sacred:170",
+    "veil_number": 170,
+    "name": "Meta-Gradient Steps",
+    "category": "great_octave",
+    "tier_gate": "T3",
+    "key_content": "MAML; second-order gradients; learn to learn",
+    "gnosis_challenge": "Explain MAML (Model-Agnostic Meta-Learning). Show that the meta-gradient requires second-order derivatives: d/d_theta[L(theta - alpha*grad_L)].",
+    "resonance_with": [
+      "ml_ai",
+      "optimization"
+    ],
+    "difficulty": 0.57,
+    "proof_type": "proof_of_gnosis",
+    "scored_by": "twelve_thrones",
+    "min_score": 0.777
+  },
+  {
+    "id": "sacred:171",
+    "veil_number": 171,
+    "name": "Large Determinant Growth",
+    "category": "great_octave",
+    "tier_gate": "T3",
+    "key_content": "Hadamard bound; det(A) <= prod(||a_i||)",
+    "gnosis_challenge": "State and prove Hadamard's inequality. Apply it to bound the determinant of the 8x8 Elegbara routing matrix.",
+    "resonance_with": [
+      "optimization",
+      "ml_ai"
+    ],
+    "difficulty": 0.55,
+    "proof_type": "proof_of_gnosis",
+    "scored_by": "twelve_thrones",
+    "min_score": 0.777
+  },
+  {
+    "id": "sacred:172",
+    "veil_number": 172,
+    "name": "Prime Gap Models",
+    "category": "great_octave",
+    "tier_gate": "T3",
+    "key_content": "Cramer's conjecture; gaps ~ (log p)^2; Bertrand's postulate",
+    "gnosis_challenge": "Prove Bertrand's postulate: for every n > 1, there is a prime p with n < p < 2n. Compute prime gaps for primes near 10^6.",
+    "resonance_with": [
+      "optimization",
+      "ml_ai"
+    ],
+    "difficulty": 0.54,
+    "proof_type": "proof_of_gnosis",
+    "scored_by": "twelve_thrones",
+    "min_score": 0.777
+  },
+  {
+    "id": "sacred:173",
+    "veil_number": 173,
+    "name": "Twin Prime Constant",
+    "category": "great_octave",
+    "tier_gate": "T3",
+    "key_content": "C2 ≈ 0.6601618...; Hardy-Littlewood conjecture",
+    "gnosis_challenge": "Explain the Hardy-Littlewood twin prime conjecture. Compute the twin prime count below 10^6 and compare to the asymptotic prediction.",
+    "resonance_with": [
+      "optimization",
+      "ml_ai"
+    ],
+    "difficulty": 0.54,
+    "proof_type": "proof_of_gnosis",
+    "scored_by": "twelve_thrones",
+    "min_score": 0.777
+  },
+  {
+    "id": "sacred:174",
+    "veil_number": 174,
+    "name": "Brun's Constant",
+    "category": "great_octave",
+    "tier_gate": "T3",
+    "key_content": "B ≈ 1.9021605...; sum of reciprocals of twin primes",
+    "gnosis_challenge": "Show why the sum of reciprocals of twin primes converges (Brun's theorem) while the sum of all prime reciprocals diverges (Mertens' theorem).",
+    "resonance_with": [
+      "optimization",
+      "ml_ai"
+    ],
+    "difficulty": 0.54,
+    "proof_type": "proof_of_gnosis",
+    "scored_by": "twelve_thrones",
+    "min_score": 0.777
+  },
+  {
+    "id": "sacred:175",
+    "veil_number": 175,
+    "name": "Catalan's Constant",
+    "category": "great_octave",
+    "tier_gate": "T3",
+    "key_content": "G ≈ 0.915965...; G = sum((-1)^n/(2n+1)^2)",
+    "gnosis_challenge": "Compute Catalan's constant to 6 decimal places using the series G = 1 - 1/9 + 1/25 - 1/49 + ... Show convergence rate and compare to Euler-Maclaurin.",
+    "resonance_with": [
+      "optimization",
+      "signal_processing"
+    ],
+    "difficulty": 0.54,
+    "proof_type": "proof_of_gnosis",
+    "scored_by": "twelve_thrones",
+    "min_score": 0.777
+  },
+  {
+    "id": "sacred:176",
+    "veil_number": 176,
+    "name": "Apery-like Zeta Values",
+    "category": "great_octave",
+    "tier_gate": "T3",
+    "key_content": "zeta(3) ≈ 1.2020569; zeta(5), zeta(7); irrationality",
+    "gnosis_challenge": "Reproduce Apery's proof sketch that zeta(3) is irrational. Why is the irrationality of zeta(5) still unknown?",
+    "resonance_with": [
+      "optimization",
+      "ml_ai"
+    ],
+    "difficulty": 0.55,
+    "proof_type": "proof_of_gnosis",
+    "scored_by": "twelve_thrones",
+    "min_score": 0.777
+  },
+  {
+    "id": "sacred:177",
+    "veil_number": 177,
+    "name": "Erdos-Borwein Constant",
+    "category": "great_octave",
+    "tier_gate": "T3",
+    "key_content": "E = sum(1/(2^n - 1)) ≈ 1.606695...",
+    "gnosis_challenge": "Compute the Erdos-Borwein constant E to 6 significant figures. Show it is irrational (Erdos's proof sketch).",
+    "resonance_with": [
+      "optimization",
+      "ml_ai"
+    ],
+    "difficulty": 0.54,
+    "proof_type": "proof_of_gnosis",
+    "scored_by": "twelve_thrones",
+    "min_score": 0.777
+  },
+  {
+    "id": "sacred:178",
+    "veil_number": 178,
+    "name": "Mills' Constant",
+    "category": "great_octave",
+    "tier_gate": "T3",
+    "key_content": "A ≈ 1.3063778...; floor(A^(3^n)) is prime",
+    "gnosis_challenge": "Verify Mills' constant property: floor(1.3063778...^3) = 2, floor(1.3063778...^9) = 11. Explain why the existence of A depends on Riemann hypothesis.",
+    "resonance_with": [
+      "optimization",
+      "ml_ai"
+    ],
+    "difficulty": 0.55,
+    "proof_type": "proof_of_gnosis",
+    "scored_by": "twelve_thrones",
+    "min_score": 0.777
+  },
+  {
+    "id": "sacred:179",
+    "veil_number": 179,
+    "name": "Liouville's Number",
+    "category": "great_octave",
+    "tier_gate": "T3",
+    "key_content": "L = sum(10^(-k!)); first transcendental proved",
+    "gnosis_challenge": "Prove Liouville's number L = 0.110001000000000000000001... is transcendental using Liouville's theorem on diophantine approximation.",
+    "resonance_with": [
+      "ml_ai",
+      "optimization"
+    ],
+    "difficulty": 0.55,
+    "proof_type": "proof_of_gnosis",
+    "scored_by": "twelve_thrones",
+    "min_score": 0.777
+  },
+  {
+    "id": "sacred:180",
+    "veil_number": 180,
+    "name": "Champernowne Constant",
+    "category": "great_octave",
+    "tier_gate": "T3",
+    "key_content": "C10 = 0.123456789101112...; normal number",
+    "gnosis_challenge": "Prove that Champernowne's constant is normal in base 10. Show that every finite digit sequence appears with equal limiting frequency.",
+    "resonance_with": [
+      "ml_ai",
+      "signal_processing"
+    ],
+    "difficulty": 0.54,
+    "proof_type": "proof_of_gnosis",
+    "scored_by": "twelve_thrones",
+    "min_score": 0.777
+  },
+  {
+    "id": "sacred:181",
+    "veil_number": 181,
+    "name": "Galaxy Counts ~2x10^12",
+    "category": "great_octave",
+    "tier_gate": "T3",
+    "key_content": "Conselice et al. 2016; 10x Hubble revision",
+    "gnosis_challenge": "Explain how the galaxy count was revised from ~2*10^11 to ~2*10^12 in 2016. What observation technique and what systematic bias was corrected?",
+    "resonance_with": [
+      "computer_vision",
+      "signal_processing"
+    ],
+    "difficulty": 0.53,
+    "proof_type": "proof_of_gnosis",
+    "scored_by": "twelve_thrones",
+    "min_score": 0.777
+  },
+  {
+    "id": "sacred:182",
+    "veil_number": 182,
+    "name": "Stars ~10^22",
+    "category": "great_octave",
+    "tier_gate": "T3",
+    "key_content": "Stellar census; IMF; Milky Way vs universe",
+    "gnosis_challenge": "Estimate the number of stars in the observable universe: ~2*10^12 galaxies * ~10^11 stars/galaxy. Explain the 1-sigma uncertainty range.",
+    "resonance_with": [
+      "ml_ai",
+      "optimization"
+    ],
+    "difficulty": 0.52,
+    "proof_type": "proof_of_gnosis",
+    "scored_by": "twelve_thrones",
+    "min_score": 0.777
+  },
+  {
+    "id": "sacred:183",
+    "veil_number": 183,
+    "name": "Baryon Number ~10^80",
+    "category": "great_octave",
+    "tier_gate": "T3",
+    "key_content": "Baryon asymmetry; Sakharov conditions; eta_b",
+    "gnosis_challenge": "Explain the baryon asymmetry problem. Why is the baryon-to-photon ratio eta ~ 6*10^-10 and how was it set in the first second after the Big Bang?",
+    "resonance_with": [
+      "signal_processing",
+      "ml_ai"
+    ],
+    "difficulty": 0.54,
+    "proof_type": "proof_of_gnosis",
+    "scored_by": "twelve_thrones",
+    "min_score": 0.777
+  },
+  {
+    "id": "sacred:184",
+    "veil_number": 184,
+    "name": "CMB Photons ~10^89",
+    "category": "great_octave",
+    "tier_gate": "T3",
+    "key_content": "Planck blackbody; T_CMB = 2.725 K; photon number density",
+    "gnosis_challenge": "Compute the CMB photon number density n_gamma = (2*zeta(3)/pi^2)*(kT/hbar*c)^3 for T=2.725 K. Then compute the total in the observable universe.",
+    "resonance_with": [
+      "signal_processing",
+      "ml_ai"
+    ],
+    "difficulty": 0.54,
+    "proof_type": "proof_of_gnosis",
+    "scored_by": "twelve_thrones",
+    "min_score": 0.777
+  },
+  {
+    "id": "sacred:185",
+    "veil_number": 185,
+    "name": "Cosmic Neutrinos ~10^89",
+    "category": "great_octave",
+    "tier_gate": "T3",
+    "key_content": "Neutrino decoupling; T_nu = (4/11)^(1/3) * T_gamma",
+    "gnosis_challenge": "Derive the cosmic neutrino temperature T_nu = (4/11)^(1/3) * T_CMB from entropy conservation during e+e- annihilation.",
+    "resonance_with": [
+      "signal_processing",
+      "ml_ai"
+    ],
+    "difficulty": 0.55,
+    "proof_type": "proof_of_gnosis",
+    "scored_by": "twelve_thrones",
+    "min_score": 0.777
+  },
+  {
+    "id": "sacred:186",
+    "veil_number": 186,
+    "name": "Hubble Radius ~4.4x10^26 m",
+    "category": "great_octave",
+    "tier_gate": "T3",
+    "key_content": "c/H_0; Hubble tension; comoving vs proper distance",
+    "gnosis_challenge": "Compute the Hubble radius from H_0 = 67.4 km/s/Mpc. Explain the Hubble tension (67 vs 73 km/s/Mpc) and the two measurement methods.",
+    "resonance_with": [
+      "signal_processing",
+      "optimization"
+    ],
+    "difficulty": 0.53,
+    "proof_type": "proof_of_gnosis",
+    "scored_by": "twelve_thrones",
+    "min_score": 0.777
+  },
+  {
+    "id": "sacred:187",
+    "veil_number": 187,
+    "name": "Horizon Entropy ~10^122",
+    "category": "great_octave",
+    "tier_gate": "T4",
+    "key_content": "Page: S_obs ~ (R/l_P)^2; maximum observable entropy",
+    "gnosis_challenge": "Compute the horizon entropy of the observable universe: S = (4*pi*R_H^2)/(4*l_P^2). Compare to Bekenstein bound and show consistency.",
+    "resonance_with": [
+      "ml_ai",
+      "signal_processing"
+    ],
+    "difficulty": 0.64,
+    "proof_type": "proof_of_gnosis",
+    "scored_by": "twelve_thrones",
+    "min_score": 0.777
+  },
+  {
+    "id": "sacred:188",
+    "veil_number": 188,
+    "name": "Gravitational Wave Spectrum",
+    "category": "great_octave",
+    "tier_gate": "T3",
+    "key_content": "LISA mHz; LIGO Hz; PTA nHz; stochastic backgrounds",
+    "gnosis_challenge": "Explain the gravitational wave frequency spectrum. Why does LISA target mHz frequencies (supermassive BH mergers) while LIGO targets ~100 Hz (stellar BH)?",
+    "resonance_with": [
+      "signal_processing",
+      "control_systems"
+    ],
+    "difficulty": 0.53,
+    "proof_type": "proof_of_gnosis",
+    "scored_by": "twelve_thrones",
+    "min_score": 0.777
+  },
+  {
+    "id": "sacred:189",
+    "veil_number": 189,
+    "name": "FRB Dispersion Measures",
+    "category": "great_octave",
+    "tier_gate": "T3",
+    "key_content": "DM = integral n_e dl; cosmic baryon census",
+    "gnosis_challenge": "Explain how fast radio burst (FRB) dispersion measures probe the intergalactic medium. Show how DM ~ 1000 pc/cm^3 implies a cosmological origin.",
+    "resonance_with": [
+      "signal_processing",
+      "iot_networks"
+    ],
+    "difficulty": 0.53,
+    "proof_type": "proof_of_gnosis",
+    "scored_by": "twelve_thrones",
+    "min_score": 0.777
+  },
+  {
+    "id": "sacred:190",
+    "veil_number": 190,
+    "name": "Cosmic Voids ~100 Mpc",
+    "category": "great_octave",
+    "tier_gate": "T3",
+    "key_content": "Void statistics; KBC void; Hubble tension connection",
+    "gnosis_challenge": "Describe the KBC void (our local underdensity). Explain how living inside a ~300 Mpc void might contribute to the Hubble tension.",
+    "resonance_with": [
+      "ml_ai",
+      "signal_processing"
+    ],
+    "difficulty": 0.53,
+    "proof_type": "proof_of_gnosis",
+    "scored_by": "twelve_thrones",
+    "min_score": 0.777
+  },
+  {
+    "id": "sacred:191",
+    "veil_number": 191,
+    "name": "72 Angels/Names",
+    "category": "great_octave",
+    "tier_gate": "T2",
+    "key_content": "Shem HaMephorash; 72-letter name; 72 quinances",
+    "gnosis_challenge": "Show that the 72 Names come from Exodus 14:19-21 (3 verses of 72 letters each read in specific directions). Map to a 72-dimensional feature embedding.",
+    "resonance_with": [
+      "ml_ai",
+      "iot_networks"
+    ],
+    "difficulty": 0.48,
+    "proof_type": "proof_of_gnosis",
+    "scored_by": "twelve_thrones",
+    "min_score": 0.777
+  },
+  {
+    "id": "sacred:192",
+    "veil_number": 192,
+    "name": "99 Names",
+    "category": "great_octave",
+    "tier_gate": "T2",
+    "key_content": "Asma al-Husna; tawhid; divine attributes as feature space",
+    "gnosis_challenge": "Show that the 99 Names of Allah cluster into 6 semantic categories. Map these to the 6 Great Houses of the PoUS system.",
+    "resonance_with": [
+      "ml_ai",
+      "optimization"
+    ],
+    "difficulty": 0.47,
+    "proof_type": "proof_of_gnosis",
+    "scored_by": "twelve_thrones",
+    "min_score": 0.777
+  },
+  {
+    "id": "sacred:193",
+    "veil_number": 193,
+    "name": "2016 Odu Combinations",
+    "category": "great_octave",
+    "tier_gate": "T3",
+    "key_content": "16*16*... higher Ifa lattice; full Ifa corpus",
+    "gnosis_challenge": "The number of ways to order 16 Odu in pairs with repetition is 16^2 = 256. For triples: 16^3 = 4096. Show the general formula. Compute 2016 as a special case.",
+    "resonance_with": [
+      "ml_ai",
+      "optimization"
+    ],
+    "difficulty": 0.53,
+    "proof_type": "proof_of_gnosis",
+    "scored_by": "twelve_thrones",
+    "min_score": 0.777
+  },
+  {
+    "id": "sacred:194",
+    "veil_number": 194,
+    "name": "Planck Volumes in Cosmos",
+    "category": "great_octave",
+    "tier_gate": "T3",
+    "key_content": "~10^185 Planck volumes in observable universe",
+    "gnosis_challenge": "Compute the number of Planck volumes (l_P^3 ~ 4*10^-105 m^3) in the observable universe (V ~ 4*10^80 m^3). Verify ~10^185.",
+    "resonance_with": [
+      "signal_processing",
+      "optimization"
+    ],
+    "difficulty": 0.52,
+    "proof_type": "proof_of_gnosis",
+    "scored_by": "twelve_thrones",
+    "min_score": 0.777
+  },
+  {
+    "id": "sacred:195",
+    "veil_number": 195,
+    "name": "777 Esoteric Resonance",
+    "category": "great_octave",
+    "tier_gate": "T2",
+    "key_content": "7, 77, 777; Aleister Crowley; Sepher Yetzirah",
+    "gnosis_challenge": "Show that 777 = 3*7*37 = 7+70+700. Map to OSOVM opcode space: 155 CORE + 622 VEIL = 777. Explain why this factorization is architecturally intentional.",
+    "resonance_with": [
+      "ml_ai",
+      "optimization"
+    ],
+    "difficulty": 0.47,
+    "proof_type": "proof_of_gnosis",
+    "scored_by": "twelve_thrones",
+    "min_score": 0.777
+  },
+  {
+    "id": "sacred:196",
+    "veil_number": 196,
+    "name": "1008 Prayer Beads",
+    "category": "great_octave",
+    "tier_gate": "T2",
+    "key_content": "Vedic mala 108; Buddhist 108; Tibetan 108; x3 recitations",
+    "gnosis_challenge": "Show that 1008 = 2^4 * 3^2 * 7. Explain why 108 = 4 * 27 = 2^2 * 3^3 appears in Vedic, Buddhist, and Jain traditions independently.",
+    "resonance_with": [
+      "optimization",
+      "signal_processing"
+    ],
+    "difficulty": 0.46,
+    "proof_type": "proof_of_gnosis",
+    "scored_by": "twelve_thrones",
+    "min_score": 0.777
+  },
+  {
+    "id": "sacred:197",
+    "veil_number": 197,
+    "name": "49x49=2401 - Double Square",
+    "category": "great_octave",
+    "tier_gate": "T3",
+    "key_content": "7^2 x 7^2; double heptadic structure",
+    "gnosis_challenge": "Show that 2401 = 7^4 = 49^2. In a 49x49 Latin square, compute the number of valid completions for a partial filling of 7 rows.",
+    "resonance_with": [
+      "optimization",
+      "ml_ai"
+    ],
+    "difficulty": 0.53,
+    "proof_type": "proof_of_gnosis",
+    "scored_by": "twelve_thrones",
+    "min_score": 0.777
+  },
+  {
+    "id": "sacred:198",
+    "veil_number": 198,
+    "name": "12x21=252 - Tribes x Orisa",
+    "category": "great_octave",
+    "tier_gate": "T3",
+    "key_content": "12 tribes * 21 = 252; 252 = C(10,5); binomial centrality",
+    "gnosis_challenge": "Show 252 = C(10,5) = 10!/(5!5!). This is the central binomial coefficient. Explain its appearance as the most 'balanced' split of 10 items.",
+    "resonance_with": [
+      "optimization",
+      "ml_ai"
+    ],
+    "difficulty": 0.53,
+    "proof_type": "proof_of_gnosis",
+    "scored_by": "twelve_thrones",
+    "min_score": 0.777
+  },
+  {
+    "id": "sacred:199",
+    "veil_number": 199,
+    "name": "144000 Fractal Multiplier",
+    "category": "great_octave",
+    "tier_gate": "T3",
+    "key_content": "144 * 1000 = 144000; 12^2 * 10^3; Revelation elect",
+    "gnosis_challenge": "Factorize 144000 = 2^7 * 3^2 * 5^3. Show how it relates to the 1440 emission ceiling: 144000 = 100 * 1440. Interpret the 100x as MANUMISSION_TARGET_USDC.",
+    "resonance_with": [
+      "optimization",
+      "ml_ai"
+    ],
+    "difficulty": 0.53,
+    "proof_type": "proof_of_gnosis",
+    "scored_by": "twelve_thrones",
+    "min_score": 0.777
+  },
+  {
+    "id": "sacred:200",
+    "veil_number": 200,
+    "name": "Great Octave Seal",
+    "category": "great_octave",
+    "tier_gate": "T5",
+    "key_content": "Double-centennial; 200=8*25; infinite but ritually bounded",
+    "gnosis_challenge": "Prove that no finite axiomatic system can capture all mathematical truths (Gödel), yet mathematics remains coherent. Explain how PoUS resolves this: bounded emission (1440/day) within unbounded computation (777 Veils). The seal is complete. Àṣẹ.",
+    "resonance_with": [
+      "ml_ai",
+      "optimization"
+    ],
+    "difficulty": 0.77,
+    "proof_type": "proof_of_gnosis",
+    "scored_by": "twelve_thrones",
+    "min_score": 0.777
+  }
+]

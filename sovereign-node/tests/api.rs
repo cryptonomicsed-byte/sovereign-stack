@@ -12,6 +12,8 @@ use sovereign_node::node::{build_router, make_test_state, NodeState};
 
 // ─── helpers ─────────────────────────────────────────────────────────────────
 
+
+
 /// Build a test app from a shared state (needed when tests make two calls to the same state).
 fn make_app(state: NodeState) -> axum::Router {
     build_router(state)
@@ -798,4 +800,439 @@ async fn body_receipts_empty_for_unknown_body() {
     let (status, body) = call("GET", "/body/stampfly:unknown/receipts", None).await;
     assert_eq!(status, StatusCode::OK);
     assert_eq!(body["count"], serde_json::json!(0));
+}
+
+// ─── /governance/proposals ────────────────────────────────────────────────────
+
+fn sample_proposal_payload() -> serde_json::Value {
+    json!({
+        "proposer":           "0xPROPOSER",
+        "recipient":          "0xRECIPIENT",
+        "amount_micro_ase":   1_000_000u64,
+        "purpose":            "fund open-source tooling",
+        "veil_id":            0u64
+    })
+}
+
+#[tokio::test]
+async fn governance_create_and_list() {
+    let state = make_test_state();
+    let app   = make_app(state);
+
+    // POST a new proposal
+    let (create_status, created) = call_with(
+        app.clone(),
+        "POST",
+        "/governance/proposals",
+        Some(sample_proposal_payload()),
+    ).await;
+    assert_eq!(create_status, StatusCode::CREATED, "create: {:?}", created);
+    assert_eq!(created["id"], 1, "first proposal should have id=1: {:?}", created);
+
+    // GET the full list — expect count=1
+    let (list_status, list) = call_with(app, "GET", "/governance/proposals", None).await;
+    assert_eq!(list_status, StatusCode::OK, "list: {:?}", list);
+    assert_eq!(list["count"], 1, "list should have count=1: {:?}", list);
+    assert!(list["proposals"].is_array());
+    assert_eq!(list["proposals"].as_array().unwrap().len(), 1);
+}
+
+#[tokio::test]
+async fn governance_vote_for() {
+    let state = make_test_state();
+    let app   = make_app(state);
+
+    // Create a proposal first
+    let (_, _) = call_with(
+        app.clone(),
+        "POST",
+        "/governance/proposals",
+        Some(sample_proposal_payload()),
+    ).await;
+
+    // Cast a vote_for on proposal id=1
+    let (vote_status, voted) = call_with(
+        app.clone(),
+        "POST",
+        "/governance/proposals/1/vote_for",
+        None,
+    ).await;
+    assert_eq!(vote_status, StatusCode::OK, "vote_for: {:?}", voted);
+    let votes_for = voted["votes_for"].as_u64().unwrap_or(0);
+    assert!(votes_for > 0, "votes_for should be > 0 after vote_for: {:?}", voted);
+    // Exactly one bit should be set → count_ones == 1
+    assert_eq!(votes_for.count_ones(), 1, "one bit set: {:?}", voted);
+}
+
+#[tokio::test]
+async fn governance_execute_fails_before_quorum() {
+    let state = make_test_state();
+    let app   = make_app(state);
+
+    // Create a proposal — 0 votes, timelock not yet elapsed
+    let (_, _) = call_with(
+        app.clone(),
+        "POST",
+        "/governance/proposals",
+        Some(sample_proposal_payload()),
+    ).await;
+
+    // Attempt to execute immediately — should fail (no quorum + timelock)
+    let (exec_status, exec_body) = call_with(
+        app,
+        "POST",
+        "/governance/proposals/1/execute",
+        None,
+    ).await;
+    assert_eq!(
+        exec_status,
+        StatusCode::UNPROCESSABLE_ENTITY,
+        "execute before quorum should return 422: {:?}", exec_body,
+    );
+    assert!(
+        exec_body["error"].is_string(),
+        "error field expected: {:?}", exec_body,
+    );
+}
+
+// ── Oracle + Emission API tests (Phase 45) ────────────────────────────────────
+
+#[tokio::test]
+async fn oracle_today_returns_tile_and_emission() {
+    let app = make_app(make_test_state());
+    let (status, body) = call_with(app, "GET", "/oracle/today", None).await;
+    assert_eq!(status, StatusCode::OK, "oracle/today: {:?}", body);
+    assert!(body["day"].is_u64(),       "day field: {:?}", body);
+    assert!(body["tile_id"].is_string(), "tile_id: {:?}", body);
+    assert!(body["tile_index"].is_u64(),"tile_index: {:?}", body);
+    assert!(body["seed_hash"].is_string(),"seed_hash: {:?}", body);
+    assert!(body["emission_cap"].is_u64(),"emission_cap: {:?}", body);
+}
+
+#[tokio::test]
+async fn oracle_day_returns_deterministic_result() {
+    let app = make_app(make_test_state());
+    let (s1, b1) = call_with(app.clone(), "GET", "/oracle/day/10000", None).await;
+    let (s2, b2) = call_with(app,         "GET", "/oracle/day/10000", None).await;
+    assert_eq!(s1, StatusCode::OK);
+    assert_eq!(s2, StatusCode::OK);
+    assert_eq!(b1["tile_id"], b2["tile_id"], "oracle must be deterministic");
+    assert_eq!(b1["seed_hash"], b2["seed_hash"]);
+}
+
+#[tokio::test]
+async fn emission_status_has_required_fields() {
+    let app = make_app(make_test_state());
+    let (status, body) = call_with(app, "GET", "/emission/status", None).await;
+    assert_eq!(status, StatusCode::OK, "emission/status: {:?}", body);
+    assert!(body["epoch_minute"].is_u64(),         "epoch_minute: {:?}", body);
+    assert!(body["micro_ase_per_minute"].is_u64(), "micro_ase_per_minute: {:?}", body);
+    assert!(body["current_difficulty"].is_f64() || body["current_difficulty"].is_number(),
+        "current_difficulty: {:?}", body);
+    assert!(body["is_sabbath"].is_boolean(),        "is_sabbath: {:?}", body);
+    assert!(body["utxos_claimed"].is_u64(),         "utxos_claimed: {:?}", body);
+    assert!(body["pending_claims"].is_u64(),        "pending_claims: {:?}", body);
+}
+
+#[tokio::test]
+async fn emission_claim_queues_and_returns_accepted() {
+    let app = make_app(make_test_state());
+    let payload = serde_json::json!({
+        "proof_id":        "test-claim-001",
+        "worker_did":      "did:node:worker-1",
+        "veil_id":         42,
+        "trajectory_hash": "a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2",
+        "f1_score":        0.92,
+        "proof_value":     0.88,
+        "env_hash":        "deadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef",
+    });
+    let (status, body) = call_with(app, "POST", "/emission/claim", Some(payload)).await;
+    assert_eq!(status, StatusCode::ACCEPTED, "emission/claim: {:?}", body);
+    assert_eq!(body["queued"], true);
+    assert_eq!(body["proof_id"], "test-claim-001");
+    assert!(body["epoch_minute"].is_u64());
+}
+
+// ── Sovereign Wallet API tests (Phase 46) ─────────────────────────────────────
+
+#[tokio::test]
+async fn wallet_credit_creates_and_returns_balance() {
+    let app = make_app(make_test_state());
+    let credit_body = serde_json::json!({
+        "amount_micro_ase": 1_000_000u64,
+        "reason":           "test credit",
+    });
+    let (status, body) = call_with(app, "POST", "/wallets/did%3Anode%3Aalice/credit", Some(credit_body)).await;
+    assert_eq!(status, StatusCode::OK, "wallet credit: {:?}", body);
+    assert_eq!(body["credited"], 1_000_000u64, "credited amount: {:?}", body);
+    assert_eq!(body["balance_micro_ase"], 1_000_000u64, "balance: {:?}", body);
+}
+
+#[tokio::test]
+async fn wallet_get_returns_not_found_for_unknown() {
+    let app = make_app(make_test_state());
+    let (status, body) = call_with(app, "GET", "/wallets/did%3Anode%3Aunknown", None).await;
+    assert_eq!(status, StatusCode::NOT_FOUND, "should 404 unknown wallet: {:?}", body);
+    assert!(body["error"].is_string());
+}
+
+#[tokio::test]
+async fn wallets_list_empty_initially() {
+    let app = make_app(make_test_state());
+    let (status, body) = call_with(app, "GET", "/wallets", None).await;
+    assert_eq!(status, StatusCode::OK, "wallets list: {:?}", body);
+    assert!(body["wallets"].is_array());
+    assert_eq!(body["count"], 0u64);
+}
+
+// ── Proof submission tests (Phase 50) ─────────────────────────────────────────
+
+fn sim_proof_payload(env_hash: &str) -> serde_json::Value {
+    json!({
+        "proof_id":          format!("sim-{env_hash}"),
+        "agent_id":          "did:node:agent-test",
+        "principal_id":      "did:node:principal-test",
+        "simulation_id":     "sim-session-001",
+        "environment_hash":  env_hash,
+        "world_hash":        "0000000000000000000000000000000000000000000000000000000000000000",
+        "model_hash":        "1111111111111111111111111111111111111111111111111111111111111111",
+        "controller_hash":   "2222222222222222222222222222222222222222222222222222222222222222",
+        "input_hash":        "3333333333333333333333333333333333333333333333333333333333333333",
+        "simulator_version": "test-v1.0",
+        "seed":              42u64,
+        "trajectory_hash":   "4444444444444444444444444444444444444444444444444444444444444444",
+        "sensor_hash":       "5555555555555555555555555555555555555555555555555555555555555555",
+        "checkpoint_root":   "6666666666666666666666666666666666666666666666666666666666666666",
+        "metrics": {
+            "execution_time_ms":    1000u64,
+            "energy_estimate":      0.5,
+            "gates_cleared":        8u32,
+            "gates_total":          10u32,
+            "crashes":              0u32,
+            "collision_margin_m":   0.3,
+            "controller_stability": 0.9,
+        },
+        "outcome": "success",
+        "timestamp":  1_700_000_000_000u64,
+        "signature":  "deadbeefdeadbeef",
+    })
+}
+
+fn gaussian_proof_payload(odu_tile: &str) -> serde_json::Value {
+    json!({
+        "proof_id":      format!("gauss-{odu_tile}"),
+        "agent_id":      "did:node:agent-gauss",
+        "principal_id":  "did:node:principal-gauss",
+        "capture_hash":  "aaaa000000000000000000000000000000000000000000000000000000000000",
+        "splat_hash":    "bbbb000000000000000000000000000000000000000000000000000000000000",
+        "storage_ref":   null,
+        "odu_tile":      odu_tile,
+        "quality": {
+            "capture_completeness": 0.90,
+            "pose_quality":         0.05,
+            "geometric_consistency": 0.88,
+            "photometric_quality":  0.85,
+            "novel_view_quality":   0.82,
+            "semantic_accuracy":    0.80,
+            "area_m2":              50.0,
+            "witness_count":        1u32,
+        },
+        "timestamp": 1_700_000_000_000u64,
+        "signature": "cafebabecafebabe",
+    })
+}
+
+#[tokio::test]
+async fn proof_simulation_submit_returns_evaluation() {
+    let payload = sim_proof_payload("aabbccddaabbccddaabbccddaabbccddaabbccddaabbccddaabbccddaabbccdd");
+    let (status, body) = call("POST", "/proofs/simulation", Some(payload)).await;
+    assert_eq!(status, StatusCode::OK, "sim proof: {:?}", body);
+    assert!(body["proof_id"].is_string(), "proof_id missing: {:?}", body);
+    assert!(body["quality"].is_number(), "quality missing: {:?}", body);
+    assert!(body["novelty"].is_number(), "novelty missing: {:?}", body);
+}
+
+#[tokio::test]
+async fn proof_simulation_get_returns_not_found() {
+    // Proofs are not persisted in the MVP (in-memory node only stores the receipt).
+    let (status, body) = call("GET", "/proofs/simulation/nonexistent-id", None).await;
+    assert_eq!(status, StatusCode::NOT_FOUND, "should 404 for unknown proof: {:?}", body);
+}
+
+#[tokio::test]
+async fn proof_gaussian_submit_returns_evaluation() {
+    let payload = gaussian_proof_payload("odu:55");
+    let (status, body) = call("POST", "/proofs/gaussian", Some(payload)).await;
+    assert_eq!(status, StatusCode::OK, "gaussian proof: {:?}", body);
+    assert!(body["proof_id"].is_string(), "proof_id: {:?}", body);
+    assert!(body["quality"].is_number(), "quality: {:?}", body);
+    assert_eq!(body["proof_type"], "spatial", "proof_type: {:?}", body);
+}
+
+#[tokio::test]
+async fn proof_physical_below_threshold_returns_error() {
+    // RTS score below MIN_RTS_FOR_PROOF (0.6) with physical_proof_eligible=false
+    let payload = json!({
+        "session_id":            "flight-session-low",
+        "sim_proof_id":          null,
+        "flight_receipt_id":     "receipt-flight-low",
+        "position_accuracy":     0.20,
+        "orientation_accuracy":  0.15,
+        "altitude_accuracy":     0.10,
+        "energy_accuracy":       0.12,
+        "collision_accuracy":    0.08,
+        "mission_transfer":      0.10,
+        "rts":                   0.13,
+        "physical_proof_eligible": false,
+    });
+    let (status, body) = call("POST", "/proofs/physical", Some(payload)).await;
+    assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY,
+        "expected 422 for non-eligible RTS: {:?}", body);
+}
+
+// ── Governance tests (Phase 50) ───────────────────────────────────────────────
+
+#[tokio::test]
+async fn governance_p50_create_and_list() {
+    let app = make_app(make_test_state());
+    let payload = json!({
+        "proposer":          "did:node:council-1",
+        "recipient":         "did:node:grantee-1",
+        "amount_micro_ase":  500_000u64,
+        "purpose":           "sensor array for Odù tile 0xAB",
+        "veil_id":           1u64,
+    });
+    let (s1, b1) = call_with(app.clone(), "POST", "/governance/proposals", Some(payload)).await;
+    assert_eq!(s1, StatusCode::CREATED, "create proposal: {:?}", b1);
+    assert!(b1["id"].is_u64(), "id missing: {:?}", b1);
+
+    let (s2, b2) = call_with(app, "GET", "/governance/proposals", None).await;
+    assert_eq!(s2, StatusCode::OK, "list proposals: {:?}", b2);
+    assert!(b2["proposals"].as_array().map(|a| a.len()).unwrap_or(0) >= 1);
+}
+
+#[tokio::test]
+async fn governance_vote_for_increments() {
+    let app = make_app(make_test_state());
+    let payload = json!({
+        "proposer": "did:node:c1", "recipient": "did:node:r1",
+        "amount_micro_ase": 1000u64, "purpose": "test vote", "veil_id": 1u64,
+    });
+    let (_, b) = call_with(app.clone(), "POST", "/governance/proposals", Some(payload)).await;
+    let pid = b["id"].as_u64().unwrap();
+
+    let (sv, bv) = call_with(app.clone(), "POST", &format!("/governance/proposals/{pid}/vote_for"), None).await;
+    assert_eq!(sv, StatusCode::OK, "vote_for: {:?}", bv);
+
+    let (sg, bg) = call_with(app, "GET", &format!("/governance/proposals/{pid}"), None).await;
+    assert_eq!(sg, StatusCode::OK, "get proposal: {:?}", bg);
+    assert!(bg["votes_for"].as_u64().unwrap_or(0) >= 1);
+}
+
+// ── License marketplace tests (Phase 50) ─────────────────────────────────────
+
+#[tokio::test]
+async fn license_issue_and_list() {
+    let app = make_app(make_test_state());
+    // IssueLicenseBody: grantee_did (required), rights (default []), expires_at, fee_mist, constraints
+    let payload = json!({
+        "grantee_did": "did:node:grantee-lic-1",
+        "rights":      [],
+        "expires_at":  null,
+        "fee_mist":    null,
+    });
+    let (s1, b1) = call_with(app.clone(), "POST", "/twins/twin-abc/licenses", Some(payload)).await;
+    assert_eq!(s1, StatusCode::CREATED, "issue license: {:?}", b1);
+    assert!(b1["grant_id"].is_string(), "grant_id missing: {:?}", b1);
+
+    let grant_id = b1["grant_id"].as_str().unwrap().to_string();
+    let encoded = urlencoding::encode(&grant_id).to_string();
+    let (s2, b2) = call_with(app.clone(), "GET", &format!("/licenses/{encoded}"), None).await;
+    assert_eq!(s2, StatusCode::OK, "get license: {:?}", b2);
+    assert_eq!(b2["grant_id"], grant_id);
+
+    let (s3, b3) = call_with(app, "GET", "/licenses", None).await;
+    assert_eq!(s3, StatusCode::OK, "list licenses: {:?}", b3);
+    assert!(b3["grants"].as_array().map(|a| a.len()).unwrap_or(0) >= 1);
+}
+
+#[tokio::test]
+async fn license_accept_counter_signs() {
+    let app = make_app(make_test_state());
+    let payload = json!({
+        "grantee_did": "did:node:grantee-acc-1",
+        "rights":      [],
+        "expires_at":  null,
+        "fee_mist":    null,
+    });
+    let (sc, b) = call_with(app.clone(), "POST", "/twins/twin-xyz/licenses", Some(payload)).await;
+    assert_eq!(sc, StatusCode::CREATED, "issue: {:?}", b);
+    let grant_id = b["grant_id"].as_str().unwrap().to_string();
+    let encoded = urlencoding::encode(&grant_id).to_string();
+
+    let accept_body = json!({ "grantee_sig": "sig-placeholder-abc123" });
+    let (sa, ba) = call_with(app, "POST", &format!("/licenses/{encoded}/accept"), Some(accept_body)).await;
+    assert_eq!(sa, StatusCode::OK, "accept license: {:?}", ba);
+    assert!(ba["grantee_sig"].is_string(), "grantee_sig missing: {:?}", ba);
+}
+
+// ── Body / VCP session tests (Phase 50) ──────────────────────────────────────
+
+#[tokio::test]
+async fn body_session_lifecycle() {
+    let app = make_app(make_test_state());
+
+    // Open a T4 supervised session (agent_id + body_id are required)
+    // TrustTier is serde snake_case: "t4", BodySessionMode is: "HumanSupervised"
+    let open_body = json!({
+        "agent_id":   "did:node:agent-go2-1",
+        "body_id":    "go2-body-lifecycle",
+        "agent_tier": "t4",
+        "mode":       "HumanSupervised",
+        "capabilities": ["sensor.camera", "sensor.imu"],
+    });
+    let (s1, b1) = call_with(app.clone(), "POST", "/body/sessions", Some(open_body)).await;
+    assert_eq!(s1, StatusCode::CREATED, "open session: {:?}", b1);
+    let session_id = b1["session_id"].as_str().unwrap().to_string();
+
+    // Push a telemetry frame (FlightTelemetry: timestamp_ms, position [x,y,z], orientation [q], altitude_m, battery_pct, velocity_ms)
+    let telem = json!({
+        "timestamp_ms":  1_700_000_000_000u64,
+        "position":      [0.0, 0.0, 5.0],
+        "orientation":   [0.0, 0.0, 0.0, 1.0],
+        "altitude_m":    5.0,
+        "battery_pct":   87.0,
+        "velocity_ms":   1.5,
+        "obstacle_dist_m": null,
+    });
+    let encoded_sid = urlencoding::encode(&session_id).to_string();
+    let (st, bt) = call_with(app.clone(), "POST", &format!("/body/sessions/{encoded_sid}/telemetry"), Some(telem)).await;
+    assert_eq!(st, StatusCode::OK, "push telemetry: {:?}", bt);
+
+    // Close session (mission_success required; witness_ids optional)
+    let close_body = json!({ "mission_success": false, "witness_ids": [] });
+    let (sc, bc) = call_with(app.clone(), "POST", &format!("/body/sessions/{encoded_sid}/close"), Some(close_body)).await;
+    assert_eq!(sc, StatusCode::OK, "close session: {:?}", bc);
+    assert!(bc["receipt_id"].is_string(), "receipt_id: {:?}", bc);
+    assert!(bc["trajectory_hash"].is_string(), "trajectory_hash: {:?}", bc);
+
+    // Receipts for body
+    let encoded_body = urlencoding::encode("go2-body-lifecycle").to_string();
+    let (sr, br) = call_with(app, "GET", &format!("/body/{encoded_body}/receipts"), None).await;
+    assert_eq!(sr, StatusCode::OK, "body receipts: {:?}", br);
+    assert!(br["receipts"].as_array().map(|a| a.len()).unwrap_or(0) >= 1);
+}
+
+#[tokio::test]
+async fn body_sessions_list_empty_initially() {
+    let (status, body) = call("GET", "/body/sessions", None).await;
+    assert_eq!(status, StatusCode::OK, "body sessions: {:?}", body);
+    assert!(body["sessions"].is_array());
+}
+
+#[tokio::test]
+async fn body_capabilities_returns_list() {
+    let (status, body) = call("GET", "/body/capabilities", None).await;
+    assert_eq!(status, StatusCode::OK, "capabilities: {:?}", body);
+    assert!(body["capabilities"].is_array(), "no capabilities array: {:?}", body);
 }

@@ -13,6 +13,7 @@ use std::sync::Arc;
 use serde::{Deserialize, Serialize};
 use tokio::sync::RwLock;
 use tracing::{info, warn};
+use twin_protocol::ObservationReceipt;
 
 /// A persisted receipt record.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -36,8 +37,9 @@ pub struct ReceiptRecord {
 /// Thread-safe receipt cache backed by disk.
 #[derive(Clone)]
 pub struct ReceiptStore {
-    dir:   PathBuf,
-    cache: Arc<RwLock<Vec<ReceiptRecord>>>,
+    dir:              PathBuf,
+    cache:            Arc<RwLock<Vec<ReceiptRecord>>>,
+    obs_cache:        Arc<RwLock<Vec<ObservationReceipt>>>,
 }
 
 impl ReceiptStore {
@@ -51,7 +53,16 @@ impl ReceiptStore {
         let cache = load_all(&dir).await;
         info!(dir = %dir.display(), count = cache.len(), "receipt store loaded");
 
-        Self { dir, cache: Arc::new(RwLock::new(cache)) }
+        // Load persisted ObservationReceipts from the obs sub-directory.
+        let obs_dir = dir.join("observations");
+        let _ = tokio::fs::create_dir_all(&obs_dir).await;
+        let obs_cache = load_observations(&obs_dir).await;
+
+        Self {
+            dir,
+            cache:     Arc::new(RwLock::new(cache)),
+            obs_cache: Arc::new(RwLock::new(obs_cache)),
+        }
     }
 
     /// Persist a new receipt record and add it to the in-memory cache.
@@ -97,11 +108,44 @@ impl ReceiptStore {
         self.cache.read().await.len()
     }
 
+    /// Persist an ObservationReceipt and add it to the in-memory cache.
+    pub async fn add_observation(&self, obs: ObservationReceipt) {
+        let obs_dir = self.dir.join("observations");
+        let path = obs_dir.join(format!("{}.json", sanitize(&obs.receipt_id)));
+        match serde_json::to_string_pretty(&obs) {
+            Err(e) => { warn!(error = %e, "failed to serialize ObservationReceipt"); }
+            Ok(json) => {
+                if let Err(e) = tokio::fs::write(&path, &json).await {
+                    warn!(path = %path.display(), error = %e, "failed to write ObservationReceipt");
+                } else {
+                    info!(receipt_id = %obs.receipt_id, path = %path.display(), "ObservationReceipt persisted");
+                }
+            }
+        }
+        self.obs_cache.write().await.push(obs);
+    }
+
+    /// Fetch a single ObservationReceipt by receipt_id.
+    pub async fn get_observation(&self, receipt_id: &str) -> Option<ObservationReceipt> {
+        self.obs_cache.read().await
+            .iter()
+            .find(|r| r.receipt_id == receipt_id)
+            .cloned()
+    }
+
+    /// List all ObservationReceipts (most recent first by timestamp).
+    pub async fn list_observations(&self) -> Vec<ObservationReceipt> {
+        let mut obs = self.obs_cache.read().await.clone();
+        obs.sort_by(|a, b| b.timestamp.cmp(&a.timestamp));
+        obs
+    }
+
     /// Create an in-memory-only ReceiptStore (no disk I/O — for tests).
     pub fn in_memory() -> Self {
         Self {
-            dir:   PathBuf::from("/dev/null"),
-            cache: Arc::new(RwLock::new(vec![])),
+            dir:       PathBuf::from("/dev/null"),
+            cache:     Arc::new(RwLock::new(vec![])),
+            obs_cache: Arc::new(RwLock::new(vec![])),
         }
     }
 }
@@ -119,6 +163,26 @@ async fn load_all(dir: &Path) -> Vec<ReceiptRecord> {
             Err(e) => warn!(path = %path.display(), error = %e, "could not read receipt"),
             Ok(text) => match serde_json::from_str::<ReceiptRecord>(&text) {
                 Err(e) => warn!(path = %path.display(), error = %e, "could not parse receipt"),
+                Ok(r)  => records.push(r),
+            }
+        }
+    }
+    records
+}
+
+async fn load_observations(dir: &Path) -> Vec<ObservationReceipt> {
+    let mut records = vec![];
+    let mut rd = match tokio::fs::read_dir(dir).await {
+        Ok(r) => r,
+        Err(_) => return records,
+    };
+    while let Ok(Some(entry)) = rd.next_entry().await {
+        let path = entry.path();
+        if path.extension().and_then(|e| e.to_str()) != Some("json") { continue; }
+        match tokio::fs::read_to_string(&path).await {
+            Err(e) => warn!(path = %path.display(), error = %e, "could not read ObservationReceipt"),
+            Ok(text) => match serde_json::from_str::<ObservationReceipt>(&text) {
+                Err(e) => warn!(path = %path.display(), error = %e, "could not parse ObservationReceipt"),
                 Ok(r)  => records.push(r),
             }
         }

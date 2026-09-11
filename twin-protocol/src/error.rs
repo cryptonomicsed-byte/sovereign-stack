@@ -28,6 +28,8 @@ pub enum TspError {
     Json(#[from] serde_json::Error),
     #[error("sovereign: {0}")]
     Sovereign(#[from] sovereign_types::SovereignError),
+    #[error("Sabbath freeze: simulation proofs suspended on Saturday UTC — resume Sunday")]
+    SabbathFreeze,
 }
 
 pub type TspResult<T> = Result<T, TspError>;

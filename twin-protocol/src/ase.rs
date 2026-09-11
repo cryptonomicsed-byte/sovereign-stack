@@ -20,7 +20,7 @@
 //!
 //!    Elegbára 8 sub-wallets (basis points, sum = 10,000):
 //!      VeilSim       30%  · R&D           20%  · Governance  10%
-//!      Reserve       10%  · Lottery/Burn  10%  · Grants      10%
+//!      Reserve       10%  · Lottery       10%  · Grants      10%
 //!      UBI            5%  · Sabbath Rsv    5%
 //!
 //! 3. 24-SECTOR FUNDING SPLIT (sector inflows only — donations/investments/hardware):
@@ -74,7 +74,7 @@ pub const ELEGBARA_VEILSIM_BPS:        u64 = 3_000; // 30%
 pub const ELEGBARA_RD_BPS:             u64 = 2_000; // 20%
 pub const ELEGBARA_GOVERNANCE_BPS:     u64 = 1_000; // 10%
 pub const ELEGBARA_RESERVE_BPS:        u64 = 1_000; // 10%
-pub const ELEGBARA_LOTTERY_BURN_BPS:   u64 = 1_000; // 10%
+pub const ELEGBARA_LOTTERY_BPS:        u64 = 1_000; // 10%
 pub const ELEGBARA_GRANTS_BPS:         u64 = 1_000; // 10%
 pub const ELEGBARA_UBI_BPS:            u64 =   500; //  5%
 // Sabbath Reserve = remainder to avoid rounding dust
@@ -89,7 +89,7 @@ pub struct ElegbaraRouterSplit {
     pub r_and_d:         u64,  // 20% → Research & development
     pub governance:      u64,  // 10% → On-chain governance
     pub reserve:         u64,  // 10% → Emergency reserve
-    pub lottery_burn:    u64,  // 10% → Lottery/Burn (reduces supply)
+    pub lottery:         u64,  // 10% → Lottery prize pool
     pub grants:          u64,  // 10% → Community grants
     pub ubi:             u64,  //  5% → Universal basic income pool
     pub sabbath_reserve: u64,  //  5% → Sabbath / rounding dust reserve
@@ -102,15 +102,15 @@ pub fn elegbara_route(tithe_amount: u64) -> ElegbaraRouterSplit {
     let r_and_d         = tithe_amount * ELEGBARA_RD_BPS             / 10_000;
     let governance      = tithe_amount * ELEGBARA_GOVERNANCE_BPS     / 10_000;
     let reserve         = tithe_amount * ELEGBARA_RESERVE_BPS        / 10_000;
-    let lottery_burn    = tithe_amount * ELEGBARA_LOTTERY_BURN_BPS   / 10_000;
+    let lottery         = tithe_amount * ELEGBARA_LOTTERY_BPS        / 10_000;
     let grants          = tithe_amount * ELEGBARA_GRANTS_BPS         / 10_000;
     let ubi             = tithe_amount * ELEGBARA_UBI_BPS            / 10_000;
     let distributed     = veilsim + r_and_d + governance + reserve
-                        + lottery_burn + grants + ubi;
+                        + lottery + grants + ubi;
     let sabbath_reserve = tithe_amount.saturating_sub(distributed);
     ElegbaraRouterSplit {
         tithe_total: tithe_amount,
-        veilsim, r_and_d, governance, reserve, lottery_burn, grants, ubi, sabbath_reserve,
+        veilsim, r_and_d, governance, reserve, lottery, grants, ubi, sabbath_reserve,
     }
 }
 
@@ -374,7 +374,7 @@ mod tests {
         // All 8 buckets must sum to the tithe amount (no dust lost)
         let split = elegbara_route(10_000);
         let total = split.veilsim + split.r_and_d + split.governance + split.reserve
-                  + split.lottery_burn + split.grants + split.ubi + split.sabbath_reserve;
+                  + split.lottery + split.grants + split.ubi + split.sabbath_reserve;
         assert_eq!(total, split.tithe_total);
     }
 
@@ -385,7 +385,7 @@ mod tests {
         assert_eq!(split.r_and_d,      2_000, "R&D 20%");
         assert_eq!(split.governance,   1_000, "Governance 10%");
         assert_eq!(split.reserve,      1_000, "Reserve 10%");
-        assert_eq!(split.lottery_burn, 1_000, "Lottery/Burn 10%");
+        assert_eq!(split.lottery,      1_000, "Lottery 10%");
         assert_eq!(split.grants,       1_000, "Grants 10%");
         assert_eq!(split.ubi,            500, "UBI 5%");
         assert_eq!(split.sabbath_reserve, 500, "Sabbath Reserve 5%");
@@ -396,7 +396,7 @@ mod tests {
         let (net, split) = eshu_tithe(10_000);
         assert_eq!(split.tithe_total, 369, "3.69% of 10_000");
         assert_eq!(net, 10_000 - 369,      "net after tithe");
-        assert_eq!(split.lottery_burn, 36, "10% of tithe → lottery/burn");
+        assert_eq!(split.lottery,      36, "10% of tithe → lottery");
         assert_eq!(split.veilsim,      110, "~30% of tithe → VeilSim"); // 369*30/100 = 110
     }
 

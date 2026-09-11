@@ -13,6 +13,7 @@ name = "sovereign_node"
 path = "src/lib.rs"
 
 [dependencies]
+urlencoding        = "2.1"
 sovereign-types    = { path = "../sovereign-types" }
 sovereign-runtime  = { path = "../sovereign-runtime" }
 sovereign-os       = { path = "../sovereign-os" }

@@ -25,6 +25,12 @@ pub struct NodeConfig {
     pub witnesses:  Vec<WitnessConfig>,
     #[serde(default)]
     pub peers:      PeersSection,
+    /// URL of the OSOVM HTTP server used by the async `run_scenario` path.
+    /// If `None`, the deterministic Rust stub is used.
+    /// Takes precedence over `pipeline.osovm_endpoint` for the async code path.
+    /// Example: `"http://localhost:7780"`
+    #[serde(default)]
+    pub osovm_url:  Option<String>,
 }
 
 /// Peer sovereign nodes this node may delegate capture tasks to.
@@ -210,6 +216,7 @@ impl Default for NodeConfig {
             meshtastic: None,
             witnesses:  vec![],
             peers:      PeersSection::default(),
+            osovm_url:  None,
         }
     }
 }

@@ -131,6 +131,31 @@ impl VantageClient {
         }
     }
 
+    /// POST /api/nodes/heartbeat — periodic node health report.
+    ///
+    /// Body is caller-constructed JSON so this method stays generic. Non-fatal.
+    pub async fn post_node_heartbeat(&self, node_did: &str, body: serde_json::Value) {
+        let url = format!("{}/api/nodes/heartbeat", self.base_url);
+        match self.client
+            .post(&url)
+            .bearer_auth(&self.api_token)
+            .json(&body)
+            .timeout(std::time::Duration::from_secs(10))
+            .send()
+            .await
+        {
+            Ok(resp) if resp.status().is_success() => {
+                info!(node_did = %node_did, "heartbeat reported to Vantage");
+            }
+            Ok(resp) => {
+                warn!(node_did = %node_did, status = %resp.status(), "Vantage heartbeat non-2xx");
+            }
+            Err(e) => {
+                warn!(node_did = %node_did, error = %e, "Vantage heartbeat failed");
+            }
+        }
+    }
+
     /// POST /api/me/heartbeat with VCP device context.
     pub async fn post_heartbeat(
         &self,

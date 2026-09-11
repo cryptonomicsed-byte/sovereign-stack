@@ -17,6 +17,7 @@
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::collections::BTreeMap;
+use std::time::{SystemTime, UNIX_EPOCH};
 
 use sovereign_types::{IdentityChain, WitnessAttestation, merkle_root, sign, hash_str};
 use crate::twin::TwinAsset;
@@ -79,28 +80,135 @@ impl OsovmEngine {
         self
     }
 
-    /// Run a simulation scenario against a TwinAsset.
+    /// Builder method that sets the endpoint from an `Option<String>`.
+    /// Passes through `None` unchanged (keeps stub mode).
+    pub fn with_endpoint_opt(mut self, url: Option<String>) -> Self {
+        if let Some(u) = url {
+            self.endpoint = Some(u);
+        }
+        self
+    }
+
+    /// Async entry-point: calls the OSOVM HTTP server when `self.endpoint` is set,
+    /// otherwise falls back to the deterministic stub.
     ///
-    /// If `endpoint` is set: tries the real ỌSỌVM engine first.
-    ///   • "http(s)://…" → POST JSON to that URL, expect OsovmRunResult JSON back.
-    ///   • Any other path → exec as a binary with JSON on stdin, read result from stdout.
-    /// Falls back to the stub if the real engine fails (with a warning).
-    pub fn run(&self, twin: &TwinAsset, scenario: &SimScenario) -> TspResult<OsovmRunResult> {
-        if let Some(endpoint) = &self.endpoint {
-            match self.run_real(twin, scenario, endpoint) {
-                Ok(result) => return Ok(result),
-                Err(e) => {
-                    tracing::warn!(endpoint = %endpoint, error = %e, "real ỌSỌVM engine failed — falling back to stub");
-                }
+    /// `agent_did` is included in the request envelope so the server can attribute
+    /// the run to the calling agent.
+    pub async fn run_scenario(
+        &self,
+        twin: &TwinAsset,
+        scenario: &SimScenario,
+        agent_did: &str,
+    ) -> Result<OsovmRunResult, String> {
+        if let Some(ref base_url) = self.endpoint {
+            if base_url.starts_with("http://") || base_url.starts_with("https://") {
+                return self.run_remote(base_url, twin, scenario, agent_did).await;
             }
         }
+        // No HTTP endpoint configured — use stub
+        self.run_stub(twin, scenario)
+            .map_err(|e| e.to_string())
+    }
 
+    /// POST `{base_url}/run` with the canonical OSOVM envelope and parse the result.
+    async fn run_remote(
+        &self,
+        base_url: &str,
+        twin: &TwinAsset,
+        scenario: &SimScenario,
+        agent_did: &str,
+    ) -> Result<OsovmRunResult, String> {
+        let url = format!("{base_url}/run");
+
+        let body = serde_json::json!({
+            "opcode": "VEIL",
+            "args": {
+                "twin_id": &twin.twin_id,
+                "trajectory_count": scenario.trajectory_count,
+                "selection_objective": &scenario.selection_objective,
+            },
+            "agent": agent_did,
+            "scenario": scenario,
+        });
+
+        let client = reqwest::Client::builder()
+            .timeout(std::time::Duration::from_secs(120))
+            .build()
+            .map_err(|e| format!("reqwest build: {e}"))?;
+
+        let resp = client
+            .post(&url)
+            .json(&body)
+            .send()
+            .await
+            .map_err(|e| format!("HTTP POST {url}: {e}"))?;
+
+        if !resp.status().is_success() {
+            let status = resp.status();
+            let text = resp.text().await.unwrap_or_default();
+            return Err(format!("OSOVM server {status}: {text}"));
+        }
+
+        // Try to parse into our canonical result type.
+        // The server may also return `{"status": "ok", "run_id": ..., ...}` — try both shapes.
+        let raw: serde_json::Value = resp.json().await
+            .map_err(|e| format!("response parse: {e}"))?;
+
+        if raw.get("status").and_then(|s| s.as_str()).unwrap_or("ok") != "ok" {
+            let err = raw.get("error")
+                .and_then(|e| e.as_str())
+                .unwrap_or("unknown error from OSOVM server");
+            return Err(err.to_string());
+        }
+
+        // If the response is already a full OsovmRunResult, deserialise directly.
+        match serde_json::from_value::<OsovmRunResult>(raw.clone()) {
+            Ok(result) => Ok(result),
+            Err(_) => {
+                // Server returned the compact shape — synthesise an OsovmRunResult
+                // from the top-level fields plus the embedded scenario.
+                let run_id = raw["run_id"].as_str().unwrap_or("run:remote").to_string();
+                let f1_score = raw["f1_score"].as_f64().unwrap_or(0.0) as f32;
+                let _ase_minted = raw["ase_minted"].as_f64().unwrap_or(0.0);
+                let wall_ms = raw["wall_ms"].as_u64().unwrap_or(0);
+
+                // Build a minimal set of candidate policies from f1_score
+                let p_selected = SimPolicy {
+                    id:         "policy:remote:selected".into(),
+                    energy:     120.0 * (1.0 - f1_score),
+                    risk:       (0.15 - f1_score * 0.1_f32).max(0.0),
+                    duration_s: 18.0,
+                    metrics:    Some(serde_json::json!({"f1_score": f1_score})),
+                };
+                let p_alt = SimPolicy {
+                    id:         "policy:remote:alt".into(),
+                    energy:     p_selected.energy * 1.1,
+                    risk:       (p_selected.risk + 0.05).min(1.0),
+                    duration_s: p_selected.duration_s + 3.0,
+                    metrics:    None,
+                };
+
+                Ok(OsovmRunResult {
+                    engine_version:     self.engine_version.clone(),
+                    scenario:           scenario.clone(),
+                    trajectories:       vec![],
+                    candidate_policies: vec![p_selected.clone(), p_alt],
+                    selected_policy_id: p_selected.id,
+                    run_id,
+                    wall_ms,
+                })
+            }
+        }
+    }
+
+    /// Pure-Rust deterministic stub — used when no HTTP endpoint is configured
+    /// or when the real engine is unreachable.
+    fn run_stub(&self, twin: &TwinAsset, scenario: &SimScenario) -> TspResult<OsovmRunResult> {
         let f1 = twin.quality.f1_score;
         let run_id = format!("osovm:run:{}", uuid::Uuid::new_v4());
         let n_traj = scenario.trajectory_count.max(2);
 
-        // Stub: generate N trajectories with plausible variance
-        let mut trajectories: Vec<TrajectoryResult> = (0..n_traj).map(|i| {
+        let trajectories: Vec<TrajectoryResult> = (0..n_traj).map(|i| {
             let noise = (i as f32 * 0.07).sin() * 0.05;
             let energy = 120.0 + (i as f32 * 12.3).sin() * 30.0;
             let risk   = (0.15 - f1 * 0.1 + noise).max(0.0).min(1.0);
@@ -121,7 +229,6 @@ impl OsovmEngine {
             }
         }).collect();
 
-        // Collapse trajectories → distinct candidate policies (aggregate by policy_id)
         let mut policy_map: BTreeMap<String, (f32, f32, f32, u32)> = BTreeMap::new();
         for t in &trajectories {
             let e = policy_map.entry(t.policy_id.clone()).or_insert((0.0, 0.0, 0.0, 0));
@@ -141,12 +248,10 @@ impl OsovmEngine {
             }
         }).collect();
 
-        // Must have >= 2 candidate policies (invariant — fill to 2 if stub only produced 1)
         if candidate_policies.len() < 2 {
             return Err(TspError::InsufficientPolicies(candidate_policies.len()));
         }
 
-        // Select best policy according to objective
         let selected_policy_id = self.select_policy(&candidate_policies, &scenario.selection_objective);
 
         Ok(OsovmRunResult {
@@ -158,6 +263,36 @@ impl OsovmEngine {
             run_id,
             wall_ms: 0,
         })
+    }
+
+    /// Run a simulation scenario against a TwinAsset.
+    ///
+    /// If `endpoint` is set: tries the real ỌSỌVM engine first.
+    ///   • "http(s)://…" → POST JSON to that URL, expect OsovmRunResult JSON back.
+    ///   • Any other path → exec as a binary with JSON on stdin, read result from stdout.
+    /// Falls back to the stub if the real engine fails (with a warning).
+    ///
+    /// Sabbath freeze: returns `TspError::SabbathFreeze` on Saturday UTC.
+    /// Unix epoch day 0 = Thursday, so Saturday = (day + 4) % 7 == 6.
+    pub fn run(&self, twin: &TwinAsset, scenario: &SimScenario) -> TspResult<OsovmRunResult> {
+        let now_secs = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_secs();
+        if crate::emission::DailyEmissionAllocator::is_sabbath(now_secs) {
+            return Err(TspError::SabbathFreeze);
+        }
+
+        if let Some(endpoint) = &self.endpoint {
+            match self.run_real(twin, scenario, endpoint) {
+                Ok(result) => return Ok(result),
+                Err(e) => {
+                    tracing::warn!(endpoint = %endpoint, error = %e, "real ỌSỌVM engine failed — falling back to stub");
+                }
+            }
+        }
+
+        self.run_stub(twin, scenario)
     }
 
     /// Call the real ỌSỌVM engine.
@@ -637,5 +772,23 @@ mod tests {
             "stub fallback must produce >= 2 policies");
 
         let _ = std::fs::remove_file(&script_path);
+    }
+
+    #[test]
+    fn sabbath_freeze_on_saturday() {
+        // Unix day 0 = Thursday. day 3 = Sunday, day 2 = Saturday.
+        // Formula: (unix_day + 4) % 7 == 6  →  Saturday UTC.
+        // First Saturday since epoch: unix_day = 2  → (2+4)%7 = 6 ✓
+        let saturday_ts = 2 * 86_400 + 3600; // Saturday 01:00 UTC
+        assert!(crate::emission::DailyEmissionAllocator::is_sabbath(saturday_ts),
+            "day 2 = Saturday must trigger Sabbath freeze");
+
+        let friday_ts = 1 * 86_400 + 3600;   // Friday 01:00 UTC
+        assert!(!crate::emission::DailyEmissionAllocator::is_sabbath(friday_ts),
+            "day 1 = Friday must not trigger Sabbath freeze");
+
+        let sunday_ts = 3 * 86_400 + 3600;   // Sunday 01:00 UTC
+        assert!(!crate::emission::DailyEmissionAllocator::is_sabbath(sunday_ts),
+            "day 3 = Sunday must not trigger Sabbath freeze");
     }
 }
