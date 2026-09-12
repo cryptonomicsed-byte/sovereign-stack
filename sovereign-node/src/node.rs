@@ -1,10 +1,15 @@
-//! SovereignNode — wires all protocol subsystems together.
+//! SovereignNode — thin protocol glue daemon and physical hardware access layer.
 //!
 //! Subsystems started by SovereignNode::start():
 //!   1. VCP DiscoveryDaemon — BLE/mDNS scan loop
 //!   2. DIP Router — envelope routing with Vantage + Nostr adapters
 //!   3. API server (axum) — /health /status /devices /capture/:id /jobs/:id
 //!   4. Graceful shutdown on SIGTERM / SIGINT
+//!
+//! SCOPE BOUNDARY: if it doesn't touch a physical device, protocol wire format,
+//! or the capture/proof pipeline — it does not belong in this crate.
+//! See ARCHITECTURE.md for the full scope contract and migration plan for the
+//! application logic currently living here pending a future refactor session.
 
 use std::sync::Arc;
 use std::net::SocketAddr;
@@ -57,6 +62,12 @@ use crate::governance_store::GovernanceStore;
 use crate::license_store::LicenseStore;
 use crate::telemetry_store::TelemetryStore;
 use crate::wallet_store::WalletStore;
+use crate::gpu_pool::GpuPool;
+use crate::agent_store::AgentStore;
+use crate::council_store::{CouncilStore, CouncilSummary};
+use crate::sovereign_seat_store::{SovereignSeatStore, SeatSummary};
+use crate::emission_receipt_store::EmissionReceiptStore;
+use crate::simulation_scoring::{SimulationFactors, SimulationScoreResult, compute_emission_shares};
 use crate::config::NodeConfig;
 use crate::dip_gateway::DipGateway;
 use crate::federation::discover_sovereign_nodes;
@@ -112,6 +123,16 @@ pub struct NodeState {
     pub license_store:        LicenseStore,
     /// Sovereign wallet balances (micro-Àṣẹ) keyed by DID.
     pub wallet_store:         WalletStore,
+    /// OSOVM Token-of-Compute: GPU contribution pool (Dopamine + Synapse tokens).
+    pub gpu_pool:             GpuPool,
+    /// Agent birth registry — Dopamine/Synapse balances, tier, stake gate.
+    pub agent_store:          AgentStore,
+    /// Council of 12 — seats, sectors, rotation (Phase 58).
+    pub council_store:        CouncilStore,
+    /// 1440 sovereign stewardship offices (Phase 59).
+    pub seat_store:           SovereignSeatStore,
+    /// Emission receipt chain — Zàngbétò: every distribution tick produces one.
+    pub emission_receipts:    EmissionReceiptStore,
 }
 
 impl axum::extract::FromRef<NodeState> for sovereign_a2a::A2aState {
@@ -128,19 +149,23 @@ pub struct SovereignNode {
 /// Context passed to the inbound DIP envelope dispatcher.
 #[derive(Clone)]
 pub struct InboundDipContext {
-    pub local_did: String,
-    pub identity:  Arc<NodeIdentity>,
-    pub witnesses: WitnessRegistry,
-    pub gateway:   Arc<DipGateway>,
+    pub local_did:     String,
+    pub identity:      Arc<NodeIdentity>,
+    pub witnesses:     WitnessRegistry,
+    pub gateway:       Arc<DipGateway>,
+    pub body_store:    BodyStore,
+    pub license_store: LicenseStore,
 }
 
 impl InboundDipContext {
     fn from_state(state: &NodeState) -> Self {
         Self {
-            local_did: state.identity.did.clone(),
-            identity:  state.identity.clone(),
-            witnesses: state.witnesses.clone(),
-            gateway:   state.dip_gateway.clone(),
+            local_did:     state.identity.did.clone(),
+            identity:      state.identity.clone(),
+            witnesses:     state.witnesses.clone(),
+            gateway:       state.dip_gateway.clone(),
+            body_store:    state.body_store.clone(),
+            license_store: state.license_store.clone(),
         }
     }
 }
@@ -259,11 +284,15 @@ impl SovereignNode {
         }
 
         // Build inbound context before state so it can be cloned into the dispatch task
+        let body_store_ctx    = BodyStore::new();
+        let license_store_ctx = LicenseStore::new();
         let inbound_ctx = InboundDipContext {
-            local_did: self.identity.did.clone(),
-            identity:  self.identity.clone(),
-            witnesses: witnesses.clone(),
-            gateway:   dip_gateway.clone(),
+            local_did:     self.identity.did.clone(),
+            identity:      self.identity.clone(),
+            witnesses:     witnesses.clone(),
+            gateway:       dip_gateway.clone(),
+            body_store:    body_store_ctx.clone(),
+            license_store: license_store_ctx.clone(),
         };
 
         // Load manual devices from config (USB-connected, pre-configured)
@@ -349,23 +378,35 @@ impl SovereignNode {
             started_at,
             ip_root_event,
             act_chain:        Arc::new(tokio::sync::RwLock::new(ActReceiptChain::new())),
-            body_store:       BodyStore::new(),
-            telemetry_store:  TelemetryStore::new(),
-            proof_engine:     Arc::new(ProofEngine::new()),
+            body_store:         body_store_ctx,
+            telemetry_store:    TelemetryStore::new(),
+            proof_engine:       Arc::new(ProofEngine::new()),
             emission_allocator: Arc::new(tokio::sync::Mutex::new(DailyEmissionAllocator::new())),
             pending_claims:     Arc::new(tokio::sync::Mutex::new(Vec::new())),
             governance_store:   GovernanceStore::new(),
-            license_store:      LicenseStore::new(),
+            license_store:      license_store_ctx,
             wallet_store:       WalletStore::new(),
+            gpu_pool:           GpuPool::new(),
+            agent_store:        AgentStore::new(),
+            council_store:      CouncilStore::new(),
+            seat_store:         SovereignSeatStore::new(),
+            emission_receipts:  EmissionReceiptStore::new(),
         };
+
+        // --- 3a-init. Council and seat store initialization ---
+        {
+            let council = state.council_store.clone();
+            tokio::spawn(async move { council.initialize().await; });
+        }
 
         // --- 3a-emission. Per-minute DailyEmissionAllocator task (OSOVM RUNTIME) ---
         {
             use sovereign_types::{GovernanceStrata, DistributionPool};
-            let allocator    = state.emission_allocator.clone();
-            let pending      = state.pending_claims.clone();
-            let wallet_store = state.wallet_store.clone();
-            let node_did     = state.identity.did.clone();
+            let allocator         = state.emission_allocator.clone();
+            let pending           = state.pending_claims.clone();
+            let wallet_store      = state.wallet_store.clone();
+            let emission_receipts = state.emission_receipts.clone();
+            let node_did          = state.identity.did.clone();
             tokio::spawn(async move {
                 let strata = GovernanceStrata::canonical();
                 let mut interval = tokio::time::interval(Duration::from_secs(60));
@@ -386,7 +427,7 @@ impl SovereignNode {
                         wallet_store.credit(&worker_alloc.worker_did, worker_alloc.micro_ase).await;
                     }
 
-                    // Credit governance pool shares to this node's wallet (proxy for on-chain).
+                    // Credit governance pool shares + produce Zàngbétò EmissionReceipt per pool.
                     let total_per_minute = twin_protocol::emission::MICRO_ASE_PER_MINUTE;
                     for pool in &[DistributionPool::Simulation, DistributionPool::Research,
                                   DistributionPool::Governance, DistributionPool::Reserve,
@@ -396,6 +437,16 @@ impl SovereignNode {
                         if share > 0 {
                             let pool_did = format!("did:pool:{}", pool.name());
                             wallet_store.credit(&pool_did, share).await;
+                            // Zàngbétò receipt — every distribution tick is receipted.
+                            emission_receipts.record(
+                                pool.clone(),
+                                share,
+                                format!("epoch_minute:{epoch_minute}"),
+                                "pool_allocation_v1".to_string(),
+                                Some(pool_did),
+                                None,
+                                format!("{} pool per-minute allocation", pool.name()),
+                            ).await;
                         }
                     }
 
@@ -415,6 +466,24 @@ impl SovereignNode {
                 }
             });
             info!("DailyEmissionAllocator per-minute task started");
+        }
+
+        // --- 3a-decay. Synapse 1%/day decay task (OSOVM ToC — Phase 54) ---
+        {
+            let decay_pool = state.gpu_pool.clone();
+            tokio::spawn(async move {
+                let mut interval = tokio::time::interval(Duration::from_secs(3600)); // hourly
+                loop {
+                    interval.tick().await;
+                    let now_secs = SystemTime::now()
+                        .duration_since(UNIX_EPOCH).unwrap_or_default().as_secs();
+                    let epoch_day = now_secs / 86_400;
+                    let burned = decay_pool.apply_daily_decay(epoch_day).await;
+                    if burned > 0 {
+                        info!(epoch_day, burned_micro_synapse = burned, "Synapse daily decay applied");
+                    }
+                }
+            });
         }
 
         // --- 3a. A2A dispatch loop (routes skill requests → capture jobs) ---
@@ -499,6 +568,27 @@ impl SovereignNode {
             }
         }
 
+        // --- 3c-hb. Vantage heartbeat (P0: unify node presence signal) ---
+        crate::vantage_heartbeat::spawn_heartbeat(state.clone(), 60);
+        info!("Vantage heartbeat spawned (60s interval)");
+
+        // --- 3d-ip. Publish IP Root (kind 31900) to Nostr relay at startup — gap #10 fix.
+        //
+        // The event is pre-built and cached in state.ip_root_event at construction time.
+        // Here we fire-and-forget the WebSocket publish. Non-fatal on failure.
+        if let (Some(ev), Some(relay_url)) = (
+            state.ip_root_event.clone(),
+            self.config.dip.nostr_relay.clone(),
+        ) {
+            let ev_id = ev.id.clone();
+            tokio::spawn(async move {
+                match crate::nostr_publisher::publish_nostr_event(&relay_url, &ev).await {
+                    Ok(()) => info!(event_id = %ev_id, relay = %relay_url, "IP Root (31900) published to Nostr"),
+                    Err(e) => warn!(error = %e, relay = %relay_url, "IP Root publish failed — will retry on next boot"),
+                }
+            });
+        }
+
         // --- 3d. Inbound DIP dispatch (Nostr + Meshtastic + Vantage → single handler) ---
         {
             let ctx = state.inbound_ctx.clone();
@@ -555,12 +645,16 @@ pub fn build_router(state: NodeState) -> Router {
         .route("/tiles/:tile_id/receipts",  get(handle_tile_receipts))
         .route("/tiles/:tile_id/economy",   get(handle_tile_economy))
         .route("/tiles/:tile_id/claim",     post(handle_tile_claim))
+        .route("/tiles/:tile_id/stake",     post(handle_tile_stake))
         .route("/tiles",                    get(handle_tiles_list))
         .route("/capture/swarm",            post(handle_capture_swarm))
         .route("/swarm",                    get(handle_swarm_list))
         .route("/swarm/:swarm_id",          get(handle_swarm_get))
-        .route("/twins/:twin_id/timeline",  get(handle_twin_timeline))
-        .route("/timelines",                get(handle_timelines_list))
+        .route("/twins/:twin_id/timeline",      get(handle_twin_timeline))
+        .route("/twins/:twin_id/timeline/diff", get(handle_twin_timeline_diff))
+        .route("/twins/:twin_id/splat/diff",    post(handle_twin_splat_diff))
+        .route("/swarm/:swarm_id/merge-splat",  post(handle_swarm_merge_splat))
+        .route("/timelines",                    get(handle_timelines_list))
         .route("/events/receipts",          get(handle_sse_receipts))
         .route("/events/jobs",              get(handle_sse_jobs))
         .route("/dip/inbound",              post(handle_dip_inbound))
@@ -587,6 +681,7 @@ pub fn build_router(state: NodeState) -> Router {
         .route("/body/:body_id/receipts",   get(handle_body_receipts))
         .route("/body/capabilities",        get(handle_body_capabilities))
         .route("/body/sessions/:id/telemetry", post(handle_body_telemetry_push))
+        .route("/body/sessions/:id/command",   post(handle_body_session_command))
         .route("/body/sessions/:id/close",     post(handle_body_session_close))
         // ── Governance proposals ───────────────────────────────────────────────
         .route("/governance/proposals",                     get(handle_governance_list))
@@ -609,6 +704,37 @@ pub fn build_router(state: NodeState) -> Router {
         .route("/wallets",                  get(handle_wallets_list))
         .route("/wallets/:did",             get(handle_wallet_get))
         .route("/wallets/:did/credit",      post(handle_wallet_credit))
+        // ── OSOVM Token-of-Compute (Phase 52) ──
+        .route("/osovm/gpu/contribute",     post(handle_gpu_contribute))
+        .route("/osovm/gpu/burn",           post(handle_gpu_burn_for_synapse))
+        .route("/osovm/pool",               get(handle_gpu_pool_state))
+        .route("/osovm/contributions",      get(handle_osovm_contributions))
+        .route("/osovm/gpu/decay",          post(handle_gpu_decay))
+        .route("/osovm/balances/:did",      get(handle_osovm_balances))
+        // ── Governance veto (Phase 55: Bínò council) ──
+        .route("/governance/proposals/:id/veto", post(handle_governance_veto))
+        // ── Agent birth + lifecycle (Phase 57) ──
+        .route("/agents",                         post(handle_agent_birth))
+        .route("/agents",                         get(handle_agents_list))
+        .route("/agents/:agent_id",               get(handle_agent_get))
+        .route("/agents/:agent_id/stake",         post(handle_agent_stake))
+        .route("/agents/:agent_id/unstake",       post(handle_agent_unstake))
+        // ── Council of 12 (Phase 58) ──
+        .route("/governance/council",             get(handle_council_summary))
+        .route("/governance/council/seats",       get(handle_council_seats))
+        .route("/governance/council/sectors",     get(handle_council_sectors))
+        .route("/governance/council/seats/:idx/rotate", post(handle_council_rotate))
+        // ── 1440 sovereign seats (Phase 59) ──
+        .route("/seats",                          get(handle_seats_summary))
+        .route("/seats/:idx",                     get(handle_seat_get))
+        .route("/seats/:idx/claim",               post(handle_seat_claim))
+        .route("/seats/:idx/revoke",              post(handle_seat_revoke))
+        // ── Emission receipts (Phase 56 — Zàngbétò) ──
+        .route("/emission/receipts",              get(handle_emission_receipts_list))
+        .route("/emission/receipts/:id",          get(handle_emission_receipt_get))
+        // ── Simulation scoring leaderboard (Phase 60) ──
+        .route("/simulation/score",               post(handle_simulation_score))
+        .route("/simulation/shares",              post(handle_simulation_shares))
         .nest("/a2a",                       sovereign_a2a::a2a_router::<NodeState>())
         .with_state(state)
 }
@@ -848,11 +974,67 @@ async fn handle_proof_observation_submit(
         message: format!("observation:{}", obs.outcome_str()),
     });
 
+    // Phase 4.4 step 8 — emit a Mycelium finding so the local brain can learn
+    // from the sim/real gap.  Written as a TrainingRecord (alpaca JSONL) to
+    // ~/.sovereign/mycelium/sim-obs-findings.jsonl (non-fatal if it fails).
+    emit_mycelium_finding(&obs, &state.config.node.data_dir);
+
     // Persist to store
     let receipt_json = serde_json::to_value(&obs).unwrap_or(json!({}));
     state.receipt_store.add_observation(obs).await;
 
     (StatusCode::CREATED, Json(receipt_json))
+}
+
+/// Append one sim→obs training record to the Mycelium findings file.
+///
+/// Format: alpaca JSONL  `{"instruction":…,"input":…,"output":…,"source":…,"uuid":…}`
+/// The file lives at `{data_dir}/mycelium/sim-obs-findings.jsonl`.
+/// Failures are logged but never bubble up (non-critical path).
+fn emit_mycelium_finding(obs: &ObservationReceipt, data_dir: &std::path::Path) {
+    use std::io::Write as _;
+    use std::fs::OpenOptions;
+
+    let dir = data_dir.join("mycelium");
+    if let Err(e) = std::fs::create_dir_all(&dir) {
+        tracing::debug!(error = %e, "mycelium dir create failed — skipping finding");
+        return;
+    }
+
+    let path = dir.join("sim-obs-findings.jsonl");
+    let predicted_json = serde_json::to_string(&obs.predicted).unwrap_or_default();
+    let observed_json  = serde_json::to_string(&obs.observed).unwrap_or_default();
+    let delta_json     = serde_json::to_string(&obs.delta).unwrap_or_default();
+
+    let instruction = format!(
+        "A simulation predicted the following outcome for sim receipt '{}'. \
+         What was the actual physical outcome, and what does the delta tell us?",
+        obs.sim_receipt_id,
+    );
+    let record = json!({
+        "instruction": instruction,
+        "input":       predicted_json,
+        "output":      format!("Observed: {}. Delta: {}. Outcome: {}.",
+                           observed_json, delta_json, obs.outcome_str()),
+        "source":      "sim_obs_delta",
+        "uuid":        obs.receipt_id,
+    });
+
+    let line = match serde_json::to_string(&record) {
+        Ok(l) => l,
+        Err(e) => {
+            tracing::debug!(error = %e, "mycelium finding serialise failed");
+            return;
+        }
+    };
+
+    match OpenOptions::new().create(true).append(true).open(&path) {
+        Ok(mut f) => {
+            let _ = writeln!(f, "{line}");
+            tracing::info!(path = %path.display(), receipt_id = %obs.receipt_id, "Mycelium finding appended");
+        }
+        Err(e) => tracing::debug!(error = %e, "mycelium finding write failed"),
+    }
 }
 
 /// GET /proofs/observation/:id — fetch a single ObservationReceipt by receipt_id.
@@ -953,6 +1135,69 @@ async fn handle_body_telemetry_push(
 ) -> impl IntoResponse {
     state.telemetry_store.push(&session_id, frame).await;
     (StatusCode::OK, Json(json!({ "ok": true, "session_id": session_id })))
+}
+
+/// POST /body/sessions/:id/command  — issue a VCP command against an active session.
+/// Body: { capability, action, params? }
+/// Returns: { cmd_id, session_id, capability, action, status, timestamp_ms }
+async fn handle_body_session_command(
+    State(state): State<NodeState>,
+    Path(session_id): Path<String>,
+    Json(req): Json<serde_json::Value>,
+) -> impl IntoResponse {
+    let session = match state.body_store.get_session(&session_id).await {
+        Some(s) => s,
+        None => return (
+            StatusCode::NOT_FOUND,
+            Json(json!({ "error": format!("session not found: {session_id}") })),
+        ),
+    };
+
+    let capability = match req.get("capability").and_then(|v| v.as_str()) {
+        Some(v) => v.to_string(),
+        None    => return (StatusCode::BAD_REQUEST, Json(json!({ "error": "missing capability" }))),
+    };
+    let action = req.get("action").and_then(|v| v.as_str()).unwrap_or("execute").to_string();
+    let params = req.get("params").cloned().unwrap_or(serde_json::Value::Null);
+
+    // Validate: capability must be in the session's granted capabilities
+    if !session.capabilities.is_empty() && !session.capabilities.iter().any(|c| c == &capability) {
+        return (StatusCode::FORBIDDEN, Json(json!({
+            "error":      "capability_not_granted",
+            "capability": capability,
+            "granted":    session.capabilities,
+        })));
+    }
+
+    let cmd_id = format!("cmd:{}", uuid::Uuid::new_v4());
+    let ts = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_millis() as u64;
+
+    info!(
+        cmd_id     = %cmd_id,
+        session_id = %session_id,
+        capability = %capability,
+        action     = %action,
+        "VCP command issued"
+    );
+
+    // Emit status event so WS subscribers see the command
+    let _ = state.twin_events.send(TwinEvent::StatusUpdate {
+        job_id:  cmd_id.clone(),
+        message: format!("vcp_cmd:{capability}:{action}:{session_id}"),
+    });
+
+    (StatusCode::OK, Json(json!({
+        "cmd_id":       cmd_id,
+        "session_id":   session_id,
+        "capability":   capability,
+        "action":       action,
+        "params":       params,
+        "status":       "accepted",
+        "timestamp_ms": ts,
+    })))
 }
 
 /// POST /body/sessions/:id/close  — close session, generate FlightReceipt.
@@ -1215,7 +1460,6 @@ async fn handle_tile_claim(
     Path(tile_id): Path<String>,
     Json(req):    Json<TileClaimRequest>,
 ) -> impl IntoResponse {
-    // Validate tile_id format
     if !tile_id.starts_with("odu:") || tile_id.len() != 6 {
         return (StatusCode::BAD_REQUEST, Json(json!({
             "error": "invalid_tile_id",
@@ -1223,16 +1467,86 @@ async fn handle_tile_claim(
         }))).into_response();
     }
 
-    // Get or create economy entry, then set owner
+    // Update local economy store.
     state.tile_economy_store.claim(&tile_id, &req.owner_did).await;
 
-    info!(tile_id = %tile_id, owner = %req.owner_did, "tile ownership claimed (stub)");
+    // Anchor claim on Sui (stub when key absent / key=="stubkey").
+    let anchor = state.config.tile_governance.anchor();
+    let usage_fee_bps = state.config.tile_governance.default_usage_fee_bps;
+    let on_chain = anchor.claim_tile(&tile_id, &req.owner_did, usage_fee_bps).await;
+
+    let (tx_digest, object_id, stub) = match on_chain {
+        Ok(r)  => (r.tx_digest, r.object_id, r.stub),
+        Err(e) => {
+            tracing::warn!(error = %e, tile_id = %tile_id, "Sui claim failed");
+            ("".into(), "".into(), true)
+        }
+    };
+
+    info!(tile_id = %tile_id, owner = %req.owner_did, stub, "tile claimed");
 
     (StatusCode::OK, Json(json!({
         "ok":        true,
         "tile_id":   tile_id,
         "owner_did": req.owner_did,
-        "stub":      true,
+        "tx_digest": tx_digest,
+        "object_id": object_id,
+        "stub":      stub,
+    }))).into_response()
+}
+
+// POST /tiles/:tile_id/stake — stake ASE tokens into an owned tile on Sui.
+#[derive(serde::Deserialize)]
+struct TileStakeRequest {
+    staker_did: String,
+    amount:     u64,
+    /// Optional TileRecord object_id from a prior claim; uses "0x0" if absent.
+    #[serde(default)]
+    tile_object_id: String,
+}
+
+async fn handle_tile_stake(
+    State(state): State<NodeState>,
+    Path(tile_id): Path<String>,
+    Json(req):    Json<TileStakeRequest>,
+) -> impl IntoResponse {
+    if !tile_id.starts_with("odu:") || tile_id.len() != 6 {
+        return (StatusCode::BAD_REQUEST, Json(json!({
+            "error": "invalid_tile_id",
+        }))).into_response();
+    }
+    if req.amount == 0 {
+        return (StatusCode::BAD_REQUEST, Json(json!({
+            "error": "invalid_amount",
+            "message": "amount must be > 0",
+        }))).into_response();
+    }
+
+    // Update local economy store stake.
+    state.tile_economy_store.stake(&tile_id, req.amount).await;
+
+    // Anchor stake on Sui.
+    let anchor         = state.config.tile_governance.anchor();
+    let tile_object_id = if req.tile_object_id.is_empty() { "0x0" } else { &req.tile_object_id };
+    let on_chain = anchor.stake_tile(&tile_id, tile_object_id, req.amount).await;
+
+    let (tx_digest, stub) = match on_chain {
+        Ok(r)  => (r.tx_digest, r.stub),
+        Err(e) => {
+            tracing::warn!(error = %e, tile_id = %tile_id, "Sui stake failed");
+            ("".into(), true)
+        }
+    };
+
+    info!(tile_id = %tile_id, staker = %req.staker_did, amount = req.amount, stub, "tile staked");
+
+    (StatusCode::OK, Json(json!({
+        "ok":        true,
+        "tile_id":   tile_id,
+        "staker_did": req.staker_did,
+        "amount":    req.amount,
+        "tx_digest": tx_digest,
+        "stub":      stub,
     }))).into_response()
 }
 
@@ -1341,6 +1655,197 @@ async fn handle_timelines_list(State(state): State<NodeState>) -> impl IntoRespo
             "latest_twin": tl.latest().map(|e| &e.twin_id),
         })).collect::<Vec<_>>(),
     }))
+}
+
+// GET /twins/:twin_id/timeline/diff — 4D change detection between earliest and latest snapshot.
+//
+// Returns quality delta, modality set changes, and elapsed time between first and last scan.
+// Requires at least 2 timeline entries; returns 409 if only one or zero entries exist.
+async fn handle_twin_timeline_diff(
+    State(state):  State<NodeState>,
+    Path(twin_id): Path<String>,
+) -> impl IntoResponse {
+    let device_timeline_id = twin_protocol::TwinTimeline::device_id(&twin_id);
+    let timeline = match state.timeline_store.get(&device_timeline_id).await {
+        Some(tl) => tl,
+        None     => return (StatusCode::NOT_FOUND,
+            Json(json!({ "error": "timeline_not_found", "twin_id": twin_id }))).into_response(),
+    };
+
+    if timeline.entries.len() < 2 {
+        return (StatusCode::CONFLICT,
+            Json(json!({
+                "error":   "insufficient_snapshots",
+                "message": "at least 2 snapshots required for diff",
+                "count":   timeline.entries.len(),
+            }))).into_response();
+    }
+
+    let earliest = timeline.earliest().unwrap();
+    let latest   = timeline.latest().unwrap();
+
+    let quality_delta = latest.quality - earliest.quality;
+    let span_ms       = timeline.span_ms().unwrap_or(0);
+    let span_hours    = span_ms as f64 / 3_600_000.0;
+
+    let added_modalities: Vec<&str> = latest.modalities.iter()
+        .filter(|m| !earliest.modalities.contains(m))
+        .map(|m| m.as_str())
+        .collect();
+    let dropped_modalities: Vec<&str> = earliest.modalities.iter()
+        .filter(|m| !latest.modalities.contains(m))
+        .map(|m| m.as_str())
+        .collect();
+
+    let tile_changed = earliest.odu_tile != latest.odu_tile;
+
+    info!(
+        twin_id    = %twin_id,
+        span_ms    = span_ms,
+        quality_delta = %format!("{:+.3}", quality_delta),
+        snapshots  = timeline.entries.len(),
+        "4D timeline diff computed"
+    );
+
+    (StatusCode::OK, Json(json!({
+        "twin_id":            twin_id,
+        "snapshot_count":     timeline.entries.len(),
+        "earliest": {
+            "snapshot_id": earliest.snapshot_id,
+            "timestamp":   earliest.timestamp,
+            "quality":     earliest.quality,
+            "odu_tile":    earliest.odu_tile,
+            "modalities":  earliest.modalities,
+        },
+        "latest": {
+            "snapshot_id": latest.snapshot_id,
+            "timestamp":   latest.timestamp,
+            "quality":     latest.quality,
+            "odu_tile":    latest.odu_tile,
+            "modalities":  latest.modalities,
+        },
+        "diff": {
+            "quality_delta":       quality_delta,
+            "quality_improved":    quality_delta > 0.0,
+            "span_ms":             span_ms,
+            "span_hours":          span_hours,
+            "added_modalities":    added_modalities,
+            "dropped_modalities":  dropped_modalities,
+            "tile_changed":        tile_changed,
+        },
+    }))).into_response()
+}
+
+// POST /twins/:twin_id/splat/diff — 3D spatial diff between two PLY snapshots.
+//
+// Body: { "snapshot_a": "<ply_base64>", "snapshot_b": "<ply_base64>" }
+// Returns centroid delta, point-count delta, volume delta, and a normalised
+// change_magnitude in [0, 1] so callers can threshold significant changes.
+async fn handle_twin_splat_diff(
+    Path(twin_id): Path<String>,
+    Json(req):     Json<crate::spatial_diff::SplatDiffRequest>,
+) -> impl IntoResponse {
+    use base64::{Engine as _, engine::general_purpose::STANDARD};
+    use crate::spatial_diff::{parse_ply_stats, diff_stats};
+
+    let decode = |b64: &str, label: &str| -> Result<Vec<u8>, (StatusCode, axum::Json<serde_json::Value>)> {
+        STANDARD.decode(b64).map_err(|e| (
+            StatusCode::UNPROCESSABLE_ENTITY,
+            Json(json!({ "error": "invalid_base64", "field": label, "detail": e.to_string() })),
+        ))
+    };
+
+    let bytes_a = match decode(&req.snapshot_a, "snapshot_a") {
+        Ok(b) => b,
+        Err(r) => return r.into_response(),
+    };
+    let bytes_b = match decode(&req.snapshot_b, "snapshot_b") {
+        Ok(b) => b,
+        Err(r) => return r.into_response(),
+    };
+
+    let stats_a = match parse_ply_stats(&req.snapshot_a, &bytes_a) {
+        Ok(s) => s,
+        Err(e) => return (StatusCode::UNPROCESSABLE_ENTITY,
+            Json(json!({ "error": "ply_parse_error", "field": "snapshot_a", "detail": e.to_string() }))).into_response(),
+    };
+    let stats_b = match parse_ply_stats(&req.snapshot_b, &bytes_b) {
+        Ok(s) => s,
+        Err(e) => return (StatusCode::UNPROCESSABLE_ENTITY,
+            Json(json!({ "error": "ply_parse_error", "field": "snapshot_b", "detail": e.to_string() }))).into_response(),
+    };
+
+    let diff = diff_stats(&req.snapshot_a, &req.snapshot_b, stats_a, stats_b);
+
+    info!(twin_id = %twin_id, change_magnitude = %format!("{:.3}", diff.change_magnitude), "spatial diff computed");
+
+    (StatusCode::OK, Json(json!({
+        "twin_id":            twin_id,
+        "point_count_delta":  diff.point_count_delta,
+        "centroid_delta_m":   diff.centroid_delta_m,
+        "volume_delta_m3":    diff.volume_delta_m3,
+        "density_delta":      diff.density_delta,
+        "change_magnitude":   diff.change_magnitude,
+        "stats_a": {
+            "point_count": diff.stats_a.point_count,
+            "centroid":    diff.stats_a.centroid,
+            "volume_m3":   diff.stats_a.volume(),
+        },
+        "stats_b": {
+            "point_count": diff.stats_b.point_count,
+            "centroid":    diff.stats_b.centroid,
+            "volume_m3":   diff.stats_b.volume(),
+        },
+    }))).into_response()
+}
+
+// POST /swarm/:swarm_id/merge-splat — aggregate per-device PLY clouds into one scene.
+//
+// Body: { "splats": [{"device_id":"...","ply_b64":"<base64 PLY>"},...], "voxel_size": 0.05 }
+// Returns merged PLY (base64), point counts, reduction %, centroid, and bbox.
+// The swarm_id is validated to exist; if unknown, returns 404.
+async fn handle_swarm_merge_splat(
+    State(state):   State<NodeState>,
+    Path(swarm_id): Path<String>,
+    Json(req):      Json<crate::swarm_splat::MergeRequest>,
+) -> impl IntoResponse {
+    use crate::swarm_splat::{merge_splats, MergeError};
+
+    // Validate swarm exists.
+    if state.swarm_store.get(&swarm_id).await.is_none() {
+        return (StatusCode::NOT_FOUND,
+            Json(json!({ "error": "swarm_not_found", "swarm_id": swarm_id }))).into_response();
+    }
+
+    match merge_splats(&req) {
+        Ok(result) => {
+            info!(
+                swarm_id     = %swarm_id,
+                source_count = result.source_count,
+                input_points = result.input_points,
+                output_points= result.output_points,
+                reduction_pct= %format!("{:.1}%", result.reduction_pct),
+                "swarm splat merge complete"
+            );
+            (StatusCode::OK, Json(json!({
+                "swarm_id":       swarm_id,
+                "source_count":   result.source_count,
+                "input_points":   result.input_points,
+                "output_points":  result.output_points,
+                "reduction_pct":  result.reduction_pct,
+                "centroid":       result.centroid,
+                "bbox_min":       result.bbox_min,
+                "bbox_max":       result.bbox_max,
+                "merged_ply_b64": result.merged_ply_b64,
+            }))).into_response()
+        }
+        Err(MergeError::Empty) => (StatusCode::UNPROCESSABLE_ENTITY,
+            Json(json!({ "error": "no_splats", "message": "splats array must not be empty" }))).into_response(),
+        Err(MergeError::Base64 { device_id, detail }) => (StatusCode::UNPROCESSABLE_ENTITY,
+            Json(json!({ "error": "invalid_base64", "device_id": device_id, "detail": detail }))).into_response(),
+        Err(MergeError::Ply { device_id, detail }) => (StatusCode::UNPROCESSABLE_ENTITY,
+            Json(json!({ "error": "ply_parse_error", "device_id": device_id, "detail": detail }))).into_response(),
+    }
 }
 
 // GET /tiles — list all 256 Odù tile IDs with receipt counts.
@@ -2383,6 +2888,16 @@ async fn handle_inbound_dip(envelope: dip::DipEnvelope, ctx: &InboundDipContext)
         }
 
         DipKind::Message => {
+            // Phase 4.3 — DIP→VCP: route vcp_command messages to the body session store.
+            if let Some("vcp_command") = envelope.payload.get("type").and_then(|v| v.as_str()) {
+                handle_dip_vcp_command(&envelope, ctx).await;
+                return;
+            }
+            // Phase 4.2 — DIP→TSP: route twin_license_request messages.
+            if let Some("twin_license_request") = envelope.payload.get("type").and_then(|v| v.as_str()) {
+                handle_dip_license_request(&envelope, ctx).await;
+                return;
+            }
             info!(
                 msg_id  = %envelope.message_id,
                 payload = %envelope.payload,
@@ -2456,6 +2971,172 @@ async fn handle_witness_sign_request(
     match DipEnvelope::build(origin, dest, chain, DipKind::Receipt, response_payload, 120, &ctx.identity.private_key) {
         Ok(reply) => ctx.gateway.send(reply).await,
         Err(e)    => warn!(error = %e, "failed to build witness sign response envelope"),
+    }
+}
+
+/// Phase 4.3 — DIP→VCP: execute a VCP command arriving via DIP.
+///
+/// Payload fields: type="vcp_command", session_id, capability, action, params?
+/// Identity chain is validated: DIP principal must match the session's agent_id.
+/// Reply is a DIP Receipt with the command result.
+async fn handle_dip_vcp_command(envelope: &dip::DipEnvelope, ctx: &InboundDipContext) {
+    use dip::{DipEnvelope, DipKind, DipAddress, address::DipNetwork};
+
+    let payload    = &envelope.payload;
+    let session_id = payload.get("session_id").and_then(|v| v.as_str()).unwrap_or("");
+    let capability = payload.get("capability").and_then(|v| v.as_str()).unwrap_or("");
+    let action     = payload.get("action").and_then(|v| v.as_str()).unwrap_or("execute");
+    let params     = payload.get("params").cloned().unwrap_or(serde_json::Value::Null);
+
+    if session_id.is_empty() || capability.is_empty() {
+        warn!(msg_id = %envelope.message_id, "dip vcp_command missing session_id or capability");
+        return;
+    }
+
+    // Validate: DIP principal must match the session agent_id.
+    let principal = envelope.identity.principal_id.as_str();
+    let session_ok = match ctx.body_store.get_session(session_id).await {
+        None => {
+            warn!(session_id, "dip vcp_command: session not found");
+            false
+        }
+        Some(s) => {
+            if s.agent_id != principal {
+                warn!(
+                    session_id,
+                    dip_principal = %principal,
+                    session_agent = %s.agent_id,
+                    "dip vcp_command: identity mismatch"
+                );
+                false
+            } else {
+                // Verify capability is in the granted set (empty set = all allowed)
+                s.capabilities.is_empty() || s.capabilities.iter().any(|c| c == capability)
+            }
+        }
+    };
+
+    let cmd_id = format!("cmd:{}", uuid::Uuid::new_v4());
+    let ts = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_millis() as u64;
+
+    let (status_str, error_str) = if session_ok {
+        info!(
+            cmd_id     = %cmd_id,
+            session_id,
+            capability,
+            action,
+            "DIP→VCP command accepted"
+        );
+        ("accepted", None)
+    } else {
+        ("denied", Some("identity_mismatch_or_session_not_found"))
+    };
+
+    // Reply via DIP Receipt
+    let reply_payload = serde_json::json!({
+        "type":       "vcp_command_result",
+        "cmd_id":     cmd_id,
+        "session_id": session_id,
+        "capability": capability,
+        "action":     action,
+        "params":     params,
+        "status":     status_str,
+        "error":      error_str,
+        "timestamp_ms": ts,
+    });
+
+    let requester = envelope.origin.did.as_deref()
+        .unwrap_or(&envelope.origin.address);
+    let chain  = IdentityChain::new(ctx.identity.did.clone(), ctx.identity.did.clone());
+    let origin = DipAddress::vantage(&ctx.identity.did);
+    let dest   = DipAddress {
+        network: DipNetwork::Vantage,
+        address: requester.to_string(),
+        did:     Some(requester.to_string()),
+    };
+    match DipEnvelope::build(origin, dest, chain, DipKind::Receipt, reply_payload, 120, &ctx.identity.private_key) {
+        Ok(reply) => ctx.gateway.send(reply).await,
+        Err(e)    => warn!(error = %e, "failed to build vcp_command_result DIP reply"),
+    }
+}
+
+/// Phase 4.2 — DIP→TSP: handle an inbound twin license request via DIP.
+///
+/// Payload: type="twin_license_request", twin_id, rights[], expires_at?, fee_mist?
+/// Issues a TwinLicenseGrant and replies with the grant via DIP Receipt.
+async fn handle_dip_license_request(envelope: &dip::DipEnvelope, ctx: &InboundDipContext) {
+    use dip::{DipEnvelope, DipKind, DipAddress, address::DipNetwork};
+    use twin_protocol::{TwinLicenseGrant, TwinLicenseConstraints};
+    use sovereign_types::UsageRight;
+
+    let payload    = &envelope.payload;
+    let twin_id    = payload.get("twin_id").and_then(|v| v.as_str()).unwrap_or("");
+    let grantee    = envelope.identity.principal_id.as_str();
+    let expires_at: Option<u64> = payload.get("expires_at").and_then(|v| v.as_u64());
+    let fee_mist:   Option<u64> = payload.get("fee_mist").and_then(|v| v.as_u64());
+
+    if twin_id.is_empty() {
+        warn!(msg_id = %envelope.message_id, "dip twin_license_request missing twin_id");
+        return;
+    }
+
+    let rights: Vec<UsageRight> = payload.get("rights")
+        .and_then(|v| serde_json::from_value(v.clone()).ok())
+        .unwrap_or_else(|| vec![UsageRight::View, UsageRight::Simulate]);
+
+    let constraints = TwinLicenseConstraints::default();
+
+    let result = TwinLicenseGrant::issue(
+        twin_id.to_string(),
+        ctx.identity.did.clone(),
+        grantee.to_string(),
+        rights,
+        constraints,
+        expires_at,
+        fee_mist,
+        &ctx.identity.private_key,
+    );
+
+    let reply_payload = match result {
+        Ok(grant) => {
+            ctx.license_store.insert(grant.clone()).await;
+            info!(
+                grant_id = %grant.grant_id,
+                twin_id,
+                grantee,
+                "DIP→TSP license grant issued"
+            );
+            serde_json::json!({
+                "type":    "twin_license_grant",
+                "grant":   grant,
+                "status":  "issued",
+            })
+        }
+        Err(e) => {
+            warn!(twin_id, grantee, error = %e, "DIP license request failed");
+            serde_json::json!({
+                "type":   "twin_license_grant",
+                "status": "rejected",
+                "error":  e.to_string(),
+            })
+        }
+    };
+
+    let requester = envelope.origin.did.as_deref()
+        .unwrap_or(&envelope.origin.address);
+    let chain  = IdentityChain::new(ctx.identity.did.clone(), ctx.identity.did.clone());
+    let origin = DipAddress::vantage(&ctx.identity.did);
+    let dest   = DipAddress {
+        network: DipNetwork::Vantage,
+        address: requester.to_string(),
+        did:     Some(requester.to_string()),
+    };
+    match DipEnvelope::build(origin, dest, chain, DipKind::Receipt, reply_payload, 300, &ctx.identity.private_key) {
+        Ok(reply) => ctx.gateway.send(reply).await,
+        Err(e)    => warn!(error = %e, "failed to build twin_license_grant DIP reply"),
     }
 }
 
@@ -2660,11 +3341,11 @@ async fn handle_governance_create(
 // GET /governance/proposals/:id
 async fn handle_governance_get(
     State(state): State<NodeState>,
-    Path(id): Path<u64>,
+    Path(id): Path<String>,
 ) -> impl IntoResponse {
-    match state.governance_store.get(id).await {
-        Some(p) => (StatusCode::OK, Json(serde_json::to_value(p).unwrap_or_default())),
-        None    => (
+    match state.governance_store.get(&id).await {
+        Some(pv) => (StatusCode::OK, Json(serde_json::to_value(pv).unwrap_or_default())),
+        None     => (
             StatusCode::NOT_FOUND,
             Json(json!({ "error": "proposal_not_found", "id": id })),
         ),
@@ -2761,12 +3442,16 @@ pub fn make_test_state() -> NodeState {
         provider:    None,
     };
 
-    let witnesses = WitnessRegistry::new();
+    let witnesses     = WitnessRegistry::new();
+    let body_store    = BodyStore::new();
+    let license_store = LicenseStore::new();
     let inbound_ctx = InboundDipContext {
-        local_did: did.clone(),
-        identity:  identity.clone(),
-        witnesses: witnesses.clone(),
-        gateway:   dip_gateway.clone(),
+        local_did:     did.clone(),
+        identity:      identity.clone(),
+        witnesses:     witnesses.clone(),
+        gateway:       dip_gateway.clone(),
+        body_store:    body_store.clone(),
+        license_store: license_store.clone(),
     };
 
     let (twin_events_tx, _) = broadcast::channel::<TwinEvent>(64);
@@ -2789,14 +3474,19 @@ pub fn make_test_state() -> NodeState {
         started_at:          now_ms(),
         ip_root_event:       None,
         act_chain:           Arc::new(tokio::sync::RwLock::new(ActReceiptChain::new())),
-        body_store:          BodyStore::new(),
+        body_store:          body_store,
         telemetry_store:     TelemetryStore::new(),
         proof_engine:        Arc::new(ProofEngine::new()),
         emission_allocator:  Arc::new(tokio::sync::Mutex::new(DailyEmissionAllocator::new())),
         pending_claims:      Arc::new(tokio::sync::Mutex::new(Vec::new())),
         governance_store:    GovernanceStore::new(),
-        license_store:       LicenseStore::new(),
+        license_store:       license_store,
         wallet_store:        WalletStore::new(),
+        gpu_pool:            GpuPool::new(),
+        agent_store:         AgentStore::new(),
+        council_store:       CouncilStore::new(),
+        seat_store:          SovereignSeatStore::new(),
+        emission_receipts:   EmissionReceiptStore::new(),
     }
 }
 
@@ -3072,4 +3762,532 @@ async fn handle_wallet_credit(
         "balance_micro_ase": balance,
         "credited":        body.amount_micro_ase,
     }))
+}
+
+// ── OSOVM Token-of-Compute handlers (Phase 52) ───────────────────────────────
+
+#[derive(serde::Deserialize)]
+struct GpuContributeBody {
+    contributor_did: String,
+    device_id:       String,
+    compute_units:   u64,
+    proof_hash:      String,
+}
+
+// POST /osovm/gpu/contribute
+async fn handle_gpu_contribute(
+    State(state): State<NodeState>,
+    Json(body): Json<GpuContributeBody>,
+) -> impl IntoResponse {
+    if body.compute_units == 0 {
+        return (StatusCode::BAD_REQUEST,
+            Json(json!({"error": "compute_units must be > 0"}))).into_response();
+    }
+    let contrib = state.gpu_pool.contribute(
+        &body.contributor_did,
+        &body.device_id,
+        body.compute_units,
+        &body.proof_hash,
+    ).await;
+
+    // Wire 1/3: GPU contribution → EmissionReceipt in Simulation pool.
+    let emission = state.emission_receipts.record(
+        sovereign_types::DistributionPool::Simulation,
+        contrib.gpu_minted,
+        body.proof_hash.clone(),
+        "gpu_contribution_v1".into(),
+        Some(body.contributor_did.clone()),
+        Some(contrib.contribution_id.clone()),
+        format!("GPU compute contribution from {}", body.device_id),
+    ).await;
+
+    info!(
+        contribution_id = %contrib.contribution_id,
+        contributor_did = %contrib.contributor_did,
+        gpu_minted      = contrib.gpu_minted,
+        eshu_tithe      = contrib.eshu_tithe,
+        emission_id     = %emission.receipt_id,
+        "GPU contribution recorded + emission receipt issued"
+    );
+    (StatusCode::CREATED, Json(json!({
+        "contribution_id": contrib.contribution_id,
+        "contributor_did": contrib.contributor_did,
+        "compute_units":   contrib.compute_units,
+        "gpu_minted":      contrib.gpu_minted,
+        "eshu_tithe":      contrib.eshu_tithe,
+        "timestamp":       contrib.timestamp,
+        "emission_receipt_id": emission.receipt_id,
+    }))).into_response()
+}
+
+#[derive(serde::Deserialize)]
+struct GpuBurnBody {
+    did:        String,
+    gpu_amount: u64,
+}
+
+// POST /osovm/gpu/burn  — burn GPU to mint Synapse (10:1)
+async fn handle_gpu_burn_for_synapse(
+    State(state): State<NodeState>,
+    Json(body): Json<GpuBurnBody>,
+) -> impl IntoResponse {
+    match state.gpu_pool.burn_for_synapse(&body.did, body.gpu_amount).await {
+        Ok((synapses, remaining_gpu)) => {
+            // Wire 2/3: GPU burn → EmissionReceipt in Research pool (Synapse = agent slice).
+            let emission = state.emission_receipts.record(
+                sovereign_types::DistributionPool::Research,
+                synapses,
+                format!("gpu_burn:{}:{}", body.did, body.gpu_amount),
+                "gpu_burn_for_synapse_v1".into(),
+                Some(body.did.clone()),
+                None,
+                format!("burned {} micro-GPU → {} micro-Synapse", body.gpu_amount, synapses),
+            ).await;
+
+            info!(
+                did              = %body.did,
+                gpu_burned       = body.gpu_amount,
+                synapses_minted  = synapses,
+                emission_id      = %emission.receipt_id,
+                "GPU burned for Synapse + emission receipt issued"
+            );
+            Json(json!({
+                "did":                 body.did,
+                "gpu_burned":          body.gpu_amount,
+                "synapses_minted":     synapses,
+                "remaining_gpu":       remaining_gpu,
+                "emission_receipt_id": emission.receipt_id,
+            })).into_response()
+        }
+        Err(reason) => (StatusCode::CONFLICT, Json(json!({
+            "error":  "insufficient_gpu",
+            "reason": reason,
+        }))).into_response(),
+    }
+}
+
+// GET /osovm/pool
+async fn handle_gpu_pool_state(State(state): State<NodeState>) -> impl IntoResponse {
+    let s = state.gpu_pool.state().await;
+    Json(json!({
+        "total_compute_units":  s.total_compute_units,
+        "total_gpu_minted":     s.total_gpu_minted,
+        "total_eshu_tithe":     s.total_eshu_tithe,
+        "synapse_minted":       s.synapse_minted,
+        "contribution_count":   s.contribution_count,
+        "decay_bps_per_day":    s.decay_bps_per_day,
+        "eshu_tithe_bps":       s.eshu_tithe_bps,
+        "last_decay_epoch_day": s.last_decay_epoch_day,
+        "gpu_supply_cap":       crate::gpu_pool::GPU_SUPPLY_CAP,
+        "synapse_supply_cap":   crate::gpu_pool::SYNAPSE_SUPPLY_CAP,
+    }))
+}
+
+// GET /osovm/balances/:did
+async fn handle_osovm_balances(
+    State(state): State<NodeState>,
+    Path(did): Path<String>,
+) -> impl IntoResponse {
+    let decoded = urlencoding::decode(&did).unwrap_or(std::borrow::Cow::Borrowed(&did)).into_owned();
+    let gpu_balance     = state.gpu_pool.gpu_balance(&decoded).await;
+    let synapse_balance = state.gpu_pool.synapse_balance(&decoded).await;
+    Json(json!({
+        "did":             decoded,
+        "gpu_balance":     gpu_balance,
+        "synapse_balance": synapse_balance,
+    }))
+}
+
+// GET /osovm/contributions — list all GPU contribution records.
+async fn handle_osovm_contributions(State(state): State<NodeState>) -> impl IntoResponse {
+    let contribs = state.gpu_pool.contributions().await;
+    Json(json!({
+        "count":         contribs.len(),
+        "contributions": contribs,
+    }))
+}
+
+// POST /osovm/gpu/decay — apply daily Synapse decay for the given epoch_day.
+//
+// Wire 3/3: decay burn → EmissionReceipt in LotteryBurn pool (tokens burned = permanent supply sink).
+// epoch_day is seconds-since-epoch / 86400; safe to call multiple times per day (idempotent).
+#[derive(serde::Deserialize)]
+struct DecayBody {
+    /// Unix epoch day = floor(unix_timestamp_secs / 86400).
+    epoch_day: u64,
+}
+
+async fn handle_gpu_decay(
+    State(state): State<NodeState>,
+    Json(body):   Json<DecayBody>,
+) -> impl IntoResponse {
+    let decayed = state.gpu_pool.apply_daily_decay(body.epoch_day).await;
+
+    if decayed > 0 {
+        // Record the burn as a LotteryBurn emission (permanent supply reduction).
+        let emission = state.emission_receipts.record(
+            sovereign_types::DistributionPool::LotteryBurn,
+            decayed,
+            format!("decay:epoch_day:{}", body.epoch_day),
+            "synapse_daily_decay_v1".into(),
+            None,
+            None,
+            format!("1%/day Synapse decay for epoch_day {}", body.epoch_day),
+        ).await;
+
+        info!(
+            epoch_day   = body.epoch_day,
+            decayed     = decayed,
+            emission_id = %emission.receipt_id,
+            "Synapse decay applied + emission receipt issued"
+        );
+
+        (StatusCode::OK, Json(json!({
+            "epoch_day":           body.epoch_day,
+            "synapses_decayed":    decayed,
+            "already_applied":     false,
+            "emission_receipt_id": emission.receipt_id,
+        }))).into_response()
+    } else {
+        (StatusCode::OK, Json(json!({
+            "epoch_day":        body.epoch_day,
+            "synapses_decayed": 0u64,
+            "already_applied":  true,
+        }))).into_response()
+    }
+}
+
+// ── Governance veto (Phase 55: Bínò council constitutional veto) ─────────────
+
+#[derive(serde::Deserialize)]
+struct VetoBody {
+    /// DID of the council member invoking the veto.
+    veto_by: String,
+    /// Constitutional article or reason for veto.
+    reason:  String,
+}
+
+// POST /governance/proposals/:id/veto
+async fn handle_governance_veto(
+    State(state): State<NodeState>,
+    Path(id): Path<String>,
+    Json(body): Json<VetoBody>,
+) -> impl IntoResponse {
+    use crate::governance_store::ProposalStatus;
+
+    match state.governance_store.get(&id).await {
+        None => (StatusCode::NOT_FOUND, Json(json!({
+            "error": "proposal_not_found",
+            "id":    id,
+        }))).into_response(),
+        Some(proposal) => {
+            if proposal.status == ProposalStatus::Executed {
+                return (StatusCode::CONFLICT, Json(json!({
+                    "error":  "already_executed",
+                    "status": "executed",
+                }))).into_response();
+            }
+            if proposal.status == ProposalStatus::Vetoed {
+                return (StatusCode::CONFLICT, Json(json!({
+                    "error":  "already_vetoed",
+                    "status": "vetoed",
+                }))).into_response();
+            }
+            state.governance_store.veto(&id, &body.veto_by, &body.reason).await;
+            info!(proposal_id = %id, veto_by = %body.veto_by, reason = %body.reason, "Bínò constitutional veto applied");
+            Json(json!({
+                "proposal_id": id,
+                "status":      "vetoed",
+                "veto_by":     body.veto_by,
+                "reason":      body.reason,
+            })).into_response()
+        }
+    }
+}
+
+// ── Agent birth + lifecycle handlers (Phase 57) ──────────────────────────────
+
+#[derive(serde::Deserialize)]
+struct AgentBirthBody {
+    agent_id:  String,
+    owner_did: String,
+}
+
+// POST /agents
+async fn handle_agent_birth(
+    State(state): State<NodeState>,
+    Json(body): Json<AgentBirthBody>,
+) -> impl IntoResponse {
+    use crate::agent_store::AGENT_BIRTH_FEE_MICRO_ASE;
+    // Deduct birth fee from owner wallet (creates wallet if needed)
+    let balance = state.wallet_store.balance(&body.owner_did).await;
+    if balance < AGENT_BIRTH_FEE_MICRO_ASE {
+        return (StatusCode::PAYMENT_REQUIRED, Json(json!({
+            "error":    "insufficient_balance",
+            "required": AGENT_BIRTH_FEE_MICRO_ASE,
+            "balance":  balance,
+        }))).into_response();
+    }
+    let _ = state.wallet_store.debit(&body.owner_did, AGENT_BIRTH_FEE_MICRO_ASE).await;
+
+    match state.agent_store.birth(&body.agent_id, &body.owner_did).await {
+        Ok(agent) => {
+            info!(agent_id = %agent.agent_id, owner = %agent.owner_did, "agent born");
+            (StatusCode::CREATED, Json(serde_json::to_value(&agent).unwrap_or_default())).into_response()
+        }
+        Err(reason) => (StatusCode::CONFLICT, Json(json!({
+            "error":  "agent_exists",
+            "reason": reason,
+        }))).into_response(),
+    }
+}
+
+// GET /agents
+async fn handle_agents_list(State(state): State<NodeState>) -> impl IntoResponse {
+    let agents = state.agent_store.all().await;
+    Json(json!({ "count": agents.len(), "agents": agents }))
+}
+
+// GET /agents/:agent_id
+async fn handle_agent_get(
+    State(state): State<NodeState>,
+    Path(agent_id): Path<String>,
+) -> impl IntoResponse {
+    match state.agent_store.get(&agent_id).await {
+        Some(a) => Json(serde_json::to_value(a).unwrap_or_default()).into_response(),
+        None    => (StatusCode::NOT_FOUND, Json(json!({ "error": "agent_not_found", "agent_id": agent_id }))).into_response(),
+    }
+}
+
+#[derive(serde::Deserialize)]
+struct AgentStakeBody { amount: u64 }
+
+// POST /agents/:agent_id/stake
+async fn handle_agent_stake(
+    State(state): State<NodeState>,
+    Path(agent_id): Path<String>,
+    Json(body): Json<AgentStakeBody>,
+) -> impl IntoResponse {
+    match state.agent_store.stake(&agent_id, body.amount).await {
+        Ok(a)   => Json(serde_json::to_value(a).unwrap_or_default()).into_response(),
+        Err(e)  => (StatusCode::CONFLICT, Json(json!({ "error": "stake_failed", "reason": e }))).into_response(),
+    }
+}
+
+// POST /agents/:agent_id/unstake
+async fn handle_agent_unstake(
+    State(state): State<NodeState>,
+    Path(agent_id): Path<String>,
+    Json(body): Json<AgentStakeBody>,
+) -> impl IntoResponse {
+    match state.agent_store.unstake(&agent_id, body.amount).await {
+        Ok(a)   => Json(serde_json::to_value(a).unwrap_or_default()).into_response(),
+        Err(e)  => (StatusCode::CONFLICT, Json(json!({ "error": "unstake_failed", "reason": e }))).into_response(),
+    }
+}
+
+// ── Council of 12 handlers (Phase 58) ─────────────────────────────────────────
+
+// GET /governance/council
+async fn handle_council_summary(State(state): State<NodeState>) -> impl IntoResponse {
+    let seats   = state.council_store.all_seats().await;
+    let eligible = state.council_store.rotation_eligible().await;
+    Json(json!({
+        "seat_count":        seats.len(),
+        "sector_count":      24u8,
+        "rotation_eligible": eligible.len(),
+        "seats":             seats,
+    }))
+}
+
+// GET /governance/council/seats
+async fn handle_council_seats(State(state): State<NodeState>) -> impl IntoResponse {
+    Json(json!({ "seats": state.council_store.all_seats().await }))
+}
+
+// GET /governance/council/sectors
+async fn handle_council_sectors(State(state): State<NodeState>) -> impl IntoResponse {
+    Json(json!({ "sectors": state.council_store.all_sectors().await }))
+}
+
+#[derive(serde::Deserialize)]
+struct RotateBody {
+    new_councilor_did: String,
+    /// If true, bypass term-end check (admin use).
+    force: Option<bool>,
+}
+
+// POST /governance/council/seats/:idx/rotate
+async fn handle_council_rotate(
+    State(state): State<NodeState>,
+    Path(idx): Path<u8>,
+    Json(body): Json<RotateBody>,
+) -> impl IntoResponse {
+    let result = if body.force.unwrap_or(false) {
+        state.council_store.force_rotate(idx, &body.new_councilor_did).await
+    } else {
+        state.council_store.rotate(idx, &body.new_councilor_did).await
+    };
+    match result {
+        Ok(seat) => Json(serde_json::to_value(seat).unwrap_or_default()).into_response(),
+        Err(e)   => (StatusCode::CONFLICT, Json(json!({ "error": "rotation_failed", "reason": e }))).into_response(),
+    }
+}
+
+// ── 1440 Sovereign seat handlers (Phase 59) ──────────────────────────────────
+
+// GET /seats
+async fn handle_seats_summary(State(state): State<NodeState>) -> impl IntoResponse {
+    let claimed = state.seat_store.all_claimed().await;
+    let active  = state.seat_store.active_count().await;
+    let vacant  = state.seat_store.vacant_count().await;
+    Json(json!({
+        "total_seats": sovereign_types::SOVEREIGN_SEAT_COUNT,
+        "claimed":     claimed.len(),
+        "active":      active,
+        "revoked":     claimed.len().saturating_sub(active),
+        "vacant":      vacant,
+    }))
+}
+
+// GET /seats/:idx
+async fn handle_seat_get(
+    State(state): State<NodeState>,
+    Path(idx): Path<u16>,
+) -> impl IntoResponse {
+    match state.seat_store.get(idx).await {
+        Some(s) => Json(serde_json::to_value(s).unwrap_or_default()).into_response(),
+        None    => (StatusCode::NOT_FOUND, Json(json!({ "error": "seat_vacant", "seat_index": idx }))).into_response(),
+    }
+}
+
+#[derive(serde::Deserialize)]
+struct SeatClaimBody { steward_did: String }
+
+// POST /seats/:idx/claim
+async fn handle_seat_claim(
+    State(state): State<NodeState>,
+    Path(idx): Path<u16>,
+    Json(body): Json<SeatClaimBody>,
+) -> impl IntoResponse {
+    match state.seat_store.claim(idx, &body.steward_did).await {
+        Ok(seat) => (StatusCode::CREATED, Json(serde_json::to_value(seat).unwrap_or_default())).into_response(),
+        Err(e)   => (StatusCode::CONFLICT, Json(json!({ "error": "claim_failed", "reason": e }))).into_response(),
+    }
+}
+
+#[derive(serde::Deserialize)]
+struct SeatRevokeBody { reason: String }
+
+// POST /seats/:idx/revoke
+async fn handle_seat_revoke(
+    State(state): State<NodeState>,
+    Path(idx): Path<u16>,
+    Json(body): Json<SeatRevokeBody>,
+) -> impl IntoResponse {
+    match state.seat_store.revoke(idx, &body.reason).await {
+        Ok(seat) => Json(serde_json::to_value(seat).unwrap_or_default()).into_response(),
+        Err(e)   => (StatusCode::CONFLICT, Json(json!({ "error": "revoke_failed", "reason": e }))).into_response(),
+    }
+}
+
+// ── Emission receipt handlers (Phase 56 — Zàngbétò) ─────────────────────────
+
+// GET /emission/receipts
+async fn handle_emission_receipts_list(State(state): State<NodeState>) -> impl IntoResponse {
+    let receipts = state.emission_receipts.all().await;
+    Json(json!({
+        "count":    receipts.len(),
+        "emission_number": state.emission_receipts.emission_number().await,
+        "receipts": receipts,
+    }))
+}
+
+// GET /emission/receipts/:id
+async fn handle_emission_receipt_get(
+    State(state): State<NodeState>,
+    Path(id): Path<String>,
+) -> impl IntoResponse {
+    match state.emission_receipts.get(&id).await {
+        Some(r) => Json(serde_json::to_value(r).unwrap_or_default()).into_response(),
+        None    => (StatusCode::NOT_FOUND, Json(json!({ "error": "receipt_not_found", "id": id }))).into_response(),
+    }
+}
+
+// ── Simulation scoring handlers (Phase 60) ───────────────────────────────────
+
+#[derive(serde::Deserialize)]
+struct SimulationScoreBody {
+    proof_id:           String,
+    worker_did:         String,
+    f1_score:           f64,
+    current_difficulty: Option<f64>,
+    prior_env_count:    Option<u64>,
+    verification_pct:   Option<f64>,
+    independence:       Option<f64>,
+    tier_index:         Option<u8>,
+    witness_confidence: Option<f64>,
+}
+
+// POST /simulation/score
+async fn handle_simulation_score(
+    Json(body): Json<SimulationScoreBody>,
+) -> impl IntoResponse {
+    let difficulty = SimulationFactors::difficulty_factor(
+        body.f1_score,
+        body.current_difficulty.unwrap_or(0.777),
+    );
+    let novelty = SimulationFactors::novelty_from_prior_count(
+        body.prior_env_count.unwrap_or(1),
+    );
+    let utility = SimulationFactors::utility_for_tier(
+        body.tier_index.unwrap_or(0),
+    );
+    let factors = SimulationFactors {
+        difficulty,
+        quality:            body.f1_score.clamp(0.0, 1.0),
+        novelty,
+        verification:       body.verification_pct.unwrap_or(1.0).clamp(0.0, 1.0),
+        independence:       body.independence.unwrap_or(1.0).clamp(0.0, 1.0),
+        utility,
+        witness_confidence: body.witness_confidence.unwrap_or(1.0).clamp(0.0, 1.0),
+    };
+    let score = factors.score();
+    let now = SystemTime::now().duration_since(UNIX_EPOCH).unwrap_or_default().as_millis() as u64;
+    let result = SimulationScoreResult {
+        proof_id:   body.proof_id,
+        worker_did: body.worker_did,
+        factors,
+        score,
+        share:      0.0, // caller must call /simulation/shares for multi-claim normalisation
+        timestamp:  now,
+    };
+    Json(serde_json::to_value(result).unwrap_or_default())
+}
+
+#[derive(serde::Deserialize)]
+struct SimulationSharesBody {
+    /// List of (proof_id, score) pairs to normalise into emission shares.
+    claims: Vec<SimulationShareClaim>,
+}
+
+#[derive(serde::Deserialize, serde::Serialize)]
+struct SimulationShareClaim {
+    proof_id: String,
+    score:    f64,
+}
+
+// POST /simulation/shares
+async fn handle_simulation_shares(
+    Json(body): Json<SimulationSharesBody>,
+) -> impl IntoResponse {
+    let scores: Vec<(String, f64)> = body.claims.iter()
+        .map(|c| (c.proof_id.clone(), c.score))
+        .collect();
+    let shares = compute_emission_shares(&scores);
+    let result: Vec<_> = shares.into_iter().map(|(id, s)| json!({
+        "proof_id": id,
+        "share":    s,
+    })).collect();
+    Json(json!({ "shares": result, "count": result.len() }))
 }

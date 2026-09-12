@@ -158,6 +158,80 @@ fn handle_tools_list() -> Result<Value, String> {
                     },
                     "required": ["destination_did", "network", "payload"]
                 }
+            },
+            {
+                "name":        "vcp_body_session_open",
+                "description": "Open a fine-grained VCP body session for a device, specifying which capabilities (locomotion, sensor.camera, …) are needed. Returns session_id for subsequent commands. Use this for scripted robot control; use vcp_capture for a fully automated splat pipeline.",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "device_id":    { "type": "string", "description": "VCP device ID from vcp_nearby_devices" },
+                        "capabilities": {
+                            "type": "array",
+                            "items": { "type": "string" },
+                            "description": "Capability names to request (e.g. [\"locomotion\", \"sensor.camera\"])"
+                        },
+                        "agent_tier":   { "type": "string", "description": "Agent trust tier (t1–t5, default t4)" }
+                    },
+                    "required": ["device_id"]
+                }
+            },
+            {
+                "name":        "vcp_body_session_command",
+                "description": "Send a capability command within an open VCP body session. Returns the command receipt.",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "session_id":  { "type": "string", "description": "Session ID from vcp_body_session_open" },
+                        "capability":  { "type": "string", "description": "Which capability to invoke (e.g. locomotion, sensor.camera)" },
+                        "action":      { "type": "string", "description": "Action within the capability (e.g. walk, capture_frame)" },
+                        "params":      { "type": "object", "description": "Action-specific parameters" }
+                    },
+                    "required": ["session_id", "capability", "action"]
+                }
+            },
+            {
+                "name":        "vcp_body_session_close",
+                "description": "Close a VCP body session and return the session receipt. If the session had a camera capability and mission_success=true, a capture job is auto-queued — poll with sovereign_job_status.",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "session_id":      { "type": "string" },
+                        "mission_success": { "type": "boolean", "description": "Whether the mission goal was achieved (triggers auto-capture if true + camera present)" }
+                    },
+                    "required": ["session_id"]
+                }
+            },
+            {
+                "name":        "sovereign_timeline",
+                "description": "Return the 4D provenance timeline for a twin — ordered snapshots of every capture, with quality scores and Odù tile locations.",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "twin_id": { "type": "string", "description": "Twin or device ID (e.g. 'unitree:go2:192.168.1.10')" }
+                    },
+                    "required": ["twin_id"]
+                }
+            },
+            {
+                "name":        "sovereign_timeline_diff",
+                "description": "Compute 4D change detection between the earliest and latest snapshot of a twin's timeline. Returns quality delta, new/dropped modalities, and time span. Requires ≥2 snapshots.",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "twin_id": { "type": "string" }
+                    },
+                    "required": ["twin_id"]
+                }
+            },
+            {
+                "name":        "sovereign_ip_root",
+                "description": "Return the node's cached IP Root event (Nostr kind 31900). This event establishes the agent's provenance identity on Nostr. Returns null if no Nostr identity is configured.",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {},
+                    "required": []
+                }
             }
         ]
     }))
@@ -172,12 +246,18 @@ async fn handle_tools_call(state: &NodeState, params: Value) -> Result<Value, St
     info!(tool = name, "MCP tool call");
 
     match name {
-        "vcp_nearby_devices"  => tool_nearby_devices(state).await,
-        "vcp_connect"         => tool_connect(state, &args).await,
-        "vcp_capture"         => tool_capture(state, &args).await,
-        "sovereign_status"    => tool_status(state).await,
-        "sovereign_job_status"=> tool_job_status(state, &args).await,
-        "dip_send"            => tool_dip_send(state, &args),
+        "vcp_nearby_devices"       => tool_nearby_devices(state).await,
+        "vcp_connect"              => tool_connect(state, &args).await,
+        "vcp_capture"              => tool_capture(state, &args).await,
+        "sovereign_status"         => tool_status(state).await,
+        "sovereign_job_status"     => tool_job_status(state, &args).await,
+        "dip_send"                 => tool_dip_send(state, &args),
+        "vcp_body_session_open"    => tool_body_session_open(state, &args).await,
+        "vcp_body_session_command" => tool_body_session_command(state, &args).await,
+        "vcp_body_session_close"   => tool_body_session_close(state, &args).await,
+        "sovereign_timeline"       => tool_timeline(state, &args).await,
+        "sovereign_timeline_diff"  => tool_timeline_diff(state, &args).await,
+        "sovereign_ip_root"        => tool_ip_root(state),
         other => Err(format!("unknown tool: {other}")),
     }
 }
@@ -347,4 +427,240 @@ fn tool_dip_send(state: &NodeState, args: &Value) -> Result<Value, String> {
             }).to_string()
         }]
     }))
+}
+
+// ── vcp_body_session_open ─────────────────────────────────────────────────────
+
+async fn tool_body_session_open(state: &NodeState, args: &Value) -> Result<Value, String> {
+    use vcp::BodySessionMode;
+
+    let device_id = args.get("device_id")
+        .and_then(|v| v.as_str())
+        .ok_or("missing device_id")?;
+
+    let capabilities: Vec<String> = args.get("capabilities")
+        .and_then(|v| serde_json::from_value(v.clone()).ok())
+        .unwrap_or_else(|| vec!["sensor.camera".into()]);
+
+    let agent_tier = match args.get("agent_tier").and_then(|v| v.as_str()).unwrap_or("t4") {
+        "t0" | "T0" => sovereign_types::TrustTier::T0,
+        "t1" | "T1" => sovereign_types::TrustTier::T1,
+        "t2" | "T2" => sovereign_types::TrustTier::T2,
+        "t3" | "T3" => sovereign_types::TrustTier::T3,
+        "t5" | "T5" => sovereign_types::TrustTier::T5,
+        _            => sovereign_types::TrustTier::T4,
+    };
+
+    let session = match vcp::BodySession::new(
+        state.identity.did.clone(),
+        agent_tier,
+        device_id.to_string(),
+        BodySessionMode::HumanSupervised,
+        capabilities.clone(),
+        None,
+    ) {
+        Ok(s) => s,
+        Err(e) => return Err(format!("body session creation failed: {e}")),
+    };
+
+    let session_id = session.session_id.clone();
+    state.body_store.insert_session(session).await;
+
+    info!(session_id = %session_id, device_id = %device_id, "VCP body session opened via MCP");
+
+    Ok(json!({ "content": [{ "type": "text", "text": json!({
+        "session_id":   session_id,
+        "device_id":    device_id,
+        "capabilities": capabilities,
+        "status":       "open",
+        "next_steps":   ["vcp_body_session_command", "vcp_body_session_close"],
+    }).to_string() }] }))
+}
+
+// ── vcp_body_session_command ──────────────────────────────────────────────────
+
+async fn tool_body_session_command(state: &NodeState, args: &Value) -> Result<Value, String> {
+    let session_id = args.get("session_id")
+        .and_then(|v| v.as_str())
+        .ok_or("missing session_id")?;
+    let capability = args.get("capability")
+        .and_then(|v| v.as_str())
+        .ok_or("missing capability")?;
+    let action = args.get("action")
+        .and_then(|v| v.as_str())
+        .ok_or("missing action")?;
+    let params = args.get("params").cloned().unwrap_or(Value::Null);
+
+    let session = state.body_store.get_session(session_id).await
+        .ok_or_else(|| format!("session not found: {session_id}"))?;
+
+    // Validate capability is granted
+    if !session.capabilities.is_empty()
+        && !session.capabilities.iter().any(|c| c == capability)
+    {
+        return Err(format!("capability '{capability}' not granted in session {session_id}"));
+    }
+
+    let cmd_id = format!("cmd:{}", Uuid::new_v4());
+    let ts = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_millis() as u64;
+
+    info!(
+        cmd_id = %cmd_id,
+        session_id = %session_id,
+        capability = %capability,
+        action = %action,
+        "VCP body session command via MCP"
+    );
+
+    Ok(json!({ "content": [{ "type": "text", "text": json!({
+        "cmd_id":      cmd_id,
+        "session_id":  session_id,
+        "capability":  capability,
+        "action":      action,
+        "params":      params,
+        "status":      "accepted",
+        "timestamp_ms": ts,
+    }).to_string() }] }))
+}
+
+// ── vcp_body_session_close ────────────────────────────────────────────────────
+
+async fn tool_body_session_close(state: &NodeState, args: &Value) -> Result<Value, String> {
+    let session_id = args.get("session_id")
+        .and_then(|v| v.as_str())
+        .ok_or("missing session_id")?;
+    let mission_success = args.get("mission_success")
+        .and_then(|v| v.as_bool())
+        .unwrap_or(false);
+
+    let session = state.body_store.get_session(session_id).await
+        .ok_or_else(|| format!("session not found: {session_id}"))?;
+
+    let receipt = state.telemetry_store.close_session(
+        session_id,
+        &session.agent_id,
+        &session.body_id,
+        session.sim_proof_id.clone(),
+        vec![],
+        mission_success,
+    ).await;
+
+    let receipt_id = receipt.receipt_id.clone();
+    let has_camera = session.capabilities.iter().any(|c| c.contains("camera"));
+    state.body_store.add_receipt(receipt).await;
+
+    // Phase 4.1 — auto-queue capture job if mission succeeded with camera
+    let mut capture_job_id: Option<String> = None;
+    if mission_success && has_camera {
+        let job_id = format!("job:{}", Uuid::new_v4());
+        let job = Job::new(job_id.clone(), session.body_id.clone());
+        state.job_store.insert(job).await;
+        let model = state.registry.get(&session.body_id).await
+            .map(|d| d.model.clone())
+            .unwrap_or_else(|| "Go2".into());
+        tokio::spawn(crate::node::run_capture_job(
+            job_id.clone(),
+            session.body_id.clone(),
+            model,
+            state.identity.clone(),
+            state.config.clone(),
+            state.job_store.clone(),
+            state.receipt_store.clone(),
+            state.witnesses.clone(),
+            state.dip_gateway.clone(),
+            state.twin_events.clone(),
+            state.tile_economy_store.clone(),
+            state.act_chain.clone(),
+            state.pending_claims.clone(),
+        ));
+        capture_job_id = Some(job_id);
+    }
+
+    info!(
+        session_id = %session_id,
+        receipt_id = %receipt_id,
+        mission_success,
+        capture_queued = capture_job_id.is_some(),
+        "VCP body session closed via MCP"
+    );
+
+    Ok(json!({ "content": [{ "type": "text", "text": json!({
+        "session_id":       session_id,
+        "receipt_id":       receipt_id,
+        "mission_success":  mission_success,
+        "capture_job_id":   capture_job_id,
+        "status":           "closed",
+    }).to_string() }] }))
+}
+
+// ── sovereign_timeline ────────────────────────────────────────────────────────
+
+async fn tool_timeline(state: &NodeState, args: &Value) -> Result<Value, String> {
+    let twin_id = args.get("twin_id")
+        .and_then(|v| v.as_str())
+        .ok_or("missing twin_id")?;
+
+    let timeline_id = twin_protocol::TwinTimeline::device_id(twin_id);
+    match state.timeline_store.get(&timeline_id).await {
+        Some(tl) => {
+            let text = serde_json::to_string(&tl).map_err(|e| e.to_string())?;
+            Ok(json!({ "content": [{ "type": "text", "text": text }] }))
+        }
+        None => Err(format!("no timeline found for twin_id: {twin_id}")),
+    }
+}
+
+// ── sovereign_timeline_diff ───────────────────────────────────────────────────
+
+async fn tool_timeline_diff(state: &NodeState, args: &Value) -> Result<Value, String> {
+    let twin_id = args.get("twin_id")
+        .and_then(|v| v.as_str())
+        .ok_or("missing twin_id")?;
+
+    let timeline_id = twin_protocol::TwinTimeline::device_id(twin_id);
+    let tl = state.timeline_store.get(&timeline_id).await
+        .ok_or_else(|| format!("no timeline found for twin_id: {twin_id}"))?;
+
+    if tl.entries.len() < 2 {
+        return Err(format!(
+            "twin '{twin_id}' has {} snapshot(s); need ≥2 for diff", tl.entries.len()
+        ));
+    }
+
+    let earliest = tl.earliest().unwrap();
+    let latest   = tl.latest().unwrap();
+    let quality_delta = latest.quality - earliest.quality;
+    let span_ms = tl.span_ms().unwrap_or(0);
+    let added_modalities: Vec<&str> = latest.modalities.iter()
+        .filter(|m| !earliest.modalities.contains(m))
+        .map(|m| m.as_str()).collect();
+
+    let result = json!({
+        "twin_id":         twin_id,
+        "snapshot_count":  tl.entries.len(),
+        "span_hours":      span_ms as f64 / 3_600_000.0,
+        "quality_delta":   quality_delta,
+        "quality_improved": quality_delta > 0.0,
+        "added_modalities": added_modalities,
+        "earliest_quality": earliest.quality,
+        "latest_quality":   latest.quality,
+    });
+    Ok(json!({ "content": [{ "type": "text", "text": result.to_string() }] }))
+}
+
+// ── sovereign_ip_root ─────────────────────────────────────────────────────────
+
+fn tool_ip_root(state: &NodeState) -> Result<Value, String> {
+    match &state.ip_root_event {
+        Some(ev) => {
+            let text = serde_json::to_string(ev.as_ref()).map_err(|e| e.to_string())?;
+            Ok(json!({ "content": [{ "type": "text", "text": text }] }))
+        }
+        None => Ok(json!({ "content": [{ "type": "text", "text":
+            json!({ "status": "not_configured", "hint": "set dip.nostr_nsec in node config" }).to_string()
+        }] })),
+    }
 }

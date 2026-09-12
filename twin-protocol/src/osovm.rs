@@ -68,15 +68,22 @@ pub struct OsovmEngine {
     pub engine_version: String,
     /// gRPC endpoint for real engine; ignored in stub mode.
     pub endpoint: Option<String>,
+    /// Skip Sabbath freeze check (for tests and CI).
+    pub bypass_sabbath: bool,
 }
 
 impl OsovmEngine {
     pub fn new(version: impl Into<String>) -> Self {
-        Self { engine_version: version.into(), endpoint: None }
+        Self { engine_version: version.into(), endpoint: None, bypass_sabbath: false }
     }
 
     pub fn with_endpoint(mut self, endpoint: impl Into<String>) -> Self {
         self.endpoint = Some(endpoint.into());
+        self
+    }
+
+    pub fn bypass_sabbath(mut self) -> Self {
+        self.bypass_sabbath = true;
         self
     }
 
@@ -279,7 +286,7 @@ impl OsovmEngine {
             .duration_since(UNIX_EPOCH)
             .unwrap_or_default()
             .as_secs();
-        if crate::emission::DailyEmissionAllocator::is_sabbath(now_secs) {
+        if !self.bypass_sabbath && crate::emission::DailyEmissionAllocator::is_sabbath(now_secs) {
             return Err(TspError::SabbathFreeze);
         }
 
@@ -540,7 +547,7 @@ mod tests {
     }
 
     fn make_engine() -> OsovmEngine {
-        OsovmEngine::new("osovm/2.0")
+        OsovmEngine::new("osovm/2.0").bypass_sabbath()
     }
 
     #[test]
@@ -618,7 +625,8 @@ mod tests {
             params: None,
         };
         let engine = OsovmEngine::new("osovm/2.0")
-            .with_endpoint("http://127.0.0.1:19999"); // port that won't be open
+            .with_endpoint("http://127.0.0.1:19999") // port that won't be open
+            .bypass_sabbath();
         let result = engine.run(&twin, &scenario).unwrap();
         // Stub output is valid even when the real engine is unreachable
         assert!(result.candidate_policies.len() >= 2);
@@ -636,7 +644,8 @@ mod tests {
             params: None,
         };
         let engine = OsovmEngine::new("osovm/2.0")
-            .with_endpoint("/nonexistent/osovm-binary");
+            .with_endpoint("/nonexistent/osovm-binary")
+            .bypass_sabbath();
         let result = engine.run(&twin, &scenario).unwrap();
         assert!(result.candidate_policies.len() >= 2);
     }
@@ -728,7 +737,7 @@ mod tests {
         };
 
         // Use `run_real` directly via the public `run()` entry — endpoint is the script path
-        let engine = OsovmEngine::new("osovm/2.0").with_endpoint(script_path.clone());
+        let engine = OsovmEngine::new("osovm/2.0").with_endpoint(script_path.clone()).bypass_sabbath();
         let result = engine.run(&twin, &scenario).expect("binary exec should succeed");
 
         assert_eq!(result.engine_version, "osovm-stub/1.0");
@@ -764,7 +773,7 @@ mod tests {
             params: None,
         };
 
-        let engine = OsovmEngine::new("osovm/2.0").with_endpoint(script_path.clone());
+        let engine = OsovmEngine::new("osovm/2.0").with_endpoint(script_path.clone()).bypass_sabbath();
         // Should fall back to stub — not return an Err
         let result = engine.run(&twin, &scenario)
             .expect("non-zero exit should fall back to stub, not hard-fail");

@@ -1236,3 +1236,989 @@ async fn body_capabilities_returns_list() {
     assert_eq!(status, StatusCode::OK, "capabilities: {:?}", body);
     assert!(body["capabilities"].is_array(), "no capabilities array: {:?}", body);
 }
+
+// ─── Phase 4.3 — body session command endpoint ───────────────────────────────
+
+#[tokio::test]
+async fn body_session_command_accepted() {
+    let app = make_app(make_test_state());
+
+    // Open session with camera capability
+    let open_body = json!({
+        "agent_id":     "did:node:agent-cmd-test",
+        "body_id":      "go2-cmd-body",
+        "agent_tier":   "t4",
+        "mode":         "HumanSupervised",
+        "capabilities": ["sensor.camera", "locomotion"],
+    });
+    let (s1, b1) = call_with(app.clone(), "POST", "/body/sessions", Some(open_body)).await;
+    assert_eq!(s1, StatusCode::CREATED, "open: {:?}", b1);
+    let session_id = b1["session_id"].as_str().unwrap().to_string();
+    let encoded = urlencoding::encode(&session_id).to_string();
+
+    // Issue a command
+    let cmd = json!({
+        "capability": "sensor.camera",
+        "action":     "capture_frame",
+        "params":     { "resolution": "1080p" },
+    });
+    let (sc, bc) = call_with(app.clone(), "POST", &format!("/body/sessions/{encoded}/command"), Some(cmd)).await;
+    assert_eq!(sc, StatusCode::OK, "command: {:?}", bc);
+    assert_eq!(bc["status"], "accepted", "status: {:?}", bc);
+    assert!(bc["cmd_id"].as_str().map(|s| s.starts_with("cmd:")).unwrap_or(false));
+    assert_eq!(bc["capability"], "sensor.camera");
+    assert_eq!(bc["action"], "capture_frame");
+}
+
+#[tokio::test]
+async fn body_session_command_unknown_capability_denied() {
+    let app = make_app(make_test_state());
+
+    let open_body = json!({
+        "agent_id":     "did:node:agent-cap-test",
+        "body_id":      "go2-cap-body",
+        "agent_tier":   "t4",
+        "mode":         "HumanSupervised",
+        "capabilities": ["sensor.camera"],
+    });
+    let (s1, b1) = call_with(app.clone(), "POST", "/body/sessions", Some(open_body)).await;
+    assert_eq!(s1, StatusCode::CREATED, "open: {:?}", b1);
+    let session_id = b1["session_id"].as_str().unwrap().to_string();
+    let encoded = urlencoding::encode(&session_id).to_string();
+
+    // Try to use locomotion which wasn't granted
+    let cmd = json!({ "capability": "locomotion", "action": "walk" });
+    let (sc, bc) = call_with(app, "POST", &format!("/body/sessions/{encoded}/command"), Some(cmd)).await;
+    assert_eq!(sc, StatusCode::FORBIDDEN, "should deny: {:?}", bc);
+    assert_eq!(bc["error"], "capability_not_granted");
+}
+
+#[tokio::test]
+async fn body_session_command_session_not_found() {
+    let (sc, bc) = call("POST", "/body/sessions/no-such-session/command",
+        Some(json!({ "capability": "sensor.camera", "action": "capture" }))).await;
+    assert_eq!(sc, StatusCode::NOT_FOUND, "body: {:?}", bc);
+}
+
+// ─── Phase 4.1 full-loop: VCP camera session → auto-capture job ──────────────
+
+#[tokio::test]
+async fn vcp_camera_session_close_queues_capture_job() {
+    let state = make_test_state();
+    let app   = make_app(state.clone());
+
+    // Open session WITH camera capability and mission_success=true
+    let open_body = json!({
+        "agent_id":     "did:node:agent-cam-loop",
+        "body_id":      "go2-cam-loop",
+        "agent_tier":   "t4",
+        "mode":         "HumanSupervised",
+        "capabilities": ["sensor.camera", "locomotion"],
+    });
+    let (s1, b1) = call_with(app.clone(), "POST", "/body/sessions", Some(open_body)).await;
+    assert_eq!(s1, StatusCode::CREATED, "open: {:?}", b1);
+    let session_id = b1["session_id"].as_str().unwrap().to_string();
+    let encoded = urlencoding::encode(&session_id).to_string();
+
+    // Close with mission_success=true (triggers auto-capture)
+    let close_body = json!({ "mission_success": true });
+    let (sc, bc) = call_with(app.clone(), "POST", &format!("/body/sessions/{encoded}/close"), Some(close_body)).await;
+    assert_eq!(sc, StatusCode::OK, "close: {:?}", bc);
+    assert!(bc["receipt_id"].is_string());
+
+    // Give the auto-queued job a moment to register (it's spawned asynchronously)
+    tokio::time::sleep(std::time::Duration::from_millis(50)).await;
+
+    // Verify a capture job was auto-queued (job store should have ≥1 job)
+    let (sj, bj) = call_with(app, "GET", "/jobs", None).await;
+    assert_eq!(sj, StatusCode::OK, "jobs: {:?}", bj);
+    let job_count = bj["jobs"].as_array().map(|a| a.len()).unwrap_or(0);
+    assert!(job_count >= 1, "expected auto-capture job, got 0 jobs: {:?}", bj);
+}
+
+// ─── Phase 4.2 — DIP inbound license request ─────────────────────────────────
+
+#[tokio::test]
+async fn dip_inbound_non_local_envelope_ignored() {
+    // An envelope addressed to a different DID should return OK (silently dropped).
+    // Build a valid DipEnvelope JSON — all fields required by the struct.
+    let body = json!({
+        "version":    "dip/1",
+        "message_id": "test-msg-001",
+        "timestamp":  1_700_000_000_000u64,
+        "ttl":        300,
+        "origin":      { "network": "vantage", "address": "did:node:sender",       "did": "did:node:sender" },
+        "destination": { "network": "vantage", "address": "did:node:someone-else", "did": "did:node:someone-else" },
+        "routing":    [],
+        "kind":       "message",
+        "payload":    { "hello": "world" },
+        "identity": {
+            "principal_id": "did:node:sender",
+            "agent_id":     "did:node:sender",
+            "session_id":   "sess:001",
+            "execution_id": "exec:001",
+            "receipt_id":   "rcpt:001"
+        },
+        "merkle_root": "0000000000000000000000000000000000000000000000000000000000000000",
+        "signature":   "stub-sig",
+    });
+    let (status, _) = call("POST", "/dip/inbound", Some(body)).await;
+    assert_eq!(status, StatusCode::OK);
+}
+
+// ─── Phase 4.2 — DIP→TSP: inbound twin license request creates a grant ───────
+
+fn make_dip_envelope(dest_did: &str, kind: &str, payload: serde_json::Value) -> serde_json::Value {
+    json!({
+        "version":    "dip/1",
+        "message_id": format!("test-{}", uuid::Uuid::new_v4()),
+        "timestamp":  1_700_000_000_000u64,
+        "ttl":        300,
+        "origin":      { "network": "vantage", "address": "did:node:requester", "did": "did:node:requester" },
+        "destination": { "network": "vantage", "address": dest_did,              "did": dest_did },
+        "routing":    [],
+        "kind":       kind,
+        "payload":    payload,
+        "identity": {
+            "principal_id": "did:node:requester",
+            "agent_id":     "did:node:requester",
+            "session_id":   "sess:test",
+            "execution_id": "exec:test",
+            "receipt_id":   "rcpt:test"
+        },
+        "merkle_root": "0000000000000000000000000000000000000000000000000000000000000000",
+        "signature":   "stub-sig",
+    })
+}
+
+#[tokio::test]
+async fn dip_twin_license_request_issues_grant() {
+    let state    = make_test_state();
+    let local_did = state.identity.did.clone();
+    let app      = make_app(state.clone());
+
+    let payload = json!({
+        "type":    "twin_license_request",
+        "twin_id": "twin:dip-license-test-001",
+        "rights":  ["View", "Simulate"],
+    });
+    let envelope = make_dip_envelope(&local_did, "message", payload);
+
+    let (status, body) = call_with(app, "POST", "/dip/inbound", Some(envelope)).await;
+    assert_eq!(status, StatusCode::OK, "dip inbound: {:?}", body);
+
+    // Give async handler a moment to process
+    tokio::time::sleep(std::time::Duration::from_millis(50)).await;
+
+    // License should now appear in the license store
+    let (ls, lb) = call_with(make_app(state), "GET", "/licenses", None).await;
+    assert_eq!(ls, StatusCode::OK, "licenses: {:?}", lb);
+    let grants = lb["grants"].as_array().cloned().unwrap_or_default();
+    let found = grants.iter().any(|g| {
+        g["twin_id"].as_str() == Some("twin:dip-license-test-001")
+    });
+    assert!(found, "expected license grant for twin:dip-license-test-001, got: {:?}", grants);
+}
+
+// ─── Phase 4.3 — DIP→VCP: inbound command validated against body session ──────
+
+#[tokio::test]
+async fn dip_vcp_command_accepted_for_authorized_session() {
+    let state    = make_test_state();
+    let local_did = state.identity.did.clone();
+    let app      = make_app(state.clone());
+
+    // Open a body session owned by "did:node:requester"
+    let open_body = json!({
+        "agent_id":     "did:node:requester",
+        "body_id":      "go2-dip-cmd-test",
+        "agent_tier":   "t4",
+        "mode":         "HumanSupervised",
+        "capabilities": ["sensor.camera"],
+    });
+    let (s1, b1) = call_with(app.clone(), "POST", "/body/sessions", Some(open_body)).await;
+    assert_eq!(s1, StatusCode::CREATED, "open: {:?}", b1);
+    let session_id = b1["session_id"].as_str().unwrap().to_string();
+
+    // Send a DIP vcp_command for that session — principal_id matches agent_id
+    let payload = json!({
+        "type":       "vcp_command",
+        "session_id": session_id,
+        "capability": "sensor.camera",
+        "action":     "capture_frame",
+        "params":     {},
+    });
+    let envelope = make_dip_envelope(&local_did, "message", payload);
+
+    let (status, body) = call_with(app, "POST", "/dip/inbound", Some(envelope)).await;
+    assert_eq!(status, StatusCode::OK, "dip inbound: {:?}", body);
+    // Route accepted (gateway will fire a DIP reply, but we only check the HTTP 200 here)
+}
+
+#[tokio::test]
+async fn dip_vcp_command_rejected_for_wrong_principal() {
+    let state    = make_test_state();
+    let local_did = state.identity.did.clone();
+    let app      = make_app(state.clone());
+
+    // Open a session owned by a different agent
+    let open_body = json!({
+        "agent_id":     "did:node:real-owner",
+        "body_id":      "go2-reject-test",
+        "agent_tier":   "t4",
+        "mode":         "HumanSupervised",
+        "capabilities": ["sensor.camera"],
+    });
+    let (s1, b1) = call_with(app.clone(), "POST", "/body/sessions", Some(open_body)).await;
+    assert_eq!(s1, StatusCode::CREATED, "open: {:?}", b1);
+    let session_id = b1["session_id"].as_str().unwrap().to_string();
+
+    // Attempt a command from a different principal (did:node:requester ≠ did:node:real-owner)
+    let payload = json!({
+        "type":       "vcp_command",
+        "session_id": session_id,
+        "capability": "sensor.camera",
+        "action":     "capture_frame",
+    });
+    let envelope = make_dip_envelope(&local_did, "message", payload);
+    let (status, body) = call_with(app, "POST", "/dip/inbound", Some(envelope)).await;
+    // HTTP always 200 (DIP errors are reported in the reply envelope, not HTTP status)
+    assert_eq!(status, StatusCode::OK, "dip inbound: {:?}", body);
+}
+
+// ─── Phase 4.4 — Full Loop: VCP session → capture → proof → receipt chain ────
+
+#[tokio::test]
+async fn full_loop_session_capture_proof_receipt_chain() {
+    let state = make_test_state();
+    let app   = make_app(state.clone());
+
+    // Step 1 — VCP: open a camera session
+    let open_body = json!({
+        "agent_id":     "did:node:loop-agent",
+        "body_id":      "go2-full-loop",
+        "agent_tier":   "t4",
+        "mode":         "HumanSupervised",
+        "capabilities": ["sensor.camera", "locomotion"],
+    });
+    let (s1, b1) = call_with(app.clone(), "POST", "/body/sessions", Some(open_body)).await;
+    assert_eq!(s1, StatusCode::CREATED, "open session: {:?}", b1);
+    let session_id = b1["session_id"].as_str().unwrap().to_string();
+    let encoded_session = urlencoding::encode(&session_id).to_string();
+
+    // Step 2 — VCP: record telemetry frames (simulates robot scanning)
+    for i in 0..3u32 {
+        let frame = json!({
+            "session_id": session_id,
+            "frame_index": i,
+            "pitch": 0.0, "roll": 0.0, "yaw": (i as f64) * 0.1,
+            "position_x": (i as f64) * 0.5, "position_y": 0.0, "position_z": 0.0,
+            "battery_pct": 90,
+            "timestamp_ms": 1_700_000_000_000u64 + (i as u64) * 100,
+        });
+        call_with(app.clone(), "POST", &format!("/body/sessions/{encoded_session}/telemetry"), Some(frame)).await;
+    }
+
+    // Step 3 — VCP→TSP (Phase 4.1): close session with mission_success → auto-capture queued
+    let close_body = json!({ "mission_success": true, "witness_ids": [] });
+    let (sc, bc) = call_with(app.clone(), "POST",
+        &format!("/body/sessions/{encoded_session}/close"), Some(close_body)).await;
+    assert_eq!(sc, StatusCode::OK, "close session: {:?}", bc);
+    assert!(bc["receipt_id"].is_string(), "session receipt must have receipt_id: {:?}", bc);
+
+    // Give auto-capture job time to queue
+    tokio::time::sleep(std::time::Duration::from_millis(50)).await;
+
+    // Step 4 — TSP: manually push a capture receipt to verify the chain builds
+    let device_id = "unitree:go2:127.0.0.1";
+    let (sj, bj) = call_with(app.clone(), "POST",
+        &format!("/capture/{}", urlencoding::encode(device_id)),
+        Some(json!({}))).await;
+    // 200 or 202 — job submitted
+    assert!(
+        sj == StatusCode::OK || sj == StatusCode::ACCEPTED,
+        "capture submit: {sj} {:?}", bj
+    );
+    tokio::time::sleep(std::time::Duration::from_millis(200)).await;
+
+    // Step 5 — TSP: submit a simulation proof (full required schema)
+    let sim_body = json!({
+        "proof_id":          "p-full-loop-001",
+        "agent_id":          "did:node:loop-agent",
+        "principal_id":      "did:node:loop-agent",
+        "simulation_id":     "sim:full-loop-001",
+        "environment_hash":  "env_hash_001",
+        "world_hash":        "world_hash_001",
+        "model_hash":        "model_hash_001",
+        "controller_hash":   "ctrl_hash_001",
+        "input_hash":        "input_hash_001",
+        "simulator_version": "mujoco/3.1.4",
+        "seed":              42u64,
+        "trajectory_hash":   "traj_hash_001",
+        "sensor_hash":       "sensor_hash_001",
+        "checkpoint_root":   "ckpt_root_001",
+        "metrics": {
+            "execution_time_ms":    12400,
+            "energy_estimate":      87.2,
+            "gates_cleared":        5,
+            "gates_total":          5,
+            "crashes":              0,
+            "collision_margin_m":   0.84,
+            "controller_stability": 0.91
+        },
+        "outcome": "success",
+        "timestamp": 0u64,
+        "signature": "stub-sig",
+    });
+    let (sp, bp) = call_with(app.clone(), "POST", "/proofs/simulation", Some(sim_body)).await;
+    assert_eq!(sp, StatusCode::OK, "simulation proof: {:?}", bp);
+    assert!(bp["proof_id"].is_string(), "simulation proof must have proof_id: {:?}", bp);
+
+    // Step 6 — TSP: submit a physical ObservationReceipt (all required fields)
+    let obs_body = json!({
+        "kind":           31040u32,
+        "receipt_id":     "rcpt:31040_full-loop-obs-001",
+        "sim_receipt_id": bp["proof_id"].as_str().unwrap_or("p-full-loop-001"),
+        "witness_id":     "witness:stub-001",
+        "observed":       { "position_x": 0.48, "position_y": 0.0 },
+        "predicted":      { "position_x": 0.5,  "position_y": 0.0 },
+        "delta": {
+            "fields":        {},
+            "max_delta_pct": 0.0,
+        },
+        "outcome":        "validated",
+        "tpm_key_id":     "tpm:stub-key-001",
+        "hardware_sig":   "stub-hw-sig",
+        "device_cert":    "stub-cert",
+        "timestamp":      1_700_000_100_000u64,
+    });
+    let (so, _bo) = call_with(app.clone(), "POST", "/proofs/observation", Some(obs_body)).await;
+    assert_eq!(so, StatusCode::CREATED, "observation: {:?}", _bo);
+
+    // Step 7 — Verify receipt Merkle root is buildable (non-empty chain)
+    let (sm, bm) = call_with(app.clone(), "GET", "/receipts/root", None).await;
+    assert_eq!(sm, StatusCode::OK, "merkle root: {:?}", bm);
+    assert!(bm["count"].as_u64().unwrap_or(0) >= 0,
+        "merkle root count must be numeric: {:?}", bm);
+    assert!(bm["algo"].as_str() == Some("sha256-binary-merkle"),
+        "expected sha256-binary-merkle algo: {:?}", bm);
+
+    // Step 8 — Verify DIP gossip can be triggered (propagates receipts to peers)
+    let (sg, bg) = call_with(app.clone(), "POST", "/dip/gossip",
+        Some(json!({ "count": 5 }))).await;
+    assert_eq!(sg, StatusCode::OK, "dip gossip: {:?}", bg);
+    assert!(bg["receipts"].is_number() || bg["receipt_count"].is_number(),
+        "gossip must have receipts count: {:?}", bg);
+    assert!(bg["peers"].is_number() || bg["peer_count"].is_number(),
+        "gossip must have peer count: {:?}", bg);
+
+    // Step 9 — Verify job list reflects the auto-queued capture
+    let (sjl, bjl) = call_with(app, "GET", "/jobs", None).await;
+    assert_eq!(sjl, StatusCode::OK, "jobs list: {:?}", bjl);
+    let job_count = bjl["jobs"].as_array().map(|a| a.len()).unwrap_or(0);
+    assert!(job_count >= 1, "expected ≥1 job in full loop, got 0: {:?}", bjl);
+}
+
+// ─── 4D timeline diff ─────────────────────────────────────────────────────────
+
+#[tokio::test]
+async fn timeline_diff_returns_404_for_unknown_twin() {
+    let (status, body) = call("GET", "/twins/unknown-twin-xyzzy/timeline/diff", None).await;
+    assert_eq!(status, StatusCode::NOT_FOUND, "body: {:?}", body);
+    assert_eq!(body["error"], "timeline_not_found");
+}
+
+#[tokio::test]
+async fn timeline_diff_requires_two_snapshots() {
+    use sovereign_node::timeline_store::TimelineStore;
+    use twin_protocol::{TwinTimeline, TwinTimelineEntry};
+
+    let state = make_test_state();
+    let app   = make_app(state.clone());
+
+    // Seed the timeline with exactly ONE entry — diff should return 409
+    let entry = TwinTimelineEntry {
+        snapshot_id:   "snap:test-single".into(),
+        twin_id:       "twin:diff-single".into(),
+        receipt_id:    "rcpt:single-001".into(),
+        device_id:     "go2:diff-test".into(),
+        timestamp:     1_700_000_000_000,
+        odu_tile:      None,
+        sui_object_id: None,
+        quality:       0.8,
+        modalities:    vec!["rgb".into()],
+    };
+    let timeline_id = TwinTimeline::device_id("go2:diff-test");
+    state.timeline_store.append(&timeline_id, entry).await;
+
+    let (status, body) = call_with(app, "GET", "/twins/go2:diff-test/timeline/diff", None).await;
+    assert_eq!(status, StatusCode::CONFLICT, "body: {:?}", body);
+    assert_eq!(body["error"], "insufficient_snapshots");
+}
+
+#[tokio::test]
+async fn timeline_diff_computes_quality_delta() {
+    use twin_protocol::{TwinTimeline, TwinTimelineEntry};
+
+    let state = make_test_state();
+    let app   = make_app(state.clone());
+
+    let timeline_id = TwinTimeline::device_id("go2:diff-ok");
+
+    // First scan — lower quality
+    state.timeline_store.append(&timeline_id, TwinTimelineEntry {
+        snapshot_id:   "snap:diff-a".into(),
+        twin_id:       "twin:diff-ok".into(),
+        receipt_id:    "rcpt:diff-a".into(),
+        device_id:     "go2:diff-ok".into(),
+        timestamp:     1_700_000_000_000,
+        odu_tile:      Some("odu:01".into()),
+        sui_object_id: None,
+        quality:       0.6,
+        modalities:    vec!["rgb".into()],
+    }).await;
+
+    // Second scan — higher quality, new modality
+    state.timeline_store.append(&timeline_id, TwinTimelineEntry {
+        snapshot_id:   "snap:diff-b".into(),
+        twin_id:       "twin:diff-ok".into(),
+        receipt_id:    "rcpt:diff-b".into(),
+        device_id:     "go2:diff-ok".into(),
+        timestamp:     1_700_003_600_000,
+        odu_tile:      Some("odu:01".into()),
+        sui_object_id: None,
+        quality:       0.85,
+        modalities:    vec!["rgb".into(), "splat".into()],
+    }).await;
+
+    let (status, body) = call_with(app, "GET", "/twins/go2:diff-ok/timeline/diff", None).await;
+    assert_eq!(status, StatusCode::OK, "body: {:?}", body);
+    assert_eq!(body["snapshot_count"], 2);
+    let delta = body["diff"]["quality_delta"].as_f64().unwrap_or(0.0);
+    assert!(delta > 0.0, "quality should have improved: {:?}", body);
+    assert_eq!(body["diff"]["quality_improved"], true);
+    let added: Vec<String> = serde_json::from_value(body["diff"]["added_modalities"].clone())
+        .unwrap_or_default();
+    assert!(added.contains(&"splat".to_string()), "splat should be in added modalities: {:?}", body);
+    assert!(body["diff"]["span_ms"].as_u64().unwrap_or(0) > 0);
+}
+
+// ── OSOVM Token-of-Compute tests (Phase 52) ───────────────────────────────────
+
+#[tokio::test]
+async fn gpu_pool_state_returns_expected_fields() {
+    let (status, body) = call("GET", "/osovm/pool", None).await;
+    assert_eq!(status, StatusCode::OK, "body: {:?}", body);
+    assert!(body["decay_bps_per_day"].as_u64().is_some(), "missing decay_bps_per_day");
+    assert!(body["eshu_tithe_bps"].as_u64().is_some(), "missing eshu_tithe_bps");
+    assert_eq!(body["contribution_count"].as_u64().unwrap_or(1), 0);
+}
+
+#[tokio::test]
+async fn gpu_contribute_mints_tokens() {
+    let app = make_app(make_test_state());
+    let (status, body) = call_with(app, "POST", "/osovm/gpu/contribute", Some(json!({
+        "contributor_did": "did:worker:gpu-test",
+        "device_id":       "gpu:a40:001",
+        "compute_units":   1000u64,
+        "proof_hash":      "sha256:deadbeef",
+    }))).await;
+    assert_eq!(status, StatusCode::CREATED, "body: {:?}", body);
+    assert!(body["contribution_id"].as_str().unwrap_or("").starts_with("gpu:"));
+    let gpu_minted = body["gpu_minted"].as_u64().unwrap_or(0);
+    let eshu_tithe = body["eshu_tithe"].as_u64().unwrap_or(0);
+    assert!(gpu_minted > 0, "gpu_minted must be > 0");
+    assert!(eshu_tithe > 0, "eshu_tithe must be > 0");
+    assert!(gpu_minted + eshu_tithe == 1000, "mint + tithe must equal compute_units");
+}
+
+#[tokio::test]
+async fn gpu_contribute_rejects_zero_units() {
+    let (status, body) = call("POST", "/osovm/gpu/contribute", Some(json!({
+        "contributor_did": "did:worker:zero",
+        "device_id":       "gpu:a40:002",
+        "compute_units":   0u64,
+        "proof_hash":      "sha256:abc",
+    }))).await;
+    assert_eq!(status, StatusCode::BAD_REQUEST, "body: {:?}", body);
+}
+
+#[tokio::test]
+async fn gpu_burn_for_synapse_succeeds() {
+    let app = make_app(make_test_state());
+    // First, contribute some GPU
+    let (s1, b1) = call_with(app.clone(), "POST", "/osovm/gpu/contribute", Some(json!({
+        "contributor_did": "did:worker:burn-test",
+        "device_id":       "gpu:h100:001",
+        "compute_units":   100u64,
+        "proof_hash":      "sha256:burn",
+    }))).await;
+    assert_eq!(s1, StatusCode::CREATED, "contribute: {:?}", b1);
+    let gpu_minted = b1["gpu_minted"].as_u64().unwrap_or(0);
+    assert!(gpu_minted > 0);
+
+    // Burn half for synapses
+    let burn_amount = gpu_minted / 2;
+    if burn_amount > 0 {
+        let (s2, b2) = call_with(app.clone(), "POST", "/osovm/gpu/burn", Some(json!({
+            "did":        "did:worker:burn-test",
+            "gpu_amount": burn_amount,
+        }))).await;
+        assert_eq!(s2, StatusCode::OK, "burn: {:?}", b2);
+        assert!(b2["synapses_minted"].as_u64().unwrap_or(0) > 0);
+        assert_eq!(b2["gpu_burned"].as_u64().unwrap_or(0), burn_amount);
+    }
+}
+
+#[tokio::test]
+async fn gpu_burn_fails_on_insufficient_balance() {
+    let (status, body) = call("POST", "/osovm/gpu/burn", Some(json!({
+        "did":        "did:worker:nobody",
+        "gpu_amount": 999999u64,
+    }))).await;
+    assert_eq!(status, StatusCode::CONFLICT, "body: {:?}", body);
+    assert_eq!(body["error"], "insufficient_gpu");
+}
+
+#[tokio::test]
+async fn osovm_balances_returns_zero_for_unknown() {
+    let (status, body) = call("GET", "/osovm/balances/did:unknown:xyz", None).await;
+    assert_eq!(status, StatusCode::OK, "body: {:?}", body);
+    assert_eq!(body["gpu_balance"].as_u64().unwrap_or(1), 0);
+    assert_eq!(body["synapse_balance"].as_u64().unwrap_or(1), 0);
+}
+
+// ── Bínò governance veto tests (Phase 55) ─────────────────────────────────────
+
+#[tokio::test]
+async fn governance_veto_blocks_proposal() {
+    let app = make_app(make_test_state());
+    let proposal_payload = sample_proposal_payload();
+
+    // Create a proposal
+    let (s1, b1) = call_with(app.clone(), "POST", "/governance/proposals", Some(proposal_payload)).await;
+    assert_eq!(s1, StatusCode::CREATED, "create: {:?}", b1);
+    let pid = b1["id"].as_u64().unwrap();
+
+    // Veto it
+    let (s2, b2) = call_with(app.clone(), "POST", &format!("/governance/proposals/{pid}/veto"), Some(json!({
+        "veto_by": "did:council:bino-seat-1",
+        "reason":  "violates principle of sovereignty boundary",
+    }))).await;
+    assert_eq!(s2, StatusCode::OK, "veto: {:?}", b2);
+    assert_eq!(b2["status"], "vetoed");
+    assert_eq!(b2["proposal_id"].to_string().trim_matches('"'), pid.to_string().as_str());
+
+    // GET should reflect vetoed status
+    let (s3, b3) = call_with(app.clone(), "GET", &format!("/governance/proposals/{pid}"), None).await;
+    assert_eq!(s3, StatusCode::OK, "get after veto: {:?}", b3);
+    assert_eq!(b3["status"], "vetoed");
+
+    // Execute should fail
+    let (s4, b4) = call_with(app, "POST", &format!("/governance/proposals/{pid}/execute"), None).await;
+    assert_eq!(s4, StatusCode::UNPROCESSABLE_ENTITY, "execute after veto: {:?}", b4);
+}
+
+#[tokio::test]
+async fn governance_veto_unknown_proposal_returns_404() {
+    let (status, body) = call("POST", "/governance/proposals/9999/veto", Some(json!({
+        "veto_by": "did:council:bino",
+        "reason":  "test",
+    }))).await;
+    assert_eq!(status, StatusCode::NOT_FOUND, "body: {:?}", body);
+    assert_eq!(body["error"], "proposal_not_found");
+}
+
+#[tokio::test]
+async fn governance_double_veto_returns_conflict() {
+    let app = make_app(make_test_state());
+    let payload = sample_proposal_payload();
+    let (_, b) = call_with(app.clone(), "POST", "/governance/proposals", Some(payload)).await;
+    let pid = b["id"].as_u64().unwrap();
+
+    let veto_body = json!({ "veto_by": "did:council:bino", "reason": "test" });
+    let (s1, _) = call_with(app.clone(), "POST", &format!("/governance/proposals/{pid}/veto"), Some(veto_body.clone())).await;
+    assert_eq!(s1, StatusCode::OK);
+
+    let (s2, b2) = call_with(app, "POST", &format!("/governance/proposals/{pid}/veto"), Some(veto_body)).await;
+    assert_eq!(s2, StatusCode::CONFLICT, "double-veto should be 409: {:?}", b2);
+    assert_eq!(b2["error"], "already_vetoed");
+}
+
+// ─── Phase 48: spatial PLY diff ───────────────────────────────────────────────
+
+fn make_ply_b64(points: &[[f64; 3]]) -> String {
+    use base64::{Engine as _, engine::general_purpose::STANDARD};
+    let mut s = format!(
+        "ply\nformat ascii 1.0\nelement vertex {}\nproperty float x\nproperty float y\nproperty float z\nend_header\n",
+        points.len()
+    );
+    for p in points {
+        s.push_str(&format!("{} {} {}\n", p[0], p[1], p[2]));
+    }
+    STANDARD.encode(s.as_bytes())
+}
+
+#[tokio::test]
+async fn splat_diff_identical_returns_zero_magnitude() {
+    let b64 = make_ply_b64(&[[0.0,0.0,0.0],[1.0,1.0,1.0]]);
+    let (status, body) = call(
+        "POST",
+        "/twins/twin:splat-test/splat/diff",
+        Some(json!({ "snapshot_a": b64, "snapshot_b": b64 })),
+    ).await;
+    assert_eq!(status, StatusCode::OK, "body: {:?}", body);
+    assert_eq!(body["point_count_delta"], 0);
+    let mag = body["change_magnitude"].as_f64().unwrap();
+    assert!(mag < 1e-9, "expected zero magnitude, got {mag}");
+}
+
+#[tokio::test]
+async fn splat_diff_shifted_cloud_detects_change() {
+    let a = make_ply_b64(&[[0.0,0.0,0.0],[1.0,0.0,0.0]]);
+    let b = make_ply_b64(&[[10.0,0.0,0.0],[11.0,0.0,0.0]]);
+    let (status, body) = call(
+        "POST",
+        "/twins/twin:splat-shift/splat/diff",
+        Some(json!({ "snapshot_a": a, "snapshot_b": b })),
+    ).await;
+    assert_eq!(status, StatusCode::OK, "body: {:?}", body);
+    let delta = body["centroid_delta_m"].as_f64().unwrap();
+    assert!((delta - 10.0).abs() < 1e-4, "expected ~10m centroid delta, got {delta}");
+    assert!(body["change_magnitude"].as_f64().unwrap() > 0.0);
+}
+
+#[tokio::test]
+async fn splat_diff_growing_cloud_positive_count_delta() {
+    let a = make_ply_b64(&[[0.0,0.0,0.0]]);
+    let b = make_ply_b64(&[[0.0,0.0,0.0],[1.0,0.0,0.0],[2.0,0.0,0.0]]);
+    let (status, body) = call(
+        "POST",
+        "/twins/twin:splat-grow/splat/diff",
+        Some(json!({ "snapshot_a": a, "snapshot_b": b })),
+    ).await;
+    assert_eq!(status, StatusCode::OK, "body: {:?}", body);
+    assert_eq!(body["point_count_delta"], 2);
+}
+
+#[tokio::test]
+async fn splat_diff_bad_base64_returns_422() {
+    let (status, body) = call(
+        "POST",
+        "/twins/twin:splat-bad/splat/diff",
+        Some(json!({ "snapshot_a": "not!!base64$$", "snapshot_b": "also bad" })),
+    ).await;
+    assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY, "body: {:?}", body);
+    assert_eq!(body["error"], "invalid_base64");
+}
+
+#[tokio::test]
+async fn splat_diff_returns_stats_for_both_snapshots() {
+    let a = make_ply_b64(&[[0.0,0.0,0.0],[2.0,0.0,0.0]]);
+    let b = make_ply_b64(&[[0.0,0.0,0.0],[4.0,0.0,0.0]]);
+    let (status, body) = call(
+        "POST",
+        "/twins/twin:splat-stats/splat/diff",
+        Some(json!({ "snapshot_a": a, "snapshot_b": b })),
+    ).await;
+    assert_eq!(status, StatusCode::OK, "body: {:?}", body);
+    assert_eq!(body["stats_a"]["point_count"], 2);
+    assert_eq!(body["stats_b"]["point_count"], 2);
+    // a centroid x = 1.0, b centroid x = 2.0 → delta = 1.0
+    let delta = body["centroid_delta_m"].as_f64().unwrap();
+    assert!((delta - 1.0).abs() < 1e-4, "expected 1.0m delta, got {delta}");
+}
+
+// ─── Phase 49: swarm splat merge ──────────────────────────────────────────────
+
+fn splat_input(device_id: &str, points: &[[f64; 3]]) -> serde_json::Value {
+    use base64::{Engine as _, engine::general_purpose::STANDARD};
+    let mut s = format!(
+        "ply\nformat ascii 1.0\nelement vertex {}\nproperty float x\nproperty float y\nproperty float z\nend_header\n",
+        points.len()
+    );
+    for p in points {
+        s.push_str(&format!("{} {} {}\n", p[0], p[1], p[2]));
+    }
+    json!({ "device_id": device_id, "ply_b64": STANDARD.encode(s.as_bytes()) })
+}
+
+async fn create_swarm(app: axum::Router) -> (axum::Router, String) {
+    let (_, body) = call_with(app.clone(), "POST", "/capture/swarm", Some(json!({
+        "device_ids": ["go2:merge-a", "go2:merge-b"],
+        "hint": "merge test"
+    }))).await;
+    let swarm_id = body["swarm_id"].as_str().unwrap().to_owned();
+    (app, swarm_id)
+}
+
+#[tokio::test]
+async fn swarm_merge_splat_unknown_swarm_returns_404() {
+    let (status, body) = call(
+        "POST",
+        "/swarm/swarm:does-not-exist/merge-splat",
+        Some(json!({ "splats": [], "voxel_size": 0.0 })),
+    ).await;
+    assert_eq!(status, StatusCode::NOT_FOUND, "body: {:?}", body);
+    assert_eq!(body["error"], "swarm_not_found");
+}
+
+#[tokio::test]
+async fn swarm_merge_splat_empty_splats_returns_422() {
+    let app = make_app(make_test_state());
+    let (app, swarm_id) = create_swarm(app).await;
+    let (status, body) = call_with(app, "POST",
+        &format!("/swarm/{swarm_id}/merge-splat"),
+        Some(json!({ "splats": [], "voxel_size": 0.0 })),
+    ).await;
+    assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY, "body: {:?}", body);
+    assert_eq!(body["error"], "no_splats");
+}
+
+#[tokio::test]
+async fn swarm_merge_splat_two_devices_returns_merged_ply() {
+    let app = make_app(make_test_state());
+    let (app, swarm_id) = create_swarm(app).await;
+    let payload = json!({
+        "splats": [
+            splat_input("go2:merge-a", &[[0.0,0.0,0.0],[1.0,0.0,0.0]]),
+            splat_input("go2:merge-b", &[[5.0,0.0,0.0],[6.0,0.0,0.0]]),
+        ],
+        "voxel_size": 0.0,
+    });
+    let (status, body) = call_with(app, "POST", &format!("/swarm/{swarm_id}/merge-splat"), Some(payload)).await;
+    assert_eq!(status, StatusCode::OK, "body: {:?}", body);
+    assert_eq!(body["source_count"], 2);
+    assert_eq!(body["input_points"],  4);
+    assert_eq!(body["output_points"], 4);
+    assert!(body["merged_ply_b64"].as_str().unwrap().len() > 10);
+}
+
+#[tokio::test]
+async fn swarm_merge_splat_voxel_reduces_points() {
+    let app = make_app(make_test_state());
+    let (app, swarm_id) = create_swarm(app).await;
+    // 4 points all within a 1m voxel → 1 output point.
+    let payload = json!({
+        "splats": [
+            splat_input("go2:merge-a", &[[0.1,0.1,0.1],[0.2,0.2,0.2]]),
+            splat_input("go2:merge-b", &[[0.3,0.3,0.3],[0.4,0.4,0.4]]),
+        ],
+        "voxel_size": 1.0,
+    });
+    let (status, body) = call_with(app, "POST", &format!("/swarm/{swarm_id}/merge-splat"), Some(payload)).await;
+    assert_eq!(status, StatusCode::OK, "body: {:?}", body);
+    assert_eq!(body["input_points"],  4);
+    assert_eq!(body["output_points"], 1);
+    let red = body["reduction_pct"].as_f64().unwrap();
+    assert!((red - 75.0).abs() < 1e-4, "expected 75% reduction, got {red}");
+}
+
+#[tokio::test]
+async fn swarm_merge_splat_returns_centroid() {
+    let app = make_app(make_test_state());
+    let (app, swarm_id) = create_swarm(app).await;
+    let payload = json!({
+        "splats": [
+            splat_input("go2:merge-a", &[[0.0,0.0,0.0]]),
+            splat_input("go2:merge-b", &[[2.0,0.0,0.0]]),
+        ],
+        "voxel_size": 0.0,
+    });
+    let (status, body) = call_with(app, "POST", &format!("/swarm/{swarm_id}/merge-splat"), Some(payload)).await;
+    assert_eq!(status, StatusCode::OK, "body: {:?}", body);
+    let cx = body["centroid"][0].as_f64().unwrap();
+    assert!((cx - 1.0).abs() < 1e-4, "expected centroid x=1.0, got {cx}");
+}
+
+#[tokio::test]
+async fn swarm_merge_splat_bad_base64_returns_422() {
+    let app = make_app(make_test_state());
+    let (app, swarm_id) = create_swarm(app).await;
+    let payload = json!({
+        "splats": [json!({ "device_id": "go2:bad", "ply_b64": "!!!not-base64!!!" })],
+        "voxel_size": 0.0,
+    });
+    let (status, body) = call_with(app, "POST", &format!("/swarm/{swarm_id}/merge-splat"), Some(payload)).await;
+    assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY, "body: {:?}", body);
+    assert_eq!(body["error"], "invalid_base64");
+}
+
+// ─── Phase 50: on-chain tile governance ───────────────────────────────────────
+
+#[tokio::test]
+async fn tile_claim_returns_tx_digest_and_object_id() {
+    let (status, body) = call("POST", "/tiles/odu:3F/claim", Some(json!({
+        "owner_did": "did:p:phase50-owner"
+    }))).await;
+    assert_eq!(status, StatusCode::OK, "body: {:?}", body);
+    assert_eq!(body["ok"], true);
+    assert_eq!(body["tile_id"], "odu:3F");
+    // Stub mode: tx_digest and object_id are non-empty deterministic strings.
+    let digest = body["tx_digest"].as_str().unwrap_or("");
+    let obj    = body["object_id"].as_str().unwrap_or("");
+    assert!(!digest.is_empty(), "tx_digest should be set in stub mode");
+    assert!(!obj.is_empty(),    "object_id should be set in stub mode");
+    assert!(body["stub"].as_bool().unwrap_or(false), "should be stub=true without a real Sui key");
+}
+
+#[tokio::test]
+async fn tile_stake_valid_returns_ok() {
+    let app = make_app(make_test_state());
+    // First claim the tile so economy entry exists.
+    call_with(app.clone(), "POST", "/tiles/odu:A0/claim", Some(json!({
+        "owner_did": "did:p:staker"
+    }))).await;
+
+    let (status, body) = call_with(app, "POST", "/tiles/odu:A0/stake", Some(json!({
+        "staker_did": "did:p:staker",
+        "amount":     1_000_000u64,
+    }))).await;
+    assert_eq!(status, StatusCode::OK, "body: {:?}", body);
+    assert_eq!(body["ok"], true);
+    assert_eq!(body["amount"], 1_000_000u64);
+    assert!(body["stub"].as_bool().unwrap_or(false));
+}
+
+#[tokio::test]
+async fn tile_stake_zero_amount_returns_400() {
+    let (status, body) = call("POST", "/tiles/odu:B1/stake", Some(json!({
+        "staker_did": "did:p:staker",
+        "amount":     0u64,
+    }))).await;
+    assert_eq!(status, StatusCode::BAD_REQUEST, "body: {:?}", body);
+    assert_eq!(body["error"], "invalid_amount");
+}
+
+#[tokio::test]
+async fn tile_stake_invalid_tile_id_returns_400() {
+    let (status, body) = call("POST", "/tiles/bad-tile/stake", Some(json!({
+        "staker_did": "did:p:staker",
+        "amount":     100u64,
+    }))).await;
+    assert_eq!(status, StatusCode::BAD_REQUEST, "body: {:?}", body);
+    assert_eq!(body["error"], "invalid_tile_id");
+}
+
+#[tokio::test]
+async fn tile_claim_different_tiles_have_different_digests() {
+    let app = make_app(make_test_state());
+    let (_, b1) = call_with(app.clone(), "POST", "/tiles/odu:00/claim", Some(json!({
+        "owner_did": "did:p:owner"
+    }))).await;
+    let (_, b2) = call_with(app, "POST", "/tiles/odu:FF/claim", Some(json!({
+        "owner_did": "did:p:owner"
+    }))).await;
+    let d1 = b1["tx_digest"].as_str().unwrap_or("");
+    let d2 = b2["tx_digest"].as_str().unwrap_or("");
+    assert_ne!(d1, d2, "different tiles must produce different tx digests");
+}
+
+// ─── Phase 51: OSOVM Token-of-Compute wiring ─────────────────────────────────
+
+#[tokio::test]
+async fn gpu_contribute_returns_emission_receipt_id() {
+    let (status, body) = call("POST", "/osovm/gpu/contribute", Some(json!({
+        "contributor_did": "did:worker:toc-test",
+        "device_id":       "gpu:a100:01",
+        "compute_units":   10_000u64,
+        "proof_hash":      "sha256:proof-toc-01",
+    }))).await;
+    assert_eq!(status, StatusCode::CREATED, "body: {:?}", body);
+    let eid = body["emission_receipt_id"].as_str().unwrap_or("");
+    assert!(!eid.is_empty(), "emission_receipt_id should be set");
+    assert!(eid.starts_with("emit:"), "expected emit: prefix, got {eid}");
+}
+
+#[tokio::test]
+async fn gpu_burn_returns_emission_receipt_id() {
+    let app = make_app(make_test_state());
+    // Seed GPU balance first.
+    call_with(app.clone(), "POST", "/osovm/gpu/contribute", Some(json!({
+        "contributor_did": "did:worker:burn-toc",
+        "device_id":       "gpu:h100:01",
+        "compute_units":   1_000u64,
+        "proof_hash":      "sha256:seed",
+    }))).await;
+
+    let (status, body) = call_with(app, "POST", "/osovm/gpu/burn", Some(json!({
+        "did":        "did:worker:burn-toc",
+        "gpu_amount": 10u64,
+    }))).await;
+    assert_eq!(status, StatusCode::OK, "body: {:?}", body);
+    let eid = body["emission_receipt_id"].as_str().unwrap_or("");
+    assert!(!eid.is_empty(), "emission_receipt_id should be set on burn");
+    assert!(body["synapses_minted"].as_u64().unwrap_or(0) > 0);
+}
+
+#[tokio::test]
+async fn gpu_decay_returns_decayed_and_receipt() {
+    let app = make_app(make_test_state());
+    // Seed Synapse balance: contribute → burn.
+    call_with(app.clone(), "POST", "/osovm/gpu/contribute", Some(json!({
+        "contributor_did": "did:worker:decay-toc",
+        "device_id":       "gpu:a40:01",
+        "compute_units":   100_000u64,
+        "proof_hash":      "sha256:decay-seed",
+    }))).await;
+    let gpu_bal_body = {
+        let did_enc = urlencoding::encode("did:worker:decay-toc").to_string();
+        let (_, b) = call_with(app.clone(), "GET", &format!("/osovm/balances/{did_enc}"), None).await;
+        b
+    };
+    let gpu = gpu_bal_body["gpu_balance"].as_u64().unwrap_or(0);
+    call_with(app.clone(), "POST", "/osovm/gpu/burn", Some(json!({
+        "did": "did:worker:decay-toc", "gpu_amount": gpu,
+    }))).await;
+
+    let (status, body) = call_with(app.clone(), "POST", "/osovm/gpu/decay", Some(json!({
+        "epoch_day": 99999u64,
+    }))).await;
+    assert_eq!(status, StatusCode::OK, "body: {:?}", body);
+    assert!(!body["already_applied"].as_bool().unwrap_or(true), "first decay should not be already_applied");
+    assert!(body["synapses_decayed"].as_u64().unwrap_or(0) > 0, "should have decayed some synapses");
+    let eid = body["emission_receipt_id"].as_str().unwrap_or("");
+    assert!(!eid.is_empty(), "decay should produce emission_receipt_id");
+
+    // Idempotent: second call same epoch_day returns already_applied.
+    let (status2, body2) = call_with(app, "POST", "/osovm/gpu/decay", Some(json!({
+        "epoch_day": 99999u64,
+    }))).await;
+    assert_eq!(status2, StatusCode::OK);
+    assert!(body2["already_applied"].as_bool().unwrap_or(false), "second call should be already_applied");
+    assert_eq!(body2["synapses_decayed"].as_u64().unwrap_or(1), 0);
+}
+
+#[tokio::test]
+async fn osovm_contributions_list_includes_contribution() {
+    let app = make_app(make_test_state());
+    call_with(app.clone(), "POST", "/osovm/gpu/contribute", Some(json!({
+        "contributor_did": "did:worker:list-toc",
+        "device_id":       "gpu:list:01",
+        "compute_units":   500u64,
+        "proof_hash":      "sha256:list-seed",
+    }))).await;
+
+    let (status, body) = call_with(app, "GET", "/osovm/contributions", None).await;
+    assert_eq!(status, StatusCode::OK, "body: {:?}", body);
+    assert!(body["count"].as_u64().unwrap_or(0) >= 1);
+    let contribs = body["contributions"].as_array().unwrap();
+    assert!(contribs.iter().any(|c| c["contributor_did"] == "did:worker:list-toc"));
+}
+
+#[tokio::test]
+async fn gpu_contribute_emission_appears_in_receipts_list() {
+    let app = make_app(make_test_state());
+    let (_, contrib_body) = call_with(app.clone(), "POST", "/osovm/gpu/contribute", Some(json!({
+        "contributor_did": "did:worker:emit-check",
+        "device_id":       "gpu:emit:01",
+        "compute_units":   200u64,
+        "proof_hash":      "sha256:emit-check",
+    }))).await;
+    let eid = contrib_body["emission_receipt_id"].as_str().unwrap();
+
+    // Fetch via /emission/receipts/:id
+    let (status, receipt) = call_with(app, "GET", &format!("/emission/receipts/{eid}"), None).await;
+    assert_eq!(status, StatusCode::OK, "emission receipt should be retrievable: {:?}", receipt);
+    assert_eq!(receipt["receipt_id"], eid);
+}

@@ -1,5 +1,11 @@
 // sovereign-node library — exports for integration tests and external tooling.
+pub mod agent_store;
 pub mod body_store;
+pub mod council_store;
+pub mod emission_receipt_store;
+pub mod gpu_pool;
+pub mod simulation_scoring;
+pub mod sovereign_seat_store;
 pub mod governance_store;
 pub mod telemetry_store;
 pub mod config;
@@ -26,3 +32,5 @@ pub mod vantage_heartbeat;
 pub mod wallet_store;
 pub mod witness_registry;
 pub mod ws;
+pub mod spatial_diff;
+pub mod swarm_splat;

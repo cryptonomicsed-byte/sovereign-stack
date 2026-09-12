@@ -88,6 +88,11 @@ impl WalletStore {
     pub async fn total_supply(&self) -> u64 {
         self.0.read().await.values().map(|w| w.balance_micro_ase).sum()
     }
+
+    /// Return the balance for a DID (0 if not found).
+    pub async fn balance(&self, did: &str) -> u64 {
+        self.0.read().await.get(did).map(|w| w.balance_micro_ase).unwrap_or(0)
+    }
 }
 
 #[cfg(test)]

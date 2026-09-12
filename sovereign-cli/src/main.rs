@@ -139,6 +139,11 @@ enum Cmd {
         twin_id: String,
     },
 
+    /// Compute the 4D change diff between first and last snapshot of a twin's timeline
+    TimelineDiff {
+        twin_id: String,
+    },
+
     /// Trigger a swarm capture across multiple devices
     Swarm {
         /// Space-separated list of device IDs
@@ -692,6 +697,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
         Cmd::Timeline { twin_id } => {
             let val = get(&client, &cli.url, &format!("/twins/{twin_id}/timeline")).await?;
+            print_json(&val);
+        }
+        Cmd::TimelineDiff { twin_id } => {
+            let val = get(&client, &cli.url, &format!("/twins/{twin_id}/timeline/diff")).await?;
             print_json(&val);
         }
 

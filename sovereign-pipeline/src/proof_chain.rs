@@ -41,13 +41,15 @@ pub struct ProofChainOutput {
 
 /// Configuration for the proof chain.
 pub struct ProofChainConfig {
-    pub scenario:       SimScenario,
-    pub osovm_version:  String,
-    pub sui_rpc:        String,
-    pub sui_address:    String,
-    pub sui_key:        String,
-    pub nostr_npub:     Option<String>,
-    pub vantage_did:    String,
+    pub scenario:           SimScenario,
+    pub osovm_version:      String,
+    pub sui_rpc:            String,
+    pub sui_address:        String,
+    pub sui_key:            String,
+    pub nostr_npub:         Option<String>,
+    pub vantage_did:        String,
+    /// Skip Sabbath freeze check (for tests and CI).
+    pub bypass_sabbath:     bool,
 }
 
 impl Default for ProofChainConfig {
@@ -60,12 +62,13 @@ impl Default for ProofChainConfig {
                 selection_objective: "balanced".into(),
                 params:             None,
             },
-            osovm_version: "osovm/2.0".into(),
+            osovm_version:  "osovm/2.0".into(),
             sui_rpc:        "https://fullnode.mainnet.sui.io".into(),
             sui_address:    "0xdefault".into(),
             sui_key:        "stubkey".into(),
             nostr_npub:     None,
             vantage_did:    "did:vantage:api:receipts".into(),
+            bypass_sabbath: false,
         }
     }
 }
@@ -96,7 +99,8 @@ impl ProofChain {
         witnesses: &[WitnessPair<'_>],
     ) -> PipelineResult<ProofChainOutput> {
         // --- Step 1: ỌSỌVM Proof-of-Simulation ---
-        let engine = OsovmEngine::new(&self.config.osovm_version);
+        let mut engine = OsovmEngine::new(&self.config.osovm_version);
+        if self.config.bypass_sabbath { engine = engine.bypass_sabbath(); }
         let proof  = ProofOfSimulation::new(engine);
 
         let simulation = proof.prove(
@@ -251,7 +255,7 @@ mod tests {
         let identity = IdentityChain::new(agent_did.clone(), agent_did.clone());
 
         let chain = ProofChain::new(
-            ProofChainConfig::default(),
+            ProofChainConfig { bypass_sabbath: true, ..Default::default() },
             &agent_key,
             identity,
         );
@@ -286,7 +290,7 @@ mod tests {
 
         let output   = build_pipeline_output(&agent_key, &agent_did);
         let identity = IdentityChain::new(agent_did.clone(), agent_did.clone());
-        let chain    = ProofChain::new(ProofChainConfig::default(), &agent_key, identity);
+        let chain    = ProofChain::new(ProofChainConfig { bypass_sabbath: true, ..Default::default() }, &agent_key, identity);
 
         let result = chain.run(
             output,
@@ -313,6 +317,7 @@ mod tests {
         let chain = ProofChain::new(
             ProofChainConfig {
                 nostr_npub: Some("npub1testqqqtest".into()),
+                bypass_sabbath: true,
                 ..Default::default()
             },
             &agent_key,

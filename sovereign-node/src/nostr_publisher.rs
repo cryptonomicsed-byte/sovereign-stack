@@ -36,7 +36,7 @@ pub async fn publish_nostr_event(relay_url: &str, event: &NostrEvent) -> Result<
     Ok(())
 }
 
-// ── Receipt kind publishers (stub — no real WebSocket, fire-and-log) ──────────
+// ── Receipt kind publishers ────────────────────────────────────────────────────
 
 fn unix_now_secs() -> u64 {
     std::time::SystemTime::now()
@@ -45,90 +45,121 @@ fn unix_now_secs() -> u64 {
         .as_secs()
 }
 
-/// Compute a stub event-id: sha256hex(receipt_id + relay_url).
+/// Deterministic fallback event-id: sha256hex(receipt_id + relay_url).
 fn stub_event_id(receipt_id: &str, relay_url: &str) -> String {
-    use std::collections::hash_map::DefaultHasher;
-    use std::hash::{Hash, Hasher};
-    // Use ip_layer::sha256_hex if available; fall back to a deterministic hex derivation.
     let combined = format!("{receipt_id}{relay_url}");
     ip_layer::sha256_hex(combined.as_bytes())
 }
 
-/// Publish a kind-31020 CaptureReceipt as a Nostr event (stub — logs only, no WebSocket).
+/// Publish a kind-31020 CaptureReceipt as a NIP-01 signed Nostr event.
 ///
-/// Returns `Ok(event_id)` where `event_id` is a non-empty hex string derived from the receipt.
+/// When `private_key_hex` is a valid 32-byte hex key, signs and delivers via WebSocket.
+/// Falls back to log-only (stub) on key parse failure or relay error.
+///
+/// Returns `Ok(event_id)` — a 32-byte hex string — in both cases.
 pub async fn publish_capture_receipt(
     receipt: &twin_protocol::CaptureReceipt,
     relay_url: &str,
-    _private_key_hex: &str,
+    private_key_hex: &str,
 ) -> Result<String, String> {
     let content = serde_json::to_string(receipt)
         .map_err(|e| format!("serialize CaptureReceipt: {e}"))?;
 
-    let event_id = stub_event_id(&receipt.receipt_id, relay_url);
+    let tags = vec![
+        vec!["receipt_id".into(), receipt.receipt_id.clone()],
+        vec!["kind_label".into(), "capture_receipt".into()],
+    ];
+
     let created_at = unix_now_secs();
 
-    let stub_event = serde_json::json!({
-        "kind":       31020,
-        "content":    content,
-        "tags":       [["receipt_id", &receipt.receipt_id], ["relay", relay_url]],
-        "created_at": created_at,
-        "id":         &event_id,
-    });
+    // Try real NIP-01 sign + publish when a valid key is provided.
+    if let Ok(seckey) = ip_layer::nostr::NostrSecretKey::from_hex(private_key_hex) {
+        match ip_layer::nostr::sign_event(31020, tags, content, &seckey, created_at) {
+            Ok(event) => {
+                let event_id = event.id.clone();
+                match publish_nostr_event(relay_url, &event).await {
+                    Ok(()) => {
+                        info!(
+                            event_id   = %event_id,
+                            receipt_id = %receipt.receipt_id,
+                            relay_url  = %relay_url,
+                            kind       = 31020,
+                            "kind-31020 CaptureReceipt published to Nostr"
+                        );
+                        return Ok(event_id);
+                    }
+                    Err(e) => warn!(error = %e, "kind-31020 relay delivery failed — using stub id"),
+                }
+                return Ok(event_id);
+            }
+            Err(e) => warn!(error = %e, "kind-31020 sign failed — using stub id"),
+        }
+    }
 
+    // Stub path: no valid key or relay unreachable.
+    let event_id = stub_event_id(&receipt.receipt_id, relay_url);
     info!(
-        event_id    = %event_id,
-        receipt_id  = %receipt.receipt_id,
-        relay_url   = %relay_url,
-        created_at  = created_at,
-        kind        = 31020,
-        published_at = created_at,
-        "kind-31020 CaptureReceipt stub published to Nostr"
+        event_id   = %event_id,
+        receipt_id = %receipt.receipt_id,
+        relay_url  = %relay_url,
+        kind       = 31020,
+        "kind-31020 CaptureReceipt stub-published (no valid nsec)"
     );
-
-    // Stub: log the event but do not open a real WebSocket connection.
-    // Wire in publish_nostr_event() here when a NostrEvent builder is available
-    // for custom kinds.
-    let _ = stub_event;
-
     Ok(event_id)
 }
 
-/// Publish a kind-31030 SceneReceipt as a Nostr event (stub — logs only, no WebSocket).
+/// Publish a kind-31030 SceneReceipt as a NIP-01 signed Nostr event.
 ///
-/// Returns `Ok(event_id)` where `event_id` is a non-empty hex string derived from the receipt.
+/// Same signing/fallback logic as [`publish_capture_receipt`].
 pub async fn publish_scene_receipt(
     receipt: &twin_protocol::SceneReceipt,
     relay_url: &str,
-    _private_key_hex: &str,
+    private_key_hex: &str,
 ) -> Result<String, String> {
     let content = serde_json::to_string(receipt)
         .map_err(|e| format!("serialize SceneReceipt: {e}"))?;
 
-    let event_id = stub_event_id(&receipt.receipt_id, relay_url);
+    let tags = vec![
+        vec!["twin_id".into(), receipt.twin_id.clone()],
+        vec!["receipt_id".into(), receipt.receipt_id.clone()],
+        vec!["kind_label".into(), "scene_receipt".into()],
+    ];
+
     let created_at = unix_now_secs();
 
-    let stub_event = serde_json::json!({
-        "kind":       31030,
-        "content":    content,
-        "tags":       [["twin_id", &receipt.twin_id], ["relay", relay_url]],
-        "created_at": created_at,
-        "id":         &event_id,
-    });
+    if let Ok(seckey) = ip_layer::nostr::NostrSecretKey::from_hex(private_key_hex) {
+        match ip_layer::nostr::sign_event(31030, tags, content, &seckey, created_at) {
+            Ok(event) => {
+                let event_id = event.id.clone();
+                match publish_nostr_event(relay_url, &event).await {
+                    Ok(()) => {
+                        info!(
+                            event_id   = %event_id,
+                            receipt_id = %receipt.receipt_id,
+                            twin_id    = %receipt.twin_id,
+                            relay_url  = %relay_url,
+                            kind       = 31030,
+                            "kind-31030 SceneReceipt published to Nostr"
+                        );
+                        return Ok(event_id);
+                    }
+                    Err(e) => warn!(error = %e, "kind-31030 relay delivery failed — using stub id"),
+                }
+                return Ok(event_id);
+            }
+            Err(e) => warn!(error = %e, "kind-31030 sign failed — using stub id"),
+        }
+    }
 
+    let event_id = stub_event_id(&receipt.receipt_id, relay_url);
     info!(
-        event_id    = %event_id,
-        receipt_id  = %receipt.receipt_id,
-        twin_id     = %receipt.twin_id,
-        relay_url   = %relay_url,
-        created_at  = created_at,
-        kind        = 31030,
-        published_at = created_at,
-        "kind-31030 SceneReceipt stub published to Nostr"
+        event_id   = %event_id,
+        receipt_id = %receipt.receipt_id,
+        twin_id    = %receipt.twin_id,
+        relay_url  = %relay_url,
+        kind       = 31030,
+        "kind-31030 SceneReceipt stub-published (no valid nsec)"
     );
-
-    let _ = stub_event;
-
     Ok(event_id)
 }
 

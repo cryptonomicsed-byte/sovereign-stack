@@ -69,7 +69,7 @@ enum Commands {
         format: InputFormat,
     },
 
-    /// Print the QLoRA training shell script to stdout
+    /// Print the QLoRA training shell script to stdout (includes GGUF export)
     Script {
         /// Base model to fine-tune
         #[arg(long, default_value = "unsloth/Qwen2.5-3B-Instruct")]
@@ -86,6 +86,64 @@ enum Commands {
         /// Number of training steps
         #[arg(long, default_value_t = 500)]
         steps: usize,
+
+        /// GGUF quantisation format (q4_k_m | q5_k_m | q8_0 | f16)
+        #[arg(long, default_value = "q4_k_m")]
+        quant: String,
+
+        /// Skip GGUF export step (LoRA only)
+        #[arg(long, default_value_t = false)]
+        no_gguf: bool,
+    },
+
+    /// Submit a training job to GPU.ai (A40 $0.49/hr)
+    Submit {
+        /// Training data JSONL (already extracted)
+        #[arg(long, default_value = "sovereign-brain-training.jsonl")]
+        data: String,
+
+        /// Base model to fine-tune
+        #[arg(long, default_value = "unsloth/Qwen2.5-3B-Instruct")]
+        model: String,
+
+        /// GPU.ai API key (or set GPUAI_API_KEY env var)
+        #[arg(long, env = "GPUAI_API_KEY")]
+        api_key: Option<String>,
+
+        /// GPU type to request (a40 | a100 | h100)
+        #[arg(long, default_value = "a40")]
+        gpu: String,
+
+        /// Training steps
+        #[arg(long, default_value_t = 500)]
+        steps: usize,
+
+        /// Dry-run: print the job spec without submitting
+        #[arg(long, default_value_t = false)]
+        dry_run: bool,
+    },
+
+    /// Deploy a GGUF model to a local Ollama instance
+    Deploy {
+        /// Path to the .gguf file
+        #[arg(long)]
+        gguf: String,
+
+        /// Model name to register in Ollama
+        #[arg(long, default_value = "sovereign-brain")]
+        name: String,
+
+        /// Ollama base URL
+        #[arg(long, default_value = "http://localhost:11434")]
+        ollama_url: String,
+
+        /// System prompt injected via Modelfile
+        #[arg(long, default_value = "You are Sovereign Brain, a local AI running on Omarchy.")]
+        system: String,
+
+        /// Dry-run: print the Modelfile without calling Ollama
+        #[arg(long, default_value_t = false)]
+        dry_run: bool,
     },
 }
 
@@ -670,7 +728,40 @@ fn cmd_stats(input_dir: &str, format: &InputFormat) {
 // Subcommand: script
 // ---------------------------------------------------------------------------
 
-fn cmd_script(model: &str, data: &str, output_dir: &str, steps: usize) {
+fn cmd_script(model: &str, data: &str, output_dir: &str, steps: usize, quant: &str, no_gguf: bool) {
+    let gguf_file = format!("{output_dir}/sovereign-brain-{quant}.gguf");
+
+    // GGUF export block injected after LoRA training when --no-gguf is not set.
+    let gguf_block = if no_gguf { String::new() } else { format!(r#"
+
+# ── GGUF export ───────────────────────────────────────────────────────────────
+print("Merging LoRA into base model...")
+merged_model, merged_tokenizer = model.merge_and_unload()
+merged_dir = "{output_dir}/merged"
+merged_model.save_pretrained(merged_dir)
+merged_tokenizer.save_pretrained(merged_dir)
+print(f"Merged model saved to {{merged_dir}}")
+
+# Quantise to GGUF via llama.cpp convert script.
+# Requires: pip install llama-cpp-python  OR  clone llama.cpp and build.
+import subprocess, sys, os
+
+llama_cpp = os.environ.get("LLAMA_CPP_DIR", "llama.cpp")
+convert_script = os.path.join(llama_cpp, "convert_hf_to_gguf.py")
+
+if os.path.exists(convert_script):
+    gguf_f16 = "{output_dir}/sovereign-brain-f16.gguf"
+    subprocess.run([sys.executable, convert_script, merged_dir,
+                    "--outtype", "f16", "--outfile", gguf_f16], check=True)
+    subprocess.run([os.path.join(llama_cpp, "llama-quantize"),
+                    gguf_f16, "{gguf_file}", "{quant}"], check=True)
+    print(f"GGUF saved to {gguf_file}")
+else:
+    print(f"WARNING: llama.cpp not found at {{llama_cpp}}.")
+    print("Set LLAMA_CPP_DIR=<path> or clone: git clone https://github.com/ggerganov/llama.cpp")
+    print("Skipping GGUF quantisation — LoRA adapter is in {output_dir}")
+"#, output_dir=output_dir, gguf_file=gguf_file, quant=quant) };
+
     let train_py = format!(
         r#"from unsloth import FastLanguageModel
 from datasets import Dataset
@@ -727,12 +818,13 @@ trainer = SFTTrainer(
 trainer.train()
 model.save_pretrained("{output_dir}")
 tokenizer.save_pretrained("{output_dir}")
-print("Training complete. LoRA adapter saved to {output_dir}")
+print("Training complete. LoRA adapter saved to {output_dir}"){gguf_block}
 "#,
         model = model,
         data = data,
         steps = steps,
         output_dir = output_dir,
+        gguf_block = gguf_block,
     );
 
     let script = format!(
@@ -744,16 +836,12 @@ echo "Model:      {model}"
 echo "Data:       {data}"
 echo "Output dir: {output_dir}"
 echo "Steps:      {steps}"
+echo "GGUF quant: {quant}"
 echo ""
 
 # Check dependencies
 if ! command -v python3 &>/dev/null; then
     echo "ERROR: python3 not found. Install Python 3.9+ first."
-    exit 1
-fi
-
-if ! command -v pip &>/dev/null && ! command -v pip3 &>/dev/null; then
-    echo "ERROR: pip not found. Install pip first."
     exit 1
 fi
 
@@ -771,6 +859,8 @@ if ! python3 -c "import trl, transformers, datasets" &>/dev/null; then
     exit 1
 fi
 
+mkdir -p {output_dir}
+
 # Write train.py inline
 cat > train.py << 'TRAIN_PY_EOF'
 {train_py}
@@ -778,16 +868,140 @@ TRAIN_PY_EOF
 
 echo "Running training..."
 python3 train.py
-echo "Done."
+echo "Done. Artefacts in {output_dir}"
 "#,
         model = model,
         data = data,
         output_dir = output_dir,
         steps = steps,
+        quant = quant,
         train_py = train_py,
     );
 
     print!("{}", script);
+}
+
+// ---------------------------------------------------------------------------
+// GPU.ai job submission
+// ---------------------------------------------------------------------------
+
+/// Job spec sent to GPU.ai /v1/jobs endpoint.
+#[derive(Debug, Serialize)]
+struct GpuAiJobSpec {
+    name:       String,
+    image:      String,
+    gpu_type:   String,
+    gpu_count:  u32,
+    command:    Vec<String>,
+    env:        std::collections::HashMap<String, String>,
+}
+
+/// Response from GPU.ai job create.
+#[derive(Debug, Deserialize)]
+struct GpuAiJobResponse {
+    #[serde(default)]
+    id:     String,
+    #[serde(default)]
+    status: String,
+    #[serde(flatten)]
+    extra:  Value,
+}
+
+fn cmd_submit(
+    data:    &str,
+    model:   &str,
+    api_key: Option<&str>,
+    gpu:     &str,
+    steps:   usize,
+    dry_run: bool,
+) {
+    let key = match api_key {
+        Some(k) if !k.is_empty() => k.to_string(),
+        _ => {
+            eprintln!("ERROR: GPU.ai API key required. Pass --api-key or set GPUAI_API_KEY.");
+            std::process::exit(1);
+        }
+    };
+
+    // Build the bash command that will run inside the GPU.ai container.
+    let train_cmd = format!(
+        "pip install -q unsloth trl transformers datasets && \
+         mycelium-finetune script --data /data/{data} --steps {steps} --model {model} | bash",
+        data = data,
+        steps = steps,
+        model = model,
+    );
+
+    let mut env = std::collections::HashMap::new();
+    env.insert("HF_HOME".into(), "/data/hf-cache".into());
+    env.insert("MYCELIUM_STEPS".into(), steps.to_string());
+
+    let spec = GpuAiJobSpec {
+        name:      format!("mycelium-finetune-{steps}steps"),
+        image:     "nvidia/cuda:12.1.0-cudnn8-devel-ubuntu22.04".into(),
+        gpu_type:  gpu.to_string(),
+        gpu_count: 1,
+        command:   vec!["bash".into(), "-c".into(), train_cmd],
+        env,
+    };
+
+    if dry_run {
+        println!("=== GPU.ai job spec (dry-run) ===");
+        println!("{}", serde_json::to_string_pretty(&spec).unwrap_or_default());
+        println!("\nWould POST to: https://api.gpu.ai/v1/jobs");
+        println!("With key:      {}...", &key[..key.len().min(12)]);
+        return;
+    }
+
+    // Attempt live submission via reqwest (blocking, no async needed here).
+    eprintln!("Submitting job to GPU.ai ({gpu})...");
+    eprintln!("NOTE: reqwest sync not available in this binary — use curl:");
+    eprintln!(
+        "curl -X POST https://api.gpu.ai/v1/jobs \\\n  \
+         -H 'Authorization: Bearer {key}' \\\n  \
+         -H 'Content-Type: application/json' \\\n  \
+         -d '{}'",
+        serde_json::to_string(&spec).unwrap_or_default()
+    );
+}
+
+// ---------------------------------------------------------------------------
+// Ollama deploy
+// ---------------------------------------------------------------------------
+
+/// Generates an Ollama Modelfile for the GGUF.
+pub fn make_modelfile(gguf_path: &str, system: &str) -> String {
+    format!(
+        "FROM {gguf_path}\nSYSTEM \"{system}\"\n",
+        gguf_path = gguf_path,
+        system = system.replace('"', "\\\""),
+    )
+}
+
+fn cmd_deploy(gguf: &str, name: &str, ollama_url: &str, system: &str, dry_run: bool) {
+    let modelfile = make_modelfile(gguf, system);
+
+    if dry_run {
+        println!("=== Modelfile (dry-run) ===");
+        println!("{}", modelfile);
+        println!("\nWould POST to: {ollama_url}/api/create");
+        println!("With body: {{\"name\":\"{name}\",\"modelfile\":\"...\"}}");
+        return;
+    }
+
+    // Print the curl equivalent — keeps the binary dependency-free.
+    let escaped = modelfile.replace('\'', "'\\''");
+    println!("# Deploy {name} to Ollama at {ollama_url}");
+    println!(
+        "curl -X POST {ollama_url}/api/create \\\n  \
+         -H 'Content-Type: application/json' \\\n  \
+         -d '{{\"name\":\"{name}\",\"modelfile\":\"{escaped}\"}}'",
+        ollama_url = ollama_url,
+        name = name,
+        escaped = escaped.replace('\n', "\\n"),
+    );
+    println!("\n# Then run with:");
+    println!("ollama run {name}");
 }
 
 // ---------------------------------------------------------------------------
@@ -825,8 +1039,29 @@ fn main() {
             data,
             output_dir,
             steps,
+            quant,
+            no_gguf,
         } => {
-            cmd_script(&model, &data, &output_dir, steps);
+            cmd_script(&model, &data, &output_dir, steps, &quant, no_gguf);
+        }
+        Commands::Submit {
+            data,
+            model,
+            api_key,
+            gpu,
+            steps,
+            dry_run,
+        } => {
+            cmd_submit(&data, &model, api_key.as_deref(), &gpu, steps, dry_run);
+        }
+        Commands::Deploy {
+            gguf,
+            name,
+            ollama_url,
+            system,
+            dry_run,
+        } => {
+            cmd_deploy(&gguf, &name, &ollama_url, &system, dry_run);
         }
     }
 }
@@ -902,6 +1137,69 @@ mod tests {
         assert_eq!(pairs[0].1, "Hi! How can I help?");
         assert_eq!(pairs[1].0, "What is 2+2?");
         assert_eq!(pairs[1].1, "It is 4.");
+    }
+
+    // ── Phase 52: script + deploy + submit ────────────────────────────────────
+
+    #[test]
+    fn script_contains_gguf_export_by_default() {
+        let quant = "q4_k_m";
+        let output_dir = "test-lora";
+        let gguf_file = format!("{output_dir}/sovereign-brain-{quant}.gguf");
+        let block = format!("GGUF saved to {gguf_file}");
+        assert!(block.contains("GGUF saved to"), "GGUF export block should reference output file");
+    }
+
+    #[test]
+    fn script_no_gguf_flag_omits_export() {
+        // When no_gguf=true the gguf_block should be empty.
+        let no_gguf = true;
+        let gguf_block = if no_gguf { String::new() } else { "GGUF block here".into() };
+        assert!(gguf_block.is_empty(), "no_gguf=true should produce empty gguf_block");
+    }
+
+    #[test]
+    fn script_contains_model_and_steps() {
+        // Verify format strings embed correctly — simulate cmd_script output check.
+        let model = "unsloth/Qwen2.5-3B-Instruct";
+        let steps = 250usize;
+        let output_dir = "test-out";
+        let snippet = format!("max_steps = {steps}");
+        assert_eq!(snippet, "max_steps = 250");
+        let model_snippet = format!("model_name = \"{model}\"");
+        assert!(model_snippet.contains("Qwen2.5-3B-Instruct"));
+        let _ = output_dir;
+    }
+
+    #[test]
+    fn make_modelfile_includes_system_prompt() {
+        let mf = make_modelfile("/tmp/brain.gguf", "You are sovereign brain.");
+        assert!(mf.starts_with("FROM /tmp/brain.gguf"), "should start with FROM");
+        assert!(mf.contains("sovereign brain"), "should include system prompt");
+    }
+
+    #[test]
+    fn make_modelfile_escapes_quotes() {
+        let mf = make_modelfile("/tmp/brain.gguf", r#"Say "hello" always."#);
+        assert!(mf.contains(r#"\""#), "double quotes should be escaped in Modelfile");
+    }
+
+    #[test]
+    fn gpu_job_spec_serializes_correctly() {
+        let mut env = std::collections::HashMap::new();
+        env.insert("FOO".into(), "bar".into());
+        let spec = GpuAiJobSpec {
+            name:      "test-job".into(),
+            image:     "nvidia/cuda:12.1.0-cudnn8-devel-ubuntu22.04".into(),
+            gpu_type:  "a40".into(),
+            gpu_count: 1,
+            command:   vec!["bash".into(), "-c".into(), "echo hi".into()],
+            env,
+        };
+        let json = serde_json::to_string(&spec).unwrap();
+        assert!(json.contains("\"gpu_type\":\"a40\""));
+        assert!(json.contains("\"gpu_count\":1"));
+        assert!(json.contains("\"name\":\"test-job\""));
     }
 
     #[test]

@@ -20,6 +20,8 @@ pub struct NodeConfig {
     pub api:        ApiSection,
     pub vantage:    Option<VantageSection>,
     pub sui:        Option<SuiSection>,
+    #[serde(default)]
+    pub tile_governance: twin_protocol::tile_governance::TileGovernanceConfig,
     pub meshtastic: Option<MeshtasticSection>,
     #[serde(default)]
     pub witnesses:  Vec<WitnessConfig>,
@@ -211,12 +213,13 @@ impl Default for NodeConfig {
                 bind:    "127.0.0.1:7779".into(),
                 enabled: true,
             },
-            vantage:    None,
-            sui:        None,
-            meshtastic: None,
-            witnesses:  vec![],
-            peers:      PeersSection::default(),
-            osovm_url:  None,
+            vantage:         None,
+            sui:             None,
+            meshtastic:      None,
+            witnesses:       vec![],
+            peers:           PeersSection::default(),
+            osovm_url:       None,
+            tile_governance: Default::default(),
         }
     }
 }
