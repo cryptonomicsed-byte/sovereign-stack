@@ -426,155 +426,47 @@ fn tool_dip_send(state: &NodeState, args: &Value) -> Result<Value, String> {
 }
 
 // ── vcp_body_session_open ─────────────────────────────────────────────────────
+// P2 migration: body session management delegated to Vantage.
 
-async fn tool_body_session_open(state: &NodeState, args: &Value) -> Result<Value, String> {
-    use vcp::BodySessionMode;
-
+async fn tool_body_session_open(_state: &NodeState, args: &Value) -> Result<Value, String> {
     let device_id = args.get("device_id")
         .and_then(|v| v.as_str())
         .ok_or("missing device_id")?;
 
-    let capabilities: Vec<String> = args.get("capabilities")
-        .and_then(|v| serde_json::from_value(v.clone()).ok())
-        .unwrap_or_else(|| vec!["sensor.camera".into()]);
-
-    let agent_tier = match args.get("agent_tier").and_then(|v| v.as_str()).unwrap_or("t4") {
-        "t0" | "T0" => sovereign_types::TrustTier::T0,
-        "t1" | "T1" => sovereign_types::TrustTier::T1,
-        "t2" | "T2" => sovereign_types::TrustTier::T2,
-        "t3" | "T3" => sovereign_types::TrustTier::T3,
-        "t5" | "T5" => sovereign_types::TrustTier::T5,
-        _            => sovereign_types::TrustTier::T4,
-    };
-
-    let session = match vcp::BodySession::new(
-        state.identity.did.clone(),
-        agent_tier,
-        device_id.to_string(),
-        BodySessionMode::HumanSupervised,
-        capabilities.clone(),
-        None,
-    ) {
-        Ok(s) => s,
-        Err(e) => return Err(format!("body session creation failed: {e}")),
-    };
-
-    let session_id = session.session_id.clone();
-    state.body_store.insert_session(session).await;
-
-    info!(session_id = %session_id, device_id = %device_id, "VCP body session opened via MCP");
-
     Ok(json!({ "content": [{ "type": "text", "text": json!({
-        "session_id":   session_id,
-        "device_id":    device_id,
-        "capabilities": capabilities,
-        "status":       "open",
-        "next_steps":   ["vcp_body_session_command", "vcp_body_session_close"],
+        "status": "migrated",
+        "hint":   "VCP body sessions are managed by Vantage (P2 migration). POST to Vantage /vcp/sessions.",
+        "device_id": device_id,
     }).to_string() }] }))
 }
 
 // ── vcp_body_session_command ──────────────────────────────────────────────────
+// P2 migration: body session management delegated to Vantage.
 
-async fn tool_body_session_command(state: &NodeState, args: &Value) -> Result<Value, String> {
+async fn tool_body_session_command(_state: &NodeState, args: &Value) -> Result<Value, String> {
     let session_id = args.get("session_id")
         .and_then(|v| v.as_str())
         .ok_or("missing session_id")?;
-    let capability = args.get("capability")
-        .and_then(|v| v.as_str())
-        .ok_or("missing capability")?;
-    let action = args.get("action")
-        .and_then(|v| v.as_str())
-        .ok_or("missing action")?;
-    let params = args.get("params").cloned().unwrap_or(Value::Null);
-
-    let session = state.body_store.get_session(session_id).await
-        .ok_or_else(|| format!("session not found: {session_id}"))?;
-
-    // Validate capability is granted
-    if !session.capabilities.is_empty()
-        && !session.capabilities.iter().any(|c| c == capability)
-    {
-        return Err(format!("capability '{capability}' not granted in session {session_id}"));
-    }
-
-    let cmd_id = format!("cmd:{}", Uuid::new_v4());
-    let ts = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .unwrap_or_default()
-        .as_millis() as u64;
-
-    info!(
-        cmd_id = %cmd_id,
-        session_id = %session_id,
-        capability = %capability,
-        action = %action,
-        "VCP body session command via MCP"
-    );
 
     Ok(json!({ "content": [{ "type": "text", "text": json!({
-        "cmd_id":      cmd_id,
-        "session_id":  session_id,
-        "capability":  capability,
-        "action":      action,
-        "params":      params,
-        "status":      "accepted",
-        "timestamp_ms": ts,
+        "status":     "migrated",
+        "hint":       "VCP body session commands are managed by Vantage (P2 migration).",
+        "session_id": session_id,
     }).to_string() }] }))
 }
 
 // ── vcp_body_session_close ────────────────────────────────────────────────────
+// P2 migration: body session management delegated to Vantage.
 
-async fn tool_body_session_close(state: &NodeState, args: &Value) -> Result<Value, String> {
+async fn tool_body_session_close(_state: &NodeState, args: &Value) -> Result<Value, String> {
     let session_id = args.get("session_id")
         .and_then(|v| v.as_str())
         .ok_or("missing session_id")?;
-    let mission_success = args.get("mission_success")
-        .and_then(|v| v.as_bool())
-        .unwrap_or(false);
-
-    let session = state.body_store.get_session(session_id).await
-        .ok_or_else(|| format!("session not found: {session_id}"))?;
-
-    let receipt_id = format!("body-receipt:{}", session_id);
-    let has_camera = session.capabilities.iter().any(|c| c.contains("camera"));
-
-    // Phase 4.1 — auto-queue capture job if mission succeeded with camera
-    let mut capture_job_id: Option<String> = None;
-    if mission_success && has_camera {
-        let job_id = format!("job:{}", Uuid::new_v4());
-        let job = Job::new(job_id.clone(), session.body_id.clone());
-        state.job_store.insert(job).await;
-        let model = state.registry.get(&session.body_id).await
-            .map(|d| d.model.clone())
-            .unwrap_or_else(|| "Go2".into());
-        tokio::spawn(crate::node::run_capture_job(
-            job_id.clone(),
-            session.body_id.clone(),
-            model,
-            state.identity.clone(),
-            state.config.clone(),
-            state.job_store.clone(),
-            state.receipt_store.clone(),
-            state.dip_gateway.clone(),
-            state.twin_events.clone(),
-        ));
-        capture_job_id = Some(job_id);
-    }
-
-    info!(
-        session_id = %session_id,
-        receipt_id = %receipt_id,
-        mission_success,
-        capture_queued = capture_job_id.is_some(),
-        "VCP body session closed via MCP"
-    );
 
     Ok(json!({ "content": [{ "type": "text", "text": json!({
-        "session_id":       session_id,
-        "receipt_id":       receipt_id,
-        "mission_success":  mission_success,
-        "capture_job_id":   capture_job_id,
-        "status":           "closed",
+        "status":     "migrated",
+        "hint":       "VCP body session close is managed by Vantage (P2 migration).",
+        "session_id": session_id,
     }).to_string() }] }))
 }
 

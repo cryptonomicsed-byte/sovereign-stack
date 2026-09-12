@@ -45,7 +45,6 @@ use sovereign_types::WitnessAttestation;
 use std::time::{SystemTime, UNIX_EPOCH};
 use sovereign_types::OduCoordinate;
 
-use crate::body_store::BodyStore;
 use crate::config::NodeConfig;
 use crate::dip_gateway::DipGateway;
 use crate::identity::NodeIdentity;
@@ -67,8 +66,6 @@ pub struct NodeState {
     pub a2a:           sovereign_a2a::A2aState,
     pub twin_events:   broadcast::Sender<TwinEvent>,
     pub started_at:    u64,
-    /// P2 — body session store (physical embodiment sessions).
-    pub body_store:    crate::body_store::BodyStore,
     /// P2 — swarm capture coordination.
     pub swarm_store:   crate::swarm::SwarmStore,
 }
@@ -85,7 +82,6 @@ pub struct InboundDipContext {
     pub local_did:  String,
     pub identity:   Arc<NodeIdentity>,
     pub gateway:    Arc<DipGateway>,
-    pub body_store: BodyStore,
 }
 
 
@@ -220,12 +216,10 @@ impl SovereignNode {
 
         let (twin_events_tx, _twin_events_rx) = broadcast::channel::<TwinEvent>(256);
 
-        let body_store = BodyStore::new();
         let inbound_ctx = InboundDipContext {
             local_did:  self.identity.did.clone(),
             identity:   self.identity.clone(),
             gateway:    dip_gateway.clone(),
-            body_store: body_store.clone(),
         };
 
         let state = NodeState {
@@ -239,7 +233,6 @@ impl SovereignNode {
             a2a:           a2a_state,
             twin_events:   twin_events_tx,
             started_at,
-            body_store,
             swarm_store:   SwarmStore::new(),
         };
 
@@ -350,10 +343,6 @@ pub fn build_router(state: NodeState) -> Router {
         .route("/dip/inbound",              post(handle_dip_inbound))
         .route("/dip/gossip",               post(handle_dip_gossip))
         .route("/dip/did",                  get(handle_dip_did))
-        // ── VCP sessions ─────────────────────────────────────────────────────
-        .route("/vcp/sessions",             get(handle_vcp_sessions_list))
-        .route("/vcp/sessions",             post(handle_vcp_session_create))
-        .route("/vcp/sessions/:id",         delete(handle_vcp_session_delete))
         // ── WebSocket twin streams ────────────────────────────────────────────
         .route("/ws/twin/:id",              get(handle_ws_twin))
         .route("/ws/splat/:twin_id",        get(handle_ws_splat))
@@ -611,68 +600,6 @@ async fn handle_dip_did(State(state): State<NodeState>) -> impl IntoResponse {
         "did":        state.identity.did,
         "public_key": state.identity.public_key,
     }))
-}
-
-// ── VCP sessions ──────────────────────────────────────────────────────────────
-
-/// GET /vcp/sessions — list active VCP sessions from the body store (P2).
-async fn handle_vcp_sessions_list(State(state): State<NodeState>) -> impl IntoResponse {
-    let sessions = state.body_store.all_sessions().await;
-    Json(json!({ "count": sessions.len(), "sessions": sessions }))
-}
-
-/// POST /vcp/sessions — open a new VCP body session.
-/// Body: { agent_id, agent_tier?, body_id, mode?, capabilities?, sim_proof_id? }
-async fn handle_vcp_session_create(
-    State(state): State<NodeState>,
-    Json(req): Json<serde_json::Value>,
-) -> impl IntoResponse {
-    let agent_id = match req.get("agent_id").and_then(|v| v.as_str()) {
-        Some(v) => v.to_string(),
-        None => return (StatusCode::BAD_REQUEST, Json(json!({ "error": "missing agent_id" }))).into_response(),
-    };
-    let body_id = match req.get("body_id").and_then(|v| v.as_str()) {
-        Some(v) => v.to_string(),
-        None => return (StatusCode::BAD_REQUEST, Json(json!({ "error": "missing body_id" }))).into_response(),
-    };
-    let agent_tier: sovereign_types::TrustTier = req.get("agent_tier")
-        .and_then(|v| serde_json::from_value(v.clone()).ok())
-        .unwrap_or(sovereign_types::TrustTier::T0);
-    let mode: vcp::BodySessionMode = req.get("mode")
-        .and_then(|v| serde_json::from_value(v.clone()).ok())
-        .unwrap_or(vcp::BodySessionMode::HumanSupervised);
-    let capabilities: Vec<String> = req.get("capabilities")
-        .and_then(|v| serde_json::from_value(v.clone()).ok())
-        .unwrap_or_default();
-    let sim_proof_id = req.get("sim_proof_id").and_then(|v| v.as_str()).map(|s| s.to_string());
-
-    match vcp::BodySession::new(agent_id, agent_tier, body_id, mode, capabilities, sim_proof_id) {
-        Ok(session) => {
-            info!(session_id = %session.session_id, "VCP body session opened");
-            let val = serde_json::to_value(&session).unwrap();
-            state.body_store.insert_session(session).await;
-            (StatusCode::CREATED, Json(val)).into_response()
-        }
-        Err(e) => (StatusCode::FORBIDDEN, Json(json!({ "error": e }))).into_response(),
-    }
-}
-
-/// DELETE /vcp/sessions/:id — close a VCP body session.
-async fn handle_vcp_session_delete(
-    State(state): State<NodeState>,
-    Path(id): Path<String>,
-) -> impl IntoResponse {
-    match state.body_store.get_session(&id).await {
-        None => (StatusCode::NOT_FOUND, Json(json!({ "error": "session_not_found", "id": id }))).into_response(),
-        Some(_) => {
-            // BodyStore does not expose remove_session yet; mark via a tombstone
-            // by re-inserting a closed session.  Full remove() is a P2 TODO.
-            // For now we return 200 — the session will be absent from listings
-            // once BodyStore gains a remove API.
-            info!(session_id = %id, "VCP body session DELETE acknowledged");
-            Json(json!({ "ok": true, "session_id": id, "note": "session will be removed on next restart; P2 TODO: BodyStore::remove" })).into_response()
-        }
-    }
 }
 
 // ── SSE event streams ─────────────────────────────────────────────────────────
@@ -1185,18 +1112,9 @@ async fn handle_dip_vcp_command(envelope: &dip::DipEnvelope, ctx: &InboundDipCon
         return;
     }
 
-    let principal  = envelope.identity.principal_id.as_str();
-    let session_ok = match ctx.body_store.get_session(session_id).await {
-        None    => { warn!(session_id, "dip vcp_command: session not found"); false }
-        Some(s) => {
-            if s.agent_id != principal {
-                warn!(session_id, dip_principal = %principal, session_agent = %s.agent_id, "dip vcp_command: identity mismatch");
-                false
-            } else {
-                s.capabilities.is_empty() || s.capabilities.iter().any(|c| c == capability)
-            }
-        }
-    };
+    // VCP session validation delegated to Vantage (P2 migration)
+    let session_ok = false;
+    warn!(session_id, "dip vcp_command: session validation requires Vantage — delegating not yet wired");
 
     let cmd_id = format!("cmd:{}", uuid::Uuid::new_v4());
     let ts     = now_ms();
@@ -1567,12 +1485,10 @@ pub fn make_test_state() -> NodeState {
         provider:    None,
     };
 
-    let body_store = BodyStore::new();
     let inbound_ctx = InboundDipContext {
         local_did:  did.clone(),
         identity:   identity.clone(),
         gateway:    dip_gateway.clone(),
-        body_store: body_store.clone(),
     };
 
     let (twin_events_tx, _) = broadcast::channel::<TwinEvent>(64);
@@ -1588,7 +1504,6 @@ pub fn make_test_state() -> NodeState {
         a2a:           sovereign_a2a::A2aState::new(a2a_cfg),
         twin_events:   twin_events_tx,
         started_at:    now_ms(),
-        body_store,
         swarm_store:   SwarmStore::new(),
     }
 }
