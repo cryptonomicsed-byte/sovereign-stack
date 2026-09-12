@@ -110,7 +110,7 @@ impl DipGateway {
             RouteDecision::Forward(DipNetwork::Nostr) => {
                 if let Some(relay) = &self.nostr {
                     info!(msg_id = %envelope.message_id, "DIP → Nostr relay");
-                    relay.publish(envelope).await;
+                    relay.publish(&envelope).await;
                 } else {
                     warn!(msg_id = %envelope.message_id, "Nostr forward but relay not started");
                 }

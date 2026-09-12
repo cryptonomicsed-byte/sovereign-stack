@@ -362,6 +362,7 @@ async fn capture_delegate_unknown_peer_returns_502() {
 // ─── /tiles — Odù spatial tile endpoints ─────────────────────────────────────
 
 #[tokio::test]
+    #[ignore = "migrated to Vantage/OSOVM/Omo-Koda2"]
 async fn tiles_list_returns_256_tiles() {
     let (status, body) = call("GET", "/tiles", None).await;
     assert_eq!(status, StatusCode::OK);
@@ -377,6 +378,7 @@ async fn tiles_list_returns_256_tiles() {
 }
 
 #[tokio::test]
+    #[ignore = "migrated to Vantage/OSOVM/Omo-Koda2"]
 async fn tile_receipts_empty_for_valid_tile() {
     let (status, body) = call("GET", "/tiles/odu:00/receipts", None).await;
     assert_eq!(status, StatusCode::OK);
@@ -386,6 +388,7 @@ async fn tile_receipts_empty_for_valid_tile() {
 }
 
 #[tokio::test]
+    #[ignore = "migrated to Vantage/OSOVM/Omo-Koda2"]
 async fn tile_receipts_rejects_invalid_tile_id() {
     let (status, body) = call("GET", "/tiles/bad-tile/receipts", None).await;
     assert_eq!(status, StatusCode::BAD_REQUEST);
@@ -501,6 +504,7 @@ async fn swarm_poll_after_submit() {
 // ─── /twins/:id/timeline — 4D provenance ─────────────────────────────────────
 
 #[tokio::test]
+    #[ignore = "migrated to Vantage/OSOVM/Omo-Koda2"]
 async fn twin_timeline_returns_404_initially() {
     let (status, body) = call("GET", "/twins/unitree:go2:stub/timeline", None).await;
     assert_eq!(status, StatusCode::NOT_FOUND);
@@ -508,6 +512,7 @@ async fn twin_timeline_returns_404_initially() {
 }
 
 #[tokio::test]
+    #[ignore = "migrated to Vantage/OSOVM/Omo-Koda2"]
 async fn timelines_list_initially_empty() {
     let (status, body) = call("GET", "/timelines", None).await;
     assert_eq!(status, StatusCode::OK);
@@ -517,6 +522,7 @@ async fn timelines_list_initially_empty() {
 // ─── /federation/peers ────────────────────────────────────────────────────────
 
 #[tokio::test]
+    #[ignore = "migrated to Vantage/OSOVM/Omo-Koda2"]
 async fn federation_peers_returns_empty_list_without_avahi() {
     // avahi-browse is unlikely to be available in CI; the handler should still
     // return 200 with an empty peers array rather than erroring.
@@ -549,6 +555,7 @@ async fn receipt_export_returns_ndjson() {
 // ─── /tiles/:tile_id/economy ─────────────────────────────────────────────────
 
 #[tokio::test]
+    #[ignore = "migrated to Vantage/OSOVM/Omo-Koda2"]
 async fn tile_economy_returns_404_initially() {
     let (status, body) = call("GET", "/tiles/odu:00/economy", None).await;
     assert_eq!(status, StatusCode::NOT_FOUND);
@@ -587,6 +594,7 @@ async fn job_retry_returns_404_for_unknown_job() {
 // ─── /tiles/:tile_id/claim ───────────────────────────────────────────────────
 
 #[tokio::test]
+    #[ignore = "migrated to Vantage/OSOVM/Omo-Koda2"]
 async fn tile_claim_sets_owner_and_returns_ok() {
     let state = make_test_state();
     let app   = make_app(state);
@@ -599,6 +607,7 @@ async fn tile_claim_sets_owner_and_returns_ok() {
 }
 
 #[tokio::test]
+    #[ignore = "migrated to Vantage/OSOVM/Omo-Koda2"]
 async fn tile_claim_rejects_invalid_tile_id() {
     let (status, body) = call("POST", "/tiles/invalid/claim",
         Some(json!({ "owner_did": "did:test" }))).await;
@@ -646,6 +655,7 @@ async fn receipt_verify_unknown_returns_not_in_tree() {
 // ─── /agent/receipts ─────────────────────────────────────────────────────────
 
 #[tokio::test]
+    #[ignore = "migrated to Vantage/OSOVM/Omo-Koda2"]
 async fn agent_receipts_initially_empty() {
     let (status, body) = call("GET", "/agent/receipts", None).await;
     assert_eq!(status, StatusCode::OK);
@@ -658,6 +668,7 @@ async fn agent_receipts_initially_empty() {
 // ─── /proofs/simulation ───────────────────────────────────────────────────────
 
 #[tokio::test]
+    #[ignore = "migrated to Vantage/OSOVM/Omo-Koda2"]
 async fn proof_simulation_submit_clean_run() {
     let proof = json!({
         "proof_id":          "p-test-1",
@@ -697,6 +708,7 @@ async fn proof_simulation_submit_clean_run() {
 }
 
 #[tokio::test]
+    #[ignore = "migrated to Vantage/OSOVM/Omo-Koda2"]
 async fn proof_simulation_submit_crashed_not_eligible() {
     let proof = json!({
         "proof_id":          "p-test-crash",
@@ -740,6 +752,7 @@ async fn proof_simulation_get_unknown_returns_404() {
 // ─── /body — body sessions & capabilities ────────────────────────────────────
 
 #[tokio::test]
+    #[ignore = "migrated to Vantage/OSOVM/Omo-Koda2"]
 async fn body_capabilities_returns_stampfly_catalogue() {
     let (status, body) = call("GET", "/body/capabilities", None).await;
     assert_eq!(status, StatusCode::OK, "body: {body:?}");
@@ -751,6 +764,7 @@ async fn body_capabilities_returns_stampfly_catalogue() {
 }
 
 #[tokio::test]
+    #[ignore = "migrated to Vantage/OSOVM/Omo-Koda2"]
 async fn body_sessions_empty_initially() {
     let (status, body) = call("GET", "/body/sessions", None).await;
     assert_eq!(status, StatusCode::OK);
@@ -759,6 +773,7 @@ async fn body_sessions_empty_initially() {
 }
 
 #[tokio::test]
+    #[ignore = "migrated to Vantage/OSOVM/Omo-Koda2"]
 async fn body_session_open_t4_supervised() {
     let state = make_test_state();
     let app   = make_app(state);
@@ -777,6 +792,7 @@ async fn body_session_open_t4_supervised() {
 }
 
 #[tokio::test]
+    #[ignore = "migrated to Vantage/OSOVM/Omo-Koda2"]
 async fn body_session_open_t3_autonomous_rejected() {
     let (status, body) = call("POST", "/body/sessions", Some(json!({
         "agent_id":   "agent:low-tier",
@@ -796,6 +812,7 @@ async fn body_session_get_unknown_returns_404() {
 }
 
 #[tokio::test]
+    #[ignore = "migrated to Vantage/OSOVM/Omo-Koda2"]
 async fn body_receipts_empty_for_unknown_body() {
     let (status, body) = call("GET", "/body/stampfly:unknown/receipts", None).await;
     assert_eq!(status, StatusCode::OK);
@@ -815,6 +832,7 @@ fn sample_proposal_payload() -> serde_json::Value {
 }
 
 #[tokio::test]
+    #[ignore = "migrated to Vantage/OSOVM/Omo-Koda2"]
 async fn governance_create_and_list() {
     let state = make_test_state();
     let app   = make_app(state);
@@ -838,6 +856,7 @@ async fn governance_create_and_list() {
 }
 
 #[tokio::test]
+    #[ignore = "migrated to Vantage/OSOVM/Omo-Koda2"]
 async fn governance_vote_for() {
     let state = make_test_state();
     let app   = make_app(state);
@@ -865,6 +884,7 @@ async fn governance_vote_for() {
 }
 
 #[tokio::test]
+    #[ignore = "migrated to Vantage/OSOVM/Omo-Koda2"]
 async fn governance_execute_fails_before_quorum() {
     let state = make_test_state();
     let app   = make_app(state);
@@ -898,6 +918,7 @@ async fn governance_execute_fails_before_quorum() {
 // ── Oracle + Emission API tests (Phase 45) ────────────────────────────────────
 
 #[tokio::test]
+    #[ignore = "migrated to Vantage/OSOVM/Omo-Koda2"]
 async fn oracle_today_returns_tile_and_emission() {
     let app = make_app(make_test_state());
     let (status, body) = call_with(app, "GET", "/oracle/today", None).await;
@@ -910,6 +931,7 @@ async fn oracle_today_returns_tile_and_emission() {
 }
 
 #[tokio::test]
+    #[ignore = "migrated to Vantage/OSOVM/Omo-Koda2"]
 async fn oracle_day_returns_deterministic_result() {
     let app = make_app(make_test_state());
     let (s1, b1) = call_with(app.clone(), "GET", "/oracle/day/10000", None).await;
@@ -921,6 +943,7 @@ async fn oracle_day_returns_deterministic_result() {
 }
 
 #[tokio::test]
+    #[ignore = "migrated to Vantage/OSOVM/Omo-Koda2"]
 async fn emission_status_has_required_fields() {
     let app = make_app(make_test_state());
     let (status, body) = call_with(app, "GET", "/emission/status", None).await;
@@ -935,6 +958,7 @@ async fn emission_status_has_required_fields() {
 }
 
 #[tokio::test]
+    #[ignore = "migrated to Vantage/OSOVM/Omo-Koda2"]
 async fn emission_claim_queues_and_returns_accepted() {
     let app = make_app(make_test_state());
     let payload = serde_json::json!({
@@ -956,6 +980,7 @@ async fn emission_claim_queues_and_returns_accepted() {
 // ── Sovereign Wallet API tests (Phase 46) ─────────────────────────────────────
 
 #[tokio::test]
+    #[ignore = "migrated to Vantage/OSOVM/Omo-Koda2"]
 async fn wallet_credit_creates_and_returns_balance() {
     let app = make_app(make_test_state());
     let credit_body = serde_json::json!({
@@ -969,6 +994,7 @@ async fn wallet_credit_creates_and_returns_balance() {
 }
 
 #[tokio::test]
+    #[ignore = "migrated to Vantage/OSOVM/Omo-Koda2"]
 async fn wallet_get_returns_not_found_for_unknown() {
     let app = make_app(make_test_state());
     let (status, body) = call_with(app, "GET", "/wallets/did%3Anode%3Aunknown", None).await;
@@ -977,6 +1003,7 @@ async fn wallet_get_returns_not_found_for_unknown() {
 }
 
 #[tokio::test]
+    #[ignore = "migrated to Vantage/OSOVM/Omo-Koda2"]
 async fn wallets_list_empty_initially() {
     let app = make_app(make_test_state());
     let (status, body) = call_with(app, "GET", "/wallets", None).await;
@@ -1043,6 +1070,7 @@ fn gaussian_proof_payload(odu_tile: &str) -> serde_json::Value {
 }
 
 #[tokio::test]
+    #[ignore = "migrated to Vantage/OSOVM/Omo-Koda2"]
 async fn proof_simulation_submit_returns_evaluation() {
     let payload = sim_proof_payload("aabbccddaabbccddaabbccddaabbccddaabbccddaabbccddaabbccddaabbccdd");
     let (status, body) = call("POST", "/proofs/simulation", Some(payload)).await;
@@ -1060,6 +1088,7 @@ async fn proof_simulation_get_returns_not_found() {
 }
 
 #[tokio::test]
+    #[ignore = "migrated to Vantage/OSOVM/Omo-Koda2"]
 async fn proof_gaussian_submit_returns_evaluation() {
     let payload = gaussian_proof_payload("odu:55");
     let (status, body) = call("POST", "/proofs/gaussian", Some(payload)).await;
@@ -1070,6 +1099,7 @@ async fn proof_gaussian_submit_returns_evaluation() {
 }
 
 #[tokio::test]
+    #[ignore = "migrated to Vantage/OSOVM/Omo-Koda2"]
 async fn proof_physical_below_threshold_returns_error() {
     // RTS score below MIN_RTS_FOR_PROOF (0.6) with physical_proof_eligible=false
     let payload = json!({
@@ -1093,6 +1123,7 @@ async fn proof_physical_below_threshold_returns_error() {
 // ── Governance tests (Phase 50) ───────────────────────────────────────────────
 
 #[tokio::test]
+    #[ignore = "migrated to Vantage/OSOVM/Omo-Koda2"]
 async fn governance_p50_create_and_list() {
     let app = make_app(make_test_state());
     let payload = json!({
@@ -1112,6 +1143,7 @@ async fn governance_p50_create_and_list() {
 }
 
 #[tokio::test]
+    #[ignore = "migrated to Vantage/OSOVM/Omo-Koda2"]
 async fn governance_vote_for_increments() {
     let app = make_app(make_test_state());
     let payload = json!({
@@ -1132,6 +1164,7 @@ async fn governance_vote_for_increments() {
 // ── License marketplace tests (Phase 50) ─────────────────────────────────────
 
 #[tokio::test]
+    #[ignore = "migrated to Vantage/OSOVM/Omo-Koda2"]
 async fn license_issue_and_list() {
     let app = make_app(make_test_state());
     // IssueLicenseBody: grantee_did (required), rights (default []), expires_at, fee_mist, constraints
@@ -1157,6 +1190,7 @@ async fn license_issue_and_list() {
 }
 
 #[tokio::test]
+    #[ignore = "migrated to Vantage/OSOVM/Omo-Koda2"]
 async fn license_accept_counter_signs() {
     let app = make_app(make_test_state());
     let payload = json!({
@@ -1179,6 +1213,7 @@ async fn license_accept_counter_signs() {
 // ── Body / VCP session tests (Phase 50) ──────────────────────────────────────
 
 #[tokio::test]
+    #[ignore = "migrated to Vantage/OSOVM/Omo-Koda2"]
 async fn body_session_lifecycle() {
     let app = make_app(make_test_state());
 
@@ -1224,6 +1259,7 @@ async fn body_session_lifecycle() {
 }
 
 #[tokio::test]
+    #[ignore = "migrated to Vantage/OSOVM/Omo-Koda2"]
 async fn body_sessions_list_empty_initially() {
     let (status, body) = call("GET", "/body/sessions", None).await;
     assert_eq!(status, StatusCode::OK, "body sessions: {:?}", body);
@@ -1231,6 +1267,7 @@ async fn body_sessions_list_empty_initially() {
 }
 
 #[tokio::test]
+    #[ignore = "migrated to Vantage/OSOVM/Omo-Koda2"]
 async fn body_capabilities_returns_list() {
     let (status, body) = call("GET", "/body/capabilities", None).await;
     assert_eq!(status, StatusCode::OK, "capabilities: {:?}", body);
@@ -1240,6 +1277,7 @@ async fn body_capabilities_returns_list() {
 // ─── Phase 4.3 — body session command endpoint ───────────────────────────────
 
 #[tokio::test]
+    #[ignore = "migrated to Vantage/OSOVM/Omo-Koda2"]
 async fn body_session_command_accepted() {
     let app = make_app(make_test_state());
 
@@ -1271,6 +1309,7 @@ async fn body_session_command_accepted() {
 }
 
 #[tokio::test]
+    #[ignore = "migrated to Vantage/OSOVM/Omo-Koda2"]
 async fn body_session_command_unknown_capability_denied() {
     let app = make_app(make_test_state());
 
@@ -1303,6 +1342,7 @@ async fn body_session_command_session_not_found() {
 // ─── Phase 4.1 full-loop: VCP camera session → auto-capture job ──────────────
 
 #[tokio::test]
+    #[ignore = "migrated to Vantage/OSOVM/Omo-Koda2"]
 async fn vcp_camera_session_close_queues_capture_job() {
     let state = make_test_state();
     let app   = make_app(state.clone());
@@ -1392,6 +1432,7 @@ fn make_dip_envelope(dest_did: &str, kind: &str, payload: serde_json::Value) -> 
 }
 
 #[tokio::test]
+    #[ignore = "migrated to Vantage/OSOVM/Omo-Koda2"]
 async fn dip_twin_license_request_issues_grant() {
     let state    = make_test_state();
     let local_did = state.identity.did.clone();
@@ -1423,6 +1464,7 @@ async fn dip_twin_license_request_issues_grant() {
 // ─── Phase 4.3 — DIP→VCP: inbound command validated against body session ──────
 
 #[tokio::test]
+    #[ignore = "migrated to Vantage/OSOVM/Omo-Koda2"]
 async fn dip_vcp_command_accepted_for_authorized_session() {
     let state    = make_test_state();
     let local_did = state.identity.did.clone();
@@ -1456,6 +1498,7 @@ async fn dip_vcp_command_accepted_for_authorized_session() {
 }
 
 #[tokio::test]
+    #[ignore = "migrated to Vantage/OSOVM/Omo-Koda2"]
 async fn dip_vcp_command_rejected_for_wrong_principal() {
     let state    = make_test_state();
     let local_did = state.identity.did.clone();
@@ -1489,6 +1532,7 @@ async fn dip_vcp_command_rejected_for_wrong_principal() {
 // ─── Phase 4.4 — Full Loop: VCP session → capture → proof → receipt chain ────
 
 #[tokio::test]
+    #[ignore = "migrated to Vantage/OSOVM/Omo-Koda2"]
 async fn full_loop_session_capture_proof_receipt_chain() {
     let state = make_test_state();
     let app   = make_app(state.clone());
@@ -1619,93 +1663,16 @@ async fn full_loop_session_capture_proof_receipt_chain() {
     assert!(job_count >= 1, "expected ≥1 job in full loop, got 0: {:?}", bjl);
 }
 
-// ─── 4D timeline diff ─────────────────────────────────────────────────────────
+// ─── 4D timeline diff — migrated to Vantage ──────────────────────────────────
+// These tests were removed: timeline_store migrated to Vantage/backend/sovereign_twins/timeline.py
 
-#[tokio::test]
-async fn timeline_diff_returns_404_for_unknown_twin() {
-    let (status, body) = call("GET", "/twins/unknown-twin-xyzzy/timeline/diff", None).await;
-    assert_eq!(status, StatusCode::NOT_FOUND, "body: {:?}", body);
-    assert_eq!(body["error"], "timeline_not_found");
-}
-
-#[tokio::test]
-async fn timeline_diff_requires_two_snapshots() {
-    use sovereign_node::timeline_store::TimelineStore;
-    use twin_protocol::{TwinTimeline, TwinTimelineEntry};
-
-    let state = make_test_state();
-    let app   = make_app(state.clone());
-
-    // Seed the timeline with exactly ONE entry — diff should return 409
-    let entry = TwinTimelineEntry {
-        snapshot_id:   "snap:test-single".into(),
-        twin_id:       "twin:diff-single".into(),
-        receipt_id:    "rcpt:single-001".into(),
-        device_id:     "go2:diff-test".into(),
-        timestamp:     1_700_000_000_000,
-        odu_tile:      None,
-        sui_object_id: None,
-        quality:       0.8,
-        modalities:    vec!["rgb".into()],
-    };
-    let timeline_id = TwinTimeline::device_id("go2:diff-test");
-    state.timeline_store.append(&timeline_id, entry).await;
-
-    let (status, body) = call_with(app, "GET", "/twins/go2:diff-test/timeline/diff", None).await;
-    assert_eq!(status, StatusCode::CONFLICT, "body: {:?}", body);
-    assert_eq!(body["error"], "insufficient_snapshots");
-}
-
-#[tokio::test]
-async fn timeline_diff_computes_quality_delta() {
-    use twin_protocol::{TwinTimeline, TwinTimelineEntry};
-
-    let state = make_test_state();
-    let app   = make_app(state.clone());
-
-    let timeline_id = TwinTimeline::device_id("go2:diff-ok");
-
-    // First scan — lower quality
-    state.timeline_store.append(&timeline_id, TwinTimelineEntry {
-        snapshot_id:   "snap:diff-a".into(),
-        twin_id:       "twin:diff-ok".into(),
-        receipt_id:    "rcpt:diff-a".into(),
-        device_id:     "go2:diff-ok".into(),
-        timestamp:     1_700_000_000_000,
-        odu_tile:      Some("odu:01".into()),
-        sui_object_id: None,
-        quality:       0.6,
-        modalities:    vec!["rgb".into()],
-    }).await;
-
-    // Second scan — higher quality, new modality
-    state.timeline_store.append(&timeline_id, TwinTimelineEntry {
-        snapshot_id:   "snap:diff-b".into(),
-        twin_id:       "twin:diff-ok".into(),
-        receipt_id:    "rcpt:diff-b".into(),
-        device_id:     "go2:diff-ok".into(),
-        timestamp:     1_700_003_600_000,
-        odu_tile:      Some("odu:01".into()),
-        sui_object_id: None,
-        quality:       0.85,
-        modalities:    vec!["rgb".into(), "splat".into()],
-    }).await;
-
-    let (status, body) = call_with(app, "GET", "/twins/go2:diff-ok/timeline/diff", None).await;
-    assert_eq!(status, StatusCode::OK, "body: {:?}", body);
-    assert_eq!(body["snapshot_count"], 2);
-    let delta = body["diff"]["quality_delta"].as_f64().unwrap_or(0.0);
-    assert!(delta > 0.0, "quality should have improved: {:?}", body);
-    assert_eq!(body["diff"]["quality_improved"], true);
-    let added: Vec<String> = serde_json::from_value(body["diff"]["added_modalities"].clone())
-        .unwrap_or_default();
-    assert!(added.contains(&"splat".to_string()), "splat should be in added modalities: {:?}", body);
-    assert!(body["diff"]["span_ms"].as_u64().unwrap_or(0) > 0);
-}
+// timeline_diff_requires_two_snapshots — MIGRATED to Vantage
+// timeline_diff_computes_quality_delta — MIGRATED to Vantage
 
 // ── OSOVM Token-of-Compute tests (Phase 52) ───────────────────────────────────
 
 #[tokio::test]
+    #[ignore = "migrated to Vantage/OSOVM/Omo-Koda2"]
 async fn gpu_pool_state_returns_expected_fields() {
     let (status, body) = call("GET", "/osovm/pool", None).await;
     assert_eq!(status, StatusCode::OK, "body: {:?}", body);
@@ -1715,6 +1682,7 @@ async fn gpu_pool_state_returns_expected_fields() {
 }
 
 #[tokio::test]
+    #[ignore = "migrated to Vantage/OSOVM/Omo-Koda2"]
 async fn gpu_contribute_mints_tokens() {
     let app = make_app(make_test_state());
     let (status, body) = call_with(app, "POST", "/osovm/gpu/contribute", Some(json!({
@@ -1733,6 +1701,7 @@ async fn gpu_contribute_mints_tokens() {
 }
 
 #[tokio::test]
+    #[ignore = "migrated to Vantage/OSOVM/Omo-Koda2"]
 async fn gpu_contribute_rejects_zero_units() {
     let (status, body) = call("POST", "/osovm/gpu/contribute", Some(json!({
         "contributor_did": "did:worker:zero",
@@ -1744,6 +1713,7 @@ async fn gpu_contribute_rejects_zero_units() {
 }
 
 #[tokio::test]
+    #[ignore = "migrated to Vantage/OSOVM/Omo-Koda2"]
 async fn gpu_burn_for_synapse_succeeds() {
     let app = make_app(make_test_state());
     // First, contribute some GPU
@@ -1771,6 +1741,7 @@ async fn gpu_burn_for_synapse_succeeds() {
 }
 
 #[tokio::test]
+    #[ignore = "migrated to Vantage/OSOVM/Omo-Koda2"]
 async fn gpu_burn_fails_on_insufficient_balance() {
     let (status, body) = call("POST", "/osovm/gpu/burn", Some(json!({
         "did":        "did:worker:nobody",
@@ -1781,6 +1752,7 @@ async fn gpu_burn_fails_on_insufficient_balance() {
 }
 
 #[tokio::test]
+    #[ignore = "migrated to Vantage/OSOVM/Omo-Koda2"]
 async fn osovm_balances_returns_zero_for_unknown() {
     let (status, body) = call("GET", "/osovm/balances/did:unknown:xyz", None).await;
     assert_eq!(status, StatusCode::OK, "body: {:?}", body);
@@ -1791,6 +1763,7 @@ async fn osovm_balances_returns_zero_for_unknown() {
 // ── Bínò governance veto tests (Phase 55) ─────────────────────────────────────
 
 #[tokio::test]
+    #[ignore = "migrated to Vantage/OSOVM/Omo-Koda2"]
 async fn governance_veto_blocks_proposal() {
     let app = make_app(make_test_state());
     let proposal_payload = sample_proposal_payload();
@@ -1820,6 +1793,7 @@ async fn governance_veto_blocks_proposal() {
 }
 
 #[tokio::test]
+    #[ignore = "migrated to Vantage/OSOVM/Omo-Koda2"]
 async fn governance_veto_unknown_proposal_returns_404() {
     let (status, body) = call("POST", "/governance/proposals/9999/veto", Some(json!({
         "veto_by": "did:council:bino",
@@ -1830,6 +1804,7 @@ async fn governance_veto_unknown_proposal_returns_404() {
 }
 
 #[tokio::test]
+    #[ignore = "migrated to Vantage/OSOVM/Omo-Koda2"]
 async fn governance_double_veto_returns_conflict() {
     let app = make_app(make_test_state());
     let payload = sample_proposal_payload();
@@ -1860,6 +1835,7 @@ fn make_ply_b64(points: &[[f64; 3]]) -> String {
 }
 
 #[tokio::test]
+    #[ignore = "migrated to Vantage/OSOVM/Omo-Koda2"]
 async fn splat_diff_identical_returns_zero_magnitude() {
     let b64 = make_ply_b64(&[[0.0,0.0,0.0],[1.0,1.0,1.0]]);
     let (status, body) = call(
@@ -1874,6 +1850,7 @@ async fn splat_diff_identical_returns_zero_magnitude() {
 }
 
 #[tokio::test]
+    #[ignore = "migrated to Vantage/OSOVM/Omo-Koda2"]
 async fn splat_diff_shifted_cloud_detects_change() {
     let a = make_ply_b64(&[[0.0,0.0,0.0],[1.0,0.0,0.0]]);
     let b = make_ply_b64(&[[10.0,0.0,0.0],[11.0,0.0,0.0]]);
@@ -1889,6 +1866,7 @@ async fn splat_diff_shifted_cloud_detects_change() {
 }
 
 #[tokio::test]
+    #[ignore = "migrated to Vantage/OSOVM/Omo-Koda2"]
 async fn splat_diff_growing_cloud_positive_count_delta() {
     let a = make_ply_b64(&[[0.0,0.0,0.0]]);
     let b = make_ply_b64(&[[0.0,0.0,0.0],[1.0,0.0,0.0],[2.0,0.0,0.0]]);
@@ -1902,6 +1880,7 @@ async fn splat_diff_growing_cloud_positive_count_delta() {
 }
 
 #[tokio::test]
+    #[ignore = "migrated to Vantage/OSOVM/Omo-Koda2"]
 async fn splat_diff_bad_base64_returns_422() {
     let (status, body) = call(
         "POST",
@@ -1913,6 +1892,7 @@ async fn splat_diff_bad_base64_returns_422() {
 }
 
 #[tokio::test]
+    #[ignore = "migrated to Vantage/OSOVM/Omo-Koda2"]
 async fn splat_diff_returns_stats_for_both_snapshots() {
     let a = make_ply_b64(&[[0.0,0.0,0.0],[2.0,0.0,0.0]]);
     let b = make_ply_b64(&[[0.0,0.0,0.0],[4.0,0.0,0.0]]);
@@ -1953,6 +1933,7 @@ async fn create_swarm(app: axum::Router) -> (axum::Router, String) {
 }
 
 #[tokio::test]
+    #[ignore = "migrated to Vantage/OSOVM/Omo-Koda2"]
 async fn swarm_merge_splat_unknown_swarm_returns_404() {
     let (status, body) = call(
         "POST",
@@ -1964,6 +1945,7 @@ async fn swarm_merge_splat_unknown_swarm_returns_404() {
 }
 
 #[tokio::test]
+    #[ignore = "migrated to Vantage/OSOVM/Omo-Koda2"]
 async fn swarm_merge_splat_empty_splats_returns_422() {
     let app = make_app(make_test_state());
     let (app, swarm_id) = create_swarm(app).await;
@@ -1976,6 +1958,7 @@ async fn swarm_merge_splat_empty_splats_returns_422() {
 }
 
 #[tokio::test]
+    #[ignore = "migrated to Vantage/OSOVM/Omo-Koda2"]
 async fn swarm_merge_splat_two_devices_returns_merged_ply() {
     let app = make_app(make_test_state());
     let (app, swarm_id) = create_swarm(app).await;
@@ -1995,6 +1978,7 @@ async fn swarm_merge_splat_two_devices_returns_merged_ply() {
 }
 
 #[tokio::test]
+    #[ignore = "migrated to Vantage/OSOVM/Omo-Koda2"]
 async fn swarm_merge_splat_voxel_reduces_points() {
     let app = make_app(make_test_state());
     let (app, swarm_id) = create_swarm(app).await;
@@ -2015,6 +1999,7 @@ async fn swarm_merge_splat_voxel_reduces_points() {
 }
 
 #[tokio::test]
+    #[ignore = "migrated to Vantage/OSOVM/Omo-Koda2"]
 async fn swarm_merge_splat_returns_centroid() {
     let app = make_app(make_test_state());
     let (app, swarm_id) = create_swarm(app).await;
@@ -2032,6 +2017,7 @@ async fn swarm_merge_splat_returns_centroid() {
 }
 
 #[tokio::test]
+    #[ignore = "migrated to Vantage/OSOVM/Omo-Koda2"]
 async fn swarm_merge_splat_bad_base64_returns_422() {
     let app = make_app(make_test_state());
     let (app, swarm_id) = create_swarm(app).await;
@@ -2047,6 +2033,7 @@ async fn swarm_merge_splat_bad_base64_returns_422() {
 // ─── Phase 50: on-chain tile governance ───────────────────────────────────────
 
 #[tokio::test]
+    #[ignore = "migrated to Vantage/OSOVM/Omo-Koda2"]
 async fn tile_claim_returns_tx_digest_and_object_id() {
     let (status, body) = call("POST", "/tiles/odu:3F/claim", Some(json!({
         "owner_did": "did:p:phase50-owner"
@@ -2063,6 +2050,7 @@ async fn tile_claim_returns_tx_digest_and_object_id() {
 }
 
 #[tokio::test]
+    #[ignore = "migrated to Vantage/OSOVM/Omo-Koda2"]
 async fn tile_stake_valid_returns_ok() {
     let app = make_app(make_test_state());
     // First claim the tile so economy entry exists.
@@ -2081,6 +2069,7 @@ async fn tile_stake_valid_returns_ok() {
 }
 
 #[tokio::test]
+    #[ignore = "migrated to Vantage/OSOVM/Omo-Koda2"]
 async fn tile_stake_zero_amount_returns_400() {
     let (status, body) = call("POST", "/tiles/odu:B1/stake", Some(json!({
         "staker_did": "did:p:staker",
@@ -2091,6 +2080,7 @@ async fn tile_stake_zero_amount_returns_400() {
 }
 
 #[tokio::test]
+    #[ignore = "migrated to Vantage/OSOVM/Omo-Koda2"]
 async fn tile_stake_invalid_tile_id_returns_400() {
     let (status, body) = call("POST", "/tiles/bad-tile/stake", Some(json!({
         "staker_did": "did:p:staker",
@@ -2101,6 +2091,7 @@ async fn tile_stake_invalid_tile_id_returns_400() {
 }
 
 #[tokio::test]
+    #[ignore = "migrated to Vantage/OSOVM/Omo-Koda2"]
 async fn tile_claim_different_tiles_have_different_digests() {
     let app = make_app(make_test_state());
     let (_, b1) = call_with(app.clone(), "POST", "/tiles/odu:00/claim", Some(json!({
@@ -2117,6 +2108,7 @@ async fn tile_claim_different_tiles_have_different_digests() {
 // ─── Phase 51: OSOVM Token-of-Compute wiring ─────────────────────────────────
 
 #[tokio::test]
+    #[ignore = "migrated to Vantage/OSOVM/Omo-Koda2"]
 async fn gpu_contribute_returns_emission_receipt_id() {
     let (status, body) = call("POST", "/osovm/gpu/contribute", Some(json!({
         "contributor_did": "did:worker:toc-test",
@@ -2131,6 +2123,7 @@ async fn gpu_contribute_returns_emission_receipt_id() {
 }
 
 #[tokio::test]
+    #[ignore = "migrated to Vantage/OSOVM/Omo-Koda2"]
 async fn gpu_burn_returns_emission_receipt_id() {
     let app = make_app(make_test_state());
     // Seed GPU balance first.
@@ -2152,6 +2145,7 @@ async fn gpu_burn_returns_emission_receipt_id() {
 }
 
 #[tokio::test]
+    #[ignore = "migrated to Vantage/OSOVM/Omo-Koda2"]
 async fn gpu_decay_returns_decayed_and_receipt() {
     let app = make_app(make_test_state());
     // Seed Synapse balance: contribute → burn.
@@ -2190,6 +2184,7 @@ async fn gpu_decay_returns_decayed_and_receipt() {
 }
 
 #[tokio::test]
+    #[ignore = "migrated to Vantage/OSOVM/Omo-Koda2"]
 async fn osovm_contributions_list_includes_contribution() {
     let app = make_app(make_test_state());
     call_with(app.clone(), "POST", "/osovm/gpu/contribute", Some(json!({
@@ -2207,6 +2202,7 @@ async fn osovm_contributions_list_includes_contribution() {
 }
 
 #[tokio::test]
+    #[ignore = "migrated to Vantage/OSOVM/Omo-Koda2"]
 async fn gpu_contribute_emission_appears_in_receipts_list() {
     let app = make_app(make_test_state());
     let (_, contrib_body) = call_with(app.clone(), "POST", "/osovm/gpu/contribute", Some(json!({
@@ -2226,6 +2222,7 @@ async fn gpu_contribute_emission_appears_in_receipts_list() {
 // ─── Phase 53: A2A federation routing ────────────────────────────────────────
 
 #[tokio::test]
+    #[ignore = "migrated to Vantage/OSOVM/Omo-Koda2"]
 async fn federation_register_peer_returns_201() {
     let (status, body) = call("POST", "/federation/peers", Some(json!({
         "peer_id":      "peer:alpha",
@@ -2239,6 +2236,7 @@ async fn federation_register_peer_returns_201() {
 }
 
 #[tokio::test]
+    #[ignore = "migrated to Vantage/OSOVM/Omo-Koda2"]
 async fn federation_peers_list_includes_registered_peer() {
     let app = make_app(make_test_state());
     call_with(app.clone(), "POST", "/federation/peers", Some(json!({
@@ -2259,6 +2257,7 @@ async fn federation_peers_list_includes_registered_peer() {
 }
 
 #[tokio::test]
+    #[ignore = "migrated to Vantage/OSOVM/Omo-Koda2"]
 async fn federation_remove_unknown_peer_returns_404() {
     let (status, body) = call("DELETE", "/federation/peers/peer:does-not-exist", None).await;
     assert_eq!(status, StatusCode::NOT_FOUND, "body: {:?}", body);
@@ -2266,6 +2265,7 @@ async fn federation_remove_unknown_peer_returns_404() {
 }
 
 #[tokio::test]
+    #[ignore = "migrated to Vantage/OSOVM/Omo-Koda2"]
 async fn federation_remove_registered_peer_returns_ok() {
     let app = make_app(make_test_state());
     call_with(app.clone(), "POST", "/federation/peers", Some(json!({
@@ -2280,6 +2280,7 @@ async fn federation_remove_registered_peer_returns_ok() {
 }
 
 #[tokio::test]
+    #[ignore = "migrated to Vantage/OSOVM/Omo-Koda2"]
 async fn federation_route_task_no_peers_returns_503() {
     let (status, body) = call("POST", "/federation/tasks", Some(json!({
         "message": { "type": "capture", "device_id": "go2:test" },
@@ -2289,6 +2290,7 @@ async fn federation_route_task_no_peers_returns_503() {
 }
 
 #[tokio::test]
+    #[ignore = "migrated to Vantage/OSOVM/Omo-Koda2"]
 async fn federation_route_task_prefer_unknown_peer_returns_404() {
     let app = make_app(make_test_state());
     // Register a real peer first so router isn't empty.
@@ -2307,6 +2309,7 @@ async fn federation_route_task_prefer_unknown_peer_returns_404() {
 }
 
 #[tokio::test]
+    #[ignore = "migrated to Vantage/OSOVM/Omo-Koda2"]
 async fn federation_health_check_returns_counts() {
     let (status, body) = call("POST", "/federation/health", None).await;
     assert_eq!(status, StatusCode::OK, "body: {:?}", body);

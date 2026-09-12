@@ -321,12 +321,8 @@ async fn tool_capture(state: &NodeState, args: &Value) -> Result<Value, String> 
         state.config.clone(),
         state.job_store.clone(),
         state.receipt_store.clone(),
-        state.witnesses.clone(),
         state.dip_gateway.clone(),
         state.twin_events.clone(),
-        state.tile_economy_store.clone(),
-        state.act_chain.clone(),
-        state.pending_claims.clone(),
     ));
 
     let result = json!({
@@ -539,18 +535,8 @@ async fn tool_body_session_close(state: &NodeState, args: &Value) -> Result<Valu
     let session = state.body_store.get_session(session_id).await
         .ok_or_else(|| format!("session not found: {session_id}"))?;
 
-    let receipt = state.telemetry_store.close_session(
-        session_id,
-        &session.agent_id,
-        &session.body_id,
-        session.sim_proof_id.clone(),
-        vec![],
-        mission_success,
-    ).await;
-
-    let receipt_id = receipt.receipt_id.clone();
+    let receipt_id = format!("body-receipt:{}", session_id);
     let has_camera = session.capabilities.iter().any(|c| c.contains("camera"));
-    state.body_store.add_receipt(receipt).await;
 
     // Phase 4.1 — auto-queue capture job if mission succeeded with camera
     let mut capture_job_id: Option<String> = None;
@@ -569,12 +555,8 @@ async fn tool_body_session_close(state: &NodeState, args: &Value) -> Result<Valu
             state.config.clone(),
             state.job_store.clone(),
             state.receipt_store.clone(),
-            state.witnesses.clone(),
             state.dip_gateway.clone(),
             state.twin_events.clone(),
-            state.tile_economy_store.clone(),
-            state.act_chain.clone(),
-            state.pending_claims.clone(),
         ));
         capture_job_id = Some(job_id);
     }
@@ -598,69 +580,36 @@ async fn tool_body_session_close(state: &NodeState, args: &Value) -> Result<Valu
 
 // ── sovereign_timeline ────────────────────────────────────────────────────────
 
-async fn tool_timeline(state: &NodeState, args: &Value) -> Result<Value, String> {
+async fn tool_timeline(_state: &NodeState, args: &Value) -> Result<Value, String> {
     let twin_id = args.get("twin_id")
         .and_then(|v| v.as_str())
         .ok_or("missing twin_id")?;
-
-    let timeline_id = twin_protocol::TwinTimeline::device_id(twin_id);
-    match state.timeline_store.get(&timeline_id).await {
-        Some(tl) => {
-            let text = serde_json::to_string(&tl).map_err(|e| e.to_string())?;
-            Ok(json!({ "content": [{ "type": "text", "text": text }] }))
-        }
-        None => Err(format!("no timeline found for twin_id: {twin_id}")),
-    }
+    // Timeline store migrated to Vantage — query via Vantage API
+    Ok(json!({ "content": [{ "type": "text", "text":
+        json!({ "status": "migrated", "hint": "query timeline from Vantage API", "twin_id": twin_id }).to_string()
+    }] }))
 }
 
 // ── sovereign_timeline_diff ───────────────────────────────────────────────────
 
-async fn tool_timeline_diff(state: &NodeState, args: &Value) -> Result<Value, String> {
+async fn tool_timeline_diff(_state: &NodeState, args: &Value) -> Result<Value, String> {
     let twin_id = args.get("twin_id")
         .and_then(|v| v.as_str())
         .ok_or("missing twin_id")?;
-
-    let timeline_id = twin_protocol::TwinTimeline::device_id(twin_id);
-    let tl = state.timeline_store.get(&timeline_id).await
-        .ok_or_else(|| format!("no timeline found for twin_id: {twin_id}"))?;
-
-    if tl.entries.len() < 2 {
-        return Err(format!(
-            "twin '{twin_id}' has {} snapshot(s); need ≥2 for diff", tl.entries.len()
-        ));
-    }
-
-    let earliest = tl.earliest().unwrap();
-    let latest   = tl.latest().unwrap();
-    let quality_delta = latest.quality - earliest.quality;
-    let span_ms = tl.span_ms().unwrap_or(0);
-    let added_modalities: Vec<&str> = latest.modalities.iter()
-        .filter(|m| !earliest.modalities.contains(m))
-        .map(|m| m.as_str()).collect();
-
+    // Timeline store migrated to Vantage — diff via Vantage API
     let result = json!({
-        "twin_id":         twin_id,
-        "snapshot_count":  tl.entries.len(),
-        "span_hours":      span_ms as f64 / 3_600_000.0,
-        "quality_delta":   quality_delta,
-        "quality_improved": quality_delta > 0.0,
-        "added_modalities": added_modalities,
-        "earliest_quality": earliest.quality,
-        "latest_quality":   latest.quality,
+        "status": "migrated",
+        "hint": "query timeline diff from Vantage API",
+        "twin_id": twin_id,
     });
     Ok(json!({ "content": [{ "type": "text", "text": result.to_string() }] }))
 }
 
 // ── sovereign_ip_root ─────────────────────────────────────────────────────────
 
-fn tool_ip_root(state: &NodeState) -> Result<Value, String> {
-    match &state.ip_root_event {
-        Some(ev) => {
-            let text = serde_json::to_string(ev.as_ref()).map_err(|e| e.to_string())?;
-            Ok(json!({ "content": [{ "type": "text", "text": text }] }))
-        }
-        None => Ok(json!({ "content": [{ "type": "text", "text":
-            json!({ "status": "not_configured", "hint": "set dip.nostr_nsec in node config" }).to_string()
-        }] })),
-    }
+fn tool_ip_root(_state: &NodeState) -> Result<Value, String> {
+    // IP Root publishing migrated to ip-layer repo
+    Ok(json!({ "content": [{ "type": "text", "text":
+        json!({ "status": "migrated", "hint": "IP Root publishing now handled by ip-layer" }).to_string()
+    }] }))
 }
