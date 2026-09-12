@@ -34,3 +34,4 @@ pub mod witness_registry;
 pub mod ws;
 pub mod spatial_diff;
 pub mod swarm_splat;
+pub mod federation_router;

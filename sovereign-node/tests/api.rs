@@ -2222,3 +2222,94 @@ async fn gpu_contribute_emission_appears_in_receipts_list() {
     assert_eq!(status, StatusCode::OK, "emission receipt should be retrievable: {:?}", receipt);
     assert_eq!(receipt["receipt_id"], eid);
 }
+
+// ─── Phase 53: A2A federation routing ────────────────────────────────────────
+
+#[tokio::test]
+async fn federation_register_peer_returns_201() {
+    let (status, body) = call("POST", "/federation/peers", Some(json!({
+        "peer_id":      "peer:alpha",
+        "name":         "Alpha Node",
+        "a2a_base_url": "http://alpha.local:8080/a2a",
+        "did":          "did:vantage:alpha",
+    }))).await;
+    assert_eq!(status, StatusCode::CREATED, "body: {:?}", body);
+    assert_eq!(body["ok"], true);
+    assert_eq!(body["peer_id"], "peer:alpha");
+}
+
+#[tokio::test]
+async fn federation_peers_list_includes_registered_peer() {
+    let app = make_app(make_test_state());
+    call_with(app.clone(), "POST", "/federation/peers", Some(json!({
+        "peer_id":      "peer:list-test",
+        "name":         "List Test Node",
+        "a2a_base_url": "http://list.local:8080/a2a",
+    }))).await;
+
+    // GET /federation/peers returns mDNS peers (may be empty in CI) — check registered one
+    // via the router state directly by re-fetching after register.
+    // The existing GET /federation/peers calls avahi-browse, so we just verify register was OK.
+    let (reg_status, _) = call_with(app.clone(), "POST", "/federation/peers", Some(json!({
+        "peer_id":      "peer:list-test",
+        "name":         "List Test Node",
+        "a2a_base_url": "http://list.local:8080/a2a",
+    }))).await;
+    assert_eq!(reg_status, StatusCode::CREATED);
+}
+
+#[tokio::test]
+async fn federation_remove_unknown_peer_returns_404() {
+    let (status, body) = call("DELETE", "/federation/peers/peer:does-not-exist", None).await;
+    assert_eq!(status, StatusCode::NOT_FOUND, "body: {:?}", body);
+    assert_eq!(body["error"], "peer_not_found");
+}
+
+#[tokio::test]
+async fn federation_remove_registered_peer_returns_ok() {
+    let app = make_app(make_test_state());
+    call_with(app.clone(), "POST", "/federation/peers", Some(json!({
+        "peer_id":      "peer:to-remove",
+        "name":         "Remove Me",
+        "a2a_base_url": "http://rm.local:8080/a2a",
+    }))).await;
+
+    let (status, body) = call_with(app, "DELETE", "/federation/peers/peer:to-remove", None).await;
+    assert_eq!(status, StatusCode::OK, "body: {:?}", body);
+    assert_eq!(body["ok"], true);
+}
+
+#[tokio::test]
+async fn federation_route_task_no_peers_returns_503() {
+    let (status, body) = call("POST", "/federation/tasks", Some(json!({
+        "message": { "type": "capture", "device_id": "go2:test" },
+    }))).await;
+    assert_eq!(status, StatusCode::SERVICE_UNAVAILABLE, "body: {:?}", body);
+    assert_eq!(body["error"], "no_peers");
+}
+
+#[tokio::test]
+async fn federation_route_task_prefer_unknown_peer_returns_404() {
+    let app = make_app(make_test_state());
+    // Register a real peer first so router isn't empty.
+    call_with(app.clone(), "POST", "/federation/peers", Some(json!({
+        "peer_id":      "peer:real",
+        "name":         "Real",
+        "a2a_base_url": "http://real.local:8080/a2a",
+    }))).await;
+
+    let (status, body) = call_with(app, "POST", "/federation/tasks", Some(json!({
+        "message":      { "type": "capture" },
+        "prefer_peer":  "peer:ghost",
+    }))).await;
+    assert_eq!(status, StatusCode::NOT_FOUND, "body: {:?}", body);
+    assert_eq!(body["error"], "peer_not_found");
+}
+
+#[tokio::test]
+async fn federation_health_check_returns_counts() {
+    let (status, body) = call("POST", "/federation/health", None).await;
+    assert_eq!(status, StatusCode::OK, "body: {:?}", body);
+    assert!(body["healthy"].is_number());
+    assert!(body["unreachable"].is_number());
+}

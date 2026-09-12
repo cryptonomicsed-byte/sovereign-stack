@@ -369,7 +369,9 @@
 - New `deploy` subcommand: generates Ollama Modelfile; `--dry-run` prints Modelfile; `--system` for system prompt; live path prints curl
 - 6 new tests (gguf block, no_gguf flag, model/steps embed, Modelfile, quote escaping, job spec JSON)
 
-### Phase 53 — A2A federation routing
-- Cross-node task dispatch via A2A v1.0
-- `POST /a2a/tasks` proxied to federation peers
-- Load balancing across registered federation peers
+### Phase 53 ✅ — A2A federation routing
+- `federation_router.rs`: `FederationRouter` (round-robin + health-aware), `FederationPeer`, `PeerHealth`
+- `POST /federation/peers` — register peer; `DELETE /federation/peers/:id` — remove
+- `POST /federation/tasks` — route A2A task to best peer; 503 no peers, 404 unknown prefer, 502 all failed
+- `POST /federation/health` — probe all peers, update health status
+- 8 unit tests in federation_router.rs + 7 integration tests in api.rs

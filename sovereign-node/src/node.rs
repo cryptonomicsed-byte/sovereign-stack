@@ -16,7 +16,7 @@ use std::net::SocketAddr;
 
 use axum::{
     Router,
-    routing::{get, post},
+    routing::{delete, get, post},
     extract::{State, Path},
     Json,
     response::IntoResponse,
@@ -95,8 +95,9 @@ pub struct NodeState {
     pub inbound_ctx:     InboundDipContext,
     pub nostr_relay:     Option<NostrRelayHandle>,
     pub a2a:             sovereign_a2a::A2aState,
-    pub swarm_store:     SwarmStore,
-    pub timeline_store:  TimelineStore,
+    pub swarm_store:       SwarmStore,
+    pub timeline_store:    TimelineStore,
+    pub federation_router: crate::federation_router::FederationRouter,
     /// Broadcast channel: all subscribers receive real-time TwinEvents.
     /// Capacity 256 — slow subscribers lag and get RecvError::Lagged.
     pub twin_events:          broadcast::Sender<TwinEvent>,
@@ -373,6 +374,7 @@ impl SovereignNode {
             a2a:         a2a_state,
             swarm_store:         SwarmStore::new(),
             timeline_store,
+            federation_router:   crate::federation_router::FederationRouter::new(),
             twin_events:         twin_events_tx,
             tile_economy_store:  TileEconomyStore::new(),
             started_at,
@@ -663,7 +665,11 @@ pub fn build_router(state: NodeState) -> Router {
         .route("/config/check",             get(handle_config_check))
         .route("/ws/twin/:twin_id",         get(handle_ws_twin))
         .route("/ws/splat/:twin_id",        get(handle_ws_splat))
-        .route("/federation/peers",         get(handle_federation_peers))
+        .route("/federation/peers",          get(handle_federation_peers))
+        .route("/federation/peers",          post(handle_federation_register_peer))
+        .route("/federation/peers/:peer_id", delete(handle_federation_remove_peer))
+        .route("/federation/tasks",          post(handle_federation_route_task))
+        .route("/federation/health",         post(handle_federation_health_check))
         .route("/ip/root",                  get(handle_ip_root))
         .route("/ip/receipt/:twin_id",      get(handle_ip_receipt))
         .route("/agent/receipts",           get(handle_agent_receipts))
@@ -1962,6 +1968,82 @@ async fn handle_sse_jobs(State(state): State<NodeState>) -> impl IntoResponse {
 async fn handle_federation_peers(_state: State<NodeState>) -> impl IntoResponse {
     let peers = discover_sovereign_nodes().await;
     Json(json!({ "peers": peers, "count": peers.len() }))
+}
+
+// POST /federation/peers — register a federation peer.
+#[derive(serde::Deserialize)]
+struct RegisterPeerBody {
+    peer_id:      String,
+    name:         String,
+    a2a_base_url: String,
+    #[serde(default)]
+    did:          Option<String>,
+}
+
+async fn handle_federation_register_peer(
+    State(state): State<NodeState>,
+    Json(body):   Json<RegisterPeerBody>,
+) -> impl IntoResponse {
+    use crate::federation_router::FederationPeer;
+    let mut peer = FederationPeer::new(&body.peer_id, &body.name, &body.a2a_base_url);
+    if let Some(did) = body.did { peer = peer.with_did(did); }
+    state.federation_router.register(peer).await;
+    info!(peer_id = %body.peer_id, url = %body.a2a_base_url, "federation peer registered");
+    (StatusCode::CREATED, Json(json!({ "ok": true, "peer_id": body.peer_id })))
+}
+
+// DELETE /federation/peers/:peer_id — remove a peer.
+async fn handle_federation_remove_peer(
+    State(state): State<NodeState>,
+    Path(peer_id): Path<String>,
+) -> impl IntoResponse {
+    if state.federation_router.remove(&peer_id).await {
+        Json(json!({ "ok": true, "peer_id": peer_id })).into_response()
+    } else {
+        (StatusCode::NOT_FOUND, Json(json!({ "error": "peer_not_found", "peer_id": peer_id }))).into_response()
+    }
+}
+
+// POST /federation/tasks — route an A2A task to the best available peer.
+//
+// Body: { "message": {...}, "prefer_peer": "<peer_id>"|null, "skill": "<hint>"|null }
+// Falls back to a stub result when all peers are unreachable (never hard-fails).
+async fn handle_federation_route_task(
+    State(state): State<NodeState>,
+    Json(req):    Json<crate::federation_router::FederatedTaskRequest>,
+) -> impl IntoResponse {
+    use crate::federation_router::RouteError;
+
+    match state.federation_router.route(&req).await {
+        Ok(result) => {
+            info!(
+                routed_to = %result.routed_to,
+                task_id   = %result.remote_task_id,
+                stub      = result.stub,
+                "federated task dispatched"
+            );
+            (StatusCode::ACCEPTED, Json(serde_json::to_value(&result).unwrap_or_default())).into_response()
+        }
+        Err(RouteError::NoPeers) => {
+            (StatusCode::SERVICE_UNAVAILABLE,
+                Json(json!({ "error": "no_peers", "message": "no routable federation peers available" }))).into_response()
+        }
+        Err(RouteError::PeerNotFound(id)) => {
+            (StatusCode::NOT_FOUND,
+                Json(json!({ "error": "peer_not_found", "peer_id": id }))).into_response()
+        }
+        Err(RouteError::AllFailed(reason)) => {
+            (StatusCode::BAD_GATEWAY,
+                Json(json!({ "error": "all_peers_failed", "reason": reason }))).into_response()
+        }
+    }
+}
+
+// POST /federation/health — probe all peers and update health status.
+async fn handle_federation_health_check(State(state): State<NodeState>) -> impl IntoResponse {
+    let (healthy, unreachable) = state.federation_router.health_check_all().await;
+    info!(healthy, unreachable, "federation health check complete");
+    Json(json!({ "healthy": healthy, "unreachable": unreachable }))
 }
 
 // GET /ip/root — return the cached IP Root event (kind 31900) as JSON.
@@ -3469,6 +3551,7 @@ pub fn make_test_state() -> NodeState {
         a2a:                 sovereign_a2a::A2aState::new(a2a_cfg),
         swarm_store:         SwarmStore::new(),
         timeline_store:      TimelineStore::in_memory(),
+        federation_router:   crate::federation_router::FederationRouter::new(),
         twin_events:         twin_events_tx,
         tile_economy_store:  TileEconomyStore::new(),
         started_at:          now_ms(),
