@@ -375,3 +375,30 @@
 - `POST /federation/tasks` — route A2A task to best peer; 503 no peers, 404 unknown prefer, 502 all failed
 - `POST /federation/health` — probe all peers, update health status
 - 8 unit tests in federation_router.rs + 7 integration tests in api.rs
+
+---
+
+## Omo-Koda2 P0 — Life Layer (2026-09-12)
+
+### P0-1 ✅ — AgentRuntime + tamper-evident heartbeat chain
+- `lifecycle/runtime.rs`: `AgentRuntime`, `DaemonRegistry`, `DaemonEntry`, `DaemonStatus`
+- `AgentRuntime::advance_chain()` — builds next beat, chains SHA-256 hash
+- `AgentRuntime::new()` — genesis beat at startup
+- Integrated into `AppState.runtime` — owned by the server process
+- Tests: chain advances, daemon registry roundtrip, active daemons in chain head
+
+### P0-2 ✅ — JobDaemon + SkillDaemon
+- `lifecycle/job_daemon.rs`: polls Vantage `/guilds/{slug}/tasks?status=assigned`, executes via Steward, PATCHes result back
+- `lifecycle/skill_daemon.rs`: reports active daemon capabilities to Vantage every 300s
+- Both wired into `start_server()` with env-configurable poll intervals
+- `JOB_DAEMON_POLL_SECS` (default 60), `SKILL_DAEMON_SCAN_SECS` (default 300)
+
+### P0-3 ✅ — Bug fixes
+- **Bug 1**: `POST /api/me/heartbeat` now UPDATEs `agents.last_seen_at` (was SELECT-only)
+- **Bug 1**: `WorkspaceClient::mesh_heartbeat()` added — calls `POST /api/mesh/agents/{id}/heartbeat` with block_id
+- **Bug 2**: Aether `engine/toc/` deleted — all imports redirected to canonical `engine/economy/`
+- **Bug 3**: `requireStake()` snapshots pre-stake balance: `freeBalance + currentStake.amount`; pilot gate enforced in stdlib.js
+
+### P0-4 ✅ — sovereign-node migration markers
+- `nostr_relay.rs` already a stub (real relay in ip-layer)
+- Remaining P1 removals (swarm, mcp, identity, delegation, receipt_store) deferred until target repos are ready — all have active tests
