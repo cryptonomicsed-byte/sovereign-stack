@@ -1,16 +1,30 @@
 [workspace]
 resolver = "2"
 members = [
+    # Core types
     "sovereign-types",
     "sovereign-runtime",
+    # Protocol crates
     "ip-layer",
     "dip",
     "vcp",
     "twin-protocol",
+    "arp-types",
+    # UCX — Universal Compute Exchange
+    "ucx-protocol",
+    "ucx-provider",
+    "ucx-broker",
+    # ScarabSwarm — simulation
+    "swarm-types",
+    "swarm-broker",
+    # Witness — attestation
+    "witness-types",
+    "witness-broker",
+    # Node / infra
     "sovereign-pipeline",
     "sovereign-a2a",
     "sovereign-node",
     "sovereign-cli",
-    "mycelium-finetune",
     "sovereign-os",
+    "mycelium-finetune",
 ]
