@@ -1,0 +1,21 @@
+[package]
+name = "arp-broker"
+version.workspace = true
+edition.workspace = true
+description = "Action Receipt Protocol v1 — in-memory receipt store and chain-verification HTTP service. Port 7795."
+
+[[bin]]
+name = "arp-broker"
+path = "src/bin/main.rs"
+
+[dependencies]
+arp-types  = { path = "../arp-types" }
+serde      = { workspace = true }
+serde_json = { workspace = true }
+uuid       = { workspace = true }
+thiserror  = { workspace = true }
+chrono     = { workspace = true }
+tokio      = { workspace = true }
+axum       = { workspace = true }
+hex        = { workspace = true }
+sha2       = { workspace = true }

@@ -10,6 +10,7 @@ members = [
     "vcp",
     "twin-protocol",
     "arp-types",
+    "arp-broker",
     # UCX — Universal Compute Exchange
     "ucx-protocol",
     "ucx-provider",
@@ -28,3 +29,19 @@ members = [
     "sovereign-os",
     "mycelium-finetune",
 ]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+
+[workspace.dependencies]
+serde        = { version = "1",    features = ["derive"] }
+serde_json   = "1"
+uuid         = { version = "1",    features = ["v4", "serde"] }
+thiserror    = "1"
+sha2         = "0.10"
+hex          = "0.4"
+chrono       = { version = "0.4",  features = ["serde"] }
+tokio        = { version = "1",    features = ["full"] }
+axum         = "0.7"
+reqwest      = { version = "0.12", features = ["json"] }

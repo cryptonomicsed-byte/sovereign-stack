@@ -5,7 +5,7 @@ edition     = "2021"
 description = "UCX external provider adapter for GPU.ai (fine-tuning + inference)."
 
 [dependencies]
-ucx-protocol = { path = "../../crates/ucx-protocol" }
+ucx-protocol = { path = "../../ucx-protocol" }
 serde_json   = { workspace = true }
 uuid         = { workspace = true }
 thiserror    = { workspace = true }

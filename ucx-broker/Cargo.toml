@@ -22,9 +22,9 @@ tokio              = { version = "1", features = ["full"] }
 tracing-subscriber = "0.3"
 
 # Optional external network adapters — enabled via cargo features.
-ucx-adapter-gpu-ai = { path = "../../adapters/gpu-ai", optional = true }
-ucx-adapter-akash  = { path = "../../adapters/akash",  optional = true }
-ucx-adapter-vast   = { path = "../../adapters/vast",   optional = true }
+ucx-adapter-gpu-ai = { path = "../ucx-adapters/gpu-ai", optional = true }
+ucx-adapter-akash  = { path = "../ucx-adapters/akash",  optional = true }
+ucx-adapter-vast   = { path = "../ucx-adapters/vast",   optional = true }
 
 [features]
 gpu-ai       = ["dep:ucx-adapter-gpu-ai"]
