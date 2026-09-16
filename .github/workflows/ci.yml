@@ -1,0 +1,77 @@
+name: CI
+
+on:
+  pull_request:
+    branches: ["main", "master"]
+  push:
+    branches: ["main", "master"]
+
+jobs:
+  test:
+    name: cargo test
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+
+      - name: Cache cargo registry + build artifacts
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-
+
+      - name: Install system dependencies
+        run: sudo apt-get update && sudo apt-get install -y pkg-config libssl-dev
+
+      - name: cargo fmt --check
+        run: cargo fmt --all -- --check
+
+      - name: cargo clippy
+        run: cargo clippy --all-targets --all-features -- -D warnings
+
+      - name: cargo test
+        run: cargo test --workspace --all-features
+        env:
+          RUST_BACKTRACE: 1
+
+  toc-drift:
+    name: TOC_CONSTANTS drift check (M3)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout sovereign-stack
+        uses: actions/checkout@v4
+        with:
+          path: sovereign-stack
+
+      - name: Checkout sovereign-eco-blueprint
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ github.repository_owner }}/sovereign-eco-blueprint
+          path: sovereign-eco-blueprint
+
+      - name: Checkout Vantage
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ github.repository_owner }}/Vantage
+          path: Vantage
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Run TOC_CONSTANTS drift check
+        # Script expects to run from ~/; repo layout above recreates that structure.
+        run: python3 sovereign-eco-blueprint/specs/toc_drift_check.py
