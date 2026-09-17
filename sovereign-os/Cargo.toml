@@ -13,6 +13,7 @@ uuid              = { version = "1", features = ["v4"] }
 tokio             = { version = "1", features = ["full"] }
 thiserror         = "1"
 sha2              = "0.10"
+blake3            = "1"
 hex               = "0.4"
 
 [dev-dependencies]

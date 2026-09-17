@@ -14,6 +14,7 @@ pub mod storage;
 pub mod seal;
 pub mod mesh_envelope;
 pub mod work_claim;
+pub mod proof;
 
 pub use identity::*;
 pub use merkle::*;
@@ -62,4 +63,8 @@ pub use mesh_envelope::{
 };
 pub use work_claim::{
     WorkClaim, WorkDomain, EvidencePolicy, WitnessPolicy,
+};
+pub use proof::{
+    PoCWProof, Confidence, EnsembleDisagreement, SimPlane,
+    blake3_hex, blake3_hex_raw, blake3_of_json, HASH_PREFIX,
 };

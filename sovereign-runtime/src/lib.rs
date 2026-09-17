@@ -153,10 +153,10 @@ mod tests {
     }
 
     #[test]
-    fn receipt_with_previous_sets_sha256_hash() {
+    fn receipt_with_previous_sets_blake3_hash() {
         let r = ActionReceipt::denied(&vp(), CapabilityAction::Execute,
             "res://test", "reason", now()).with_previous("prev_id");
-        assert!(r.previous_hash.unwrap().starts_with("sha256:"));
+        assert!(r.previous_hash.unwrap().starts_with("blake3:"));
     }
 
     #[test]

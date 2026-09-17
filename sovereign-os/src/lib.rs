@@ -23,6 +23,8 @@ pub mod hooks;
 pub use identity::{AgentIdentity, AgentLifecycle, LifecyclePhase, BIPON39};
 pub use tool::{ToolRegistry, ToolDef, ToolResult, ToolError};
 pub use act_receipt::{AgentActReceipt, PoCWProof, ActReceiptChain, EpistemicSeverity};
+// Canonical name for what this crate always called EpistemicSeverity.
+pub use sovereign_types::proof::{Confidence, EnsembleDisagreement, SimPlane};
 pub use memory::{MemoryStore, MemoryEntry, MemoryNamespace};
 pub use hooks::{HookChain, HookFn, HookResult};
 
@@ -80,7 +82,7 @@ mod tests {
     #[test]
     fn receipt_with_previous_sets_hash() {
         let r = make_receipt("did:key:a").with_previous("prev_id".to_string());
-        assert!(r.previous_hash.as_deref().unwrap_or("").starts_with("sha256:"));
+        assert!(r.previous_hash.as_deref().unwrap_or("").starts_with("blake3:"));
     }
 
     #[test]
@@ -107,7 +109,7 @@ mod tests {
         c.push(make_receipt("did:key:b"));
         assert_eq!(c.len(), 2);
         let second = &c.all()[1];
-        assert!(second.previous_hash.as_deref().unwrap_or("").starts_with("sha256:"));
+        assert!(second.previous_hash.as_deref().unwrap_or("").starts_with("blake3:"));
     }
 
     #[test]

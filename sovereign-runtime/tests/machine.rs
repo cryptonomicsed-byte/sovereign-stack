@@ -1,7 +1,7 @@
 /// Tests for machine-facing sovereign-runtime modules:
 /// device, safety, power, embodiment, and unified ActionReceipt.
 
-use sovereign_runtime::receipt::{ActionReceipt, ActionOutcome, PoCWProof, EpistemicSeverity, SimPlane};
+use sovereign_runtime::receipt::{Confidence, EnsembleDisagreement, PoCWProof, SimPlane};
 use sovereign_runtime::chain::{Principal, CapabilityAction, ExecutionEngine};
 use sovereign_runtime::safety::{SafetySupervisor, SafetyTier, SafetyCommand, SafetyCommandType, SafetyVerdict};
 use sovereign_runtime::power::{PowerSnapshot, PowerState, PowerSource, PowerPolicy};
@@ -116,20 +116,33 @@ fn action_receipt_chains_via_previous_hash() {
     let r2 = ctx2.complete(json!({}), now()).with_previous(r1_id.clone());
 
     assert!(r2.previous_hash.is_some());
-    // previous_hash is sha256 of r1_id — not the raw id but a deterministic hash
+    // previous_hash is BLAKE3 of r1_id — not the raw id but a deterministic hash
     let prev = r2.previous_hash.unwrap();
-    assert!(prev.starts_with("sha256:"));
+    assert!(prev.starts_with("blake3:"));
 }
 
 #[test]
-fn action_receipt_epistemic_severity_attached() {
+fn action_receipt_ensemble_disagreement_attached() {
     let p   = make_principal();
     let ctx = ExecutionEngine::begin(
         p, None, CapabilityAction::Publish, "event:001", json!({}), now()
     ).unwrap();
     let r = ctx.complete(json!({}), now())
-        .with_epistemic(EpistemicSeverity::Moderate);
-    assert_eq!(r.epistemic_severity, Some(EpistemicSeverity::Moderate));
+        .with_ensemble_disagreement(EnsembleDisagreement::Moderate);
+    assert_eq!(r.ensemble_disagreement, Some(EnsembleDisagreement::Moderate));
+    // The Omo-Koda confidence field is a DIFFERENT axis and stays unset.
+    assert!(r.epistemic_severity.is_none());
+}
+
+#[test]
+fn action_receipt_confidence_attached() {
+    let p   = make_principal();
+    let ctx = ExecutionEngine::begin(
+        p, None, CapabilityAction::Publish, "event:002", json!({}), now()
+    ).unwrap();
+    let r = ctx.complete(json!({}), now()).with_confidence(Confidence::Observed);
+    assert_eq!(r.epistemic_severity, Some(Confidence::Observed));
+    assert!(r.ensemble_disagreement.is_none());
 }
 
 #[test]
