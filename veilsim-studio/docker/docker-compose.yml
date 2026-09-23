@@ -1,18 +1,69 @@
 version: "3.9"
 
+# ── VeilSim Studio — Proof-of-Simulation Dashboard ───────────────────────────
+#
+# Services:
+#   veilsim-backend   — FastAPI on :8788  (ỌSỌVM execution endpoint)
+#   veilsim-frontend  — nginx on :3000    (React SPA, proxies /api → backend)
+#   julia-worker      — optional: long-running Julia FFI worker
+#
+# Quick start:
+#   docker compose -f docker/docker-compose.yml up --build
+
 services:
-  veilsim-api:
+
+  # ── Backend (FastAPI / ỌSỌVM engine) ───────────────────────────────────────
+  veilsim-backend:
     build:
       context: ..
       dockerfile: docker/Dockerfile
+      target: runtime
+    command: >
+      uvicorn backend.main:app
+      --host 0.0.0.0
+      --port 8788
+      --workers 2
     ports:
       - "8788:8788"
     environment:
-      - VEILSIM_DATA_DIR=/app/data
-      - LOG_LEVEL=info
+      VEILSIM_DATA_DIR: /app/data
+      LOG_LEVEL: info
+    volumes:
+      - ../data:/app/data:ro
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8788/health"]
+      test: ["CMD", "curl", "-sf", "http://localhost:8788/health"]
       interval: 15s
       timeout: 5s
       retries: 3
     restart: unless-stopped
+
+  # ── Frontend (nginx + built React SPA) ─────────────────────────────────────
+  veilsim-frontend:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    command: nginx -g "daemon off;"
+    ports:
+      - "3000:3000"
+    depends_on:
+      veilsim-backend:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # ── Julia worker (optional — enable by uncommenting) ───────────────────────
+  # julia-worker:
+  #   image: julia:1.10-alpine
+  #   working_dir: /workers
+  #   volumes:
+  #     - ../workers:/workers:ro
+  #   command: >
+  #     julia -e '
+  #       using Pkg; Pkg.add(["JSON3","FFTW"]);
+  #       while true
+  #         line = readline(stdin)
+  #         isempty(line) && continue
+  #         include("/workers/veil_runner.jl")
+  #       end
+  #     '
+  #   stdin_open: true
+  #   restart: unless-stopped

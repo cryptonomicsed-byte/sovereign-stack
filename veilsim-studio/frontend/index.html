@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>VeilSim Studio — Proof-of-Simulation Dashboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      tailwind.config = {
+        theme: {
+          extend: {
+            colors: {
+              oso: {
+                bg:      '#0a0e1a',
+                surface: '#111827',
+                border:  '#1f2937',
+                accent:  '#6366f1',
+                gold:    '#f59e0b',
+                green:   '#10b981',
+                red:     '#ef4444',
+                muted:   '#6b7280',
+              }
+            },
+            fontFamily: {
+              mono: ['JetBrains Mono', 'Fira Code', 'monospace'],
+            }
+          }
+        }
+      }
+    </script>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&display=swap" />
+    <style>
+      body { background: #0a0e1a; color: #e5e7eb; font-family: 'JetBrains Mono', monospace; }
+      ::-webkit-scrollbar { width: 6px; } ::-webkit-scrollbar-track { background: #111827; }
+      ::-webkit-scrollbar-thumb { background: #374151; border-radius: 3px; }
+    </style>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
