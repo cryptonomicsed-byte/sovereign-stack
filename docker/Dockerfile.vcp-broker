@@ -1,0 +1,50 @@
+# Build stage
+FROM rust:1.82-slim AS builder
+WORKDIR /build
+
+RUN apt-get update && apt-get install -y pkg-config libssl-dev && rm -rf /var/lib/apt/lists/*
+
+COPY Cargo.toml Cargo.lock ./
+COPY sovereign-types/     sovereign-types/
+COPY sovereign-runtime/   sovereign-runtime/
+COPY ip-layer/            ip-layer/
+COPY dip/                 dip/
+COPY vcp/                 vcp/
+COPY twin-protocol/       twin-protocol/
+COPY arp-types/           arp-types/
+COPY arp-broker/          arp-broker/
+COPY ucx-protocol/        ucx-protocol/
+COPY ucx-provider/        ucx-provider/
+COPY ucx-broker/          ucx-broker/
+COPY ucx-adapters/        ucx-adapters/
+COPY swarm-types/         swarm-types/
+COPY swarm-broker/        swarm-broker/
+COPY witness-types/       witness-types/
+COPY witness-broker/      witness-broker/
+COPY sovereign-pipeline/  sovereign-pipeline/
+COPY sovereign-a2a/       sovereign-a2a/
+COPY sovereign-node/      sovereign-node/
+COPY sovereign-cli/       sovereign-cli/
+COPY sovereign-os/        sovereign-os/
+COPY mycelium-finetune/   mycelium-finetune/
+
+# vcp is a library crate; sovereign-node exposes the /vcp/* session routes
+RUN cargo build --release -p sovereign-node
+
+# Runtime stage
+FROM debian:bookworm-slim
+RUN apt-get update && apt-get install -y ca-certificates && rm -rf /var/lib/apt/lists/*
+
+COPY --from=builder /build/target/release/sovereign-node /usr/local/bin/vcp-broker
+
+# VCP broker exposes the device session management surface
+ENV VCP_PORT=7791
+ENV VCP_MODE=broker
+ENV VANTAGE_URL=""
+ENV NODE_SECRET_KEY=""
+
+EXPOSE 7791
+HEALTHCHECK --interval=15s --timeout=5s --retries=3 \
+  CMD curl -f http://localhost:7791/status || exit 1
+
+CMD ["vcp-broker"]
