@@ -3,7 +3,7 @@
 /// A BodyCapability declares what trust tier and risk class an operation
 /// requires.  Tier gates are checked before a VcpCapabilityGrant is issued.
 use serde::{Deserialize, Serialize};
-use sovereign_types::{TrustTier, SimulationProof, Timestamp};
+use sovereign_types::{SimulationProof, Timestamp, TrustTier};
 
 // ── Capability risk classes ───────────────────────────────────────────────────
 
@@ -22,15 +22,15 @@ pub enum CapabilityClass {
 /// A named body operation with its tier and risk requirements.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BodyCapability {
-    pub id:           String,
-    pub description:  String,
-    pub risk_class:   CapabilityClass,
+    pub id: String,
+    pub description: String,
+    pub risk_class: CapabilityClass,
     /// Minimum trust tier the agent must hold to request this capability.
-    pub min_tier:     TrustTier,
+    pub min_tier: TrustTier,
     /// If true, a human operator must be connected during execution.
     pub requires_human_loop: bool,
     /// Optional: agent must have proven sim competence in this domain.
-    pub requires_sim_proof:  bool,
+    pub requires_sim_proof: bool,
 }
 
 impl BodyCapability {
@@ -61,15 +61,15 @@ pub enum BodySessionMode {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BodySession {
-    pub session_id:      String,
-    pub agent_id:        String,
-    pub agent_tier:      TrustTier,
-    pub body_id:         String,
-    pub mode:            BodySessionMode,
+    pub session_id: String,
+    pub agent_id: String,
+    pub agent_tier: TrustTier,
+    pub body_id: String,
+    pub mode: BodySessionMode,
     /// Optional: the simulation proof authorising this embodiment.
-    pub sim_proof_id:    Option<String>,
-    pub capabilities:    Vec<String>,
-    pub started_at:      Timestamp,
+    pub sim_proof_id: Option<String>,
+    pub capabilities: Vec<String>,
+    pub started_at: Timestamp,
 }
 
 impl BodySession {
@@ -83,8 +83,9 @@ impl BodySession {
     ) -> Result<Self, String> {
         let mode_ok = match &mode {
             BodySessionMode::HumanSupervised => agent_tier.supervised_embodiment_eligible(),
-            BodySessionMode::Autonomous | BodySessionMode::PolicyReplay =>
-                agent_tier.autonomous_embodiment_eligible(),
+            BodySessionMode::Autonomous | BodySessionMode::PolicyReplay => {
+                agent_tier.autonomous_embodiment_eligible()
+            }
         };
         if !mode_ok {
             return Err(format!(
@@ -97,14 +98,14 @@ impl BodySession {
             .unwrap_or_default()
             .as_millis() as u64;
         Ok(Self {
-            session_id:   format!("body:{}", uuid::Uuid::new_v4()),
-            agent_id:     agent_id.into(),
+            session_id: format!("body:{}", uuid::Uuid::new_v4()),
+            agent_id: agent_id.into(),
             agent_tier,
-            body_id:      body_id.into(),
+            body_id: body_id.into(),
             mode,
             sim_proof_id,
             capabilities,
-            started_at:   now,
+            started_at: now,
         })
     }
 }
@@ -114,32 +115,32 @@ impl BodySession {
 /// Telemetry snapshot from a physical flight.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct FlightTelemetry {
-    pub timestamp_ms:   u64,
-    pub position:       [f64; 3],   // x, y, z metres
-    pub orientation:    [f64; 4],   // quaternion
-    pub altitude_m:     f64,
-    pub battery_pct:    f64,
-    pub velocity_ms:    f64,
+    pub timestamp_ms: u64,
+    pub position: [f64; 3],    // x, y, z metres
+    pub orientation: [f64; 4], // quaternion
+    pub altitude_m: f64,
+    pub battery_pct: f64,
+    pub velocity_ms: f64,
     pub obstacle_dist_m: Option<f64>,
 }
 
 /// Receipt produced at the end of a physical flight session.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct FlightReceipt {
-    pub receipt_id:          String,
-    pub session_id:          String,
-    pub agent_id:            String,
-    pub body_id:             String,
-    pub sim_proof_id:        Option<String>,
-    pub trajectory_hash:     String,
-    pub telemetry_count:     u32,
-    pub duration_ms:         u64,
-    pub max_altitude_m:      f64,
+    pub receipt_id: String,
+    pub session_id: String,
+    pub agent_id: String,
+    pub body_id: String,
+    pub sim_proof_id: Option<String>,
+    pub trajectory_hash: String,
+    pub telemetry_count: u32,
+    pub duration_ms: u64,
+    pub max_altitude_m: f64,
     pub battery_consumed_pct: f64,
-    pub mission_success:     bool,
-    pub witness_ids:         Vec<String>,
-    pub timestamp:           Timestamp,
-    pub signature:           String,
+    pub mission_success: bool,
+    pub witness_ids: Vec<String>,
+    pub timestamp: Timestamp,
+    pub signature: String,
 }
 
 // ── StampFly v1.1 device profile ──────────────────────────────────────────────
@@ -148,99 +149,95 @@ pub struct FlightReceipt {
 pub fn stampfly_capabilities() -> Vec<BodyCapability> {
     vec![
         BodyCapability {
-            id:          "sensor.imu".into(),
+            id: "sensor.imu".into(),
             description: "Read BMI270 IMU (orientation, accel, gyro)".into(),
-            risk_class:  CapabilityClass::C0,
-            min_tier:    TrustTier::T0,
+            risk_class: CapabilityClass::C0,
+            min_tier: TrustTier::T0,
             requires_human_loop: false,
-            requires_sim_proof:  false,
+            requires_sim_proof: false,
         },
         BodyCapability {
-            id:          "sensor.altitude".into(),
+            id: "sensor.altitude".into(),
             description: "Read BMP280 barometric altitude".into(),
-            risk_class:  CapabilityClass::C0,
-            min_tier:    TrustTier::T0,
+            risk_class: CapabilityClass::C0,
+            min_tier: TrustTier::T0,
             requires_human_loop: false,
-            requires_sim_proof:  false,
+            requires_sim_proof: false,
         },
         BodyCapability {
-            id:          "sensor.distance".into(),
+            id: "sensor.distance".into(),
             description: "Read VL53L3 front/bottom distance sensors".into(),
-            risk_class:  CapabilityClass::C0,
-            min_tier:    TrustTier::T0,
+            risk_class: CapabilityClass::C0,
+            min_tier: TrustTier::T0,
             requires_human_loop: false,
-            requires_sim_proof:  false,
+            requires_sim_proof: false,
         },
         BodyCapability {
-            id:          "sensor.battery".into(),
+            id: "sensor.battery".into(),
             description: "Read INA3221 battery voltage/current".into(),
-            risk_class:  CapabilityClass::C0,
-            min_tier:    TrustTier::T0,
+            risk_class: CapabilityClass::C0,
+            min_tier: TrustTier::T0,
             requires_human_loop: false,
-            requires_sim_proof:  false,
+            requires_sim_proof: false,
         },
         BodyCapability {
-            id:          "flight.arm".into(),
+            id: "flight.arm".into(),
             description: "Arm motors (hover ready)".into(),
-            risk_class:  CapabilityClass::C2,
-            min_tier:    TrustTier::T2,
+            risk_class: CapabilityClass::C2,
+            min_tier: TrustTier::T2,
             requires_human_loop: true,
-            requires_sim_proof:  false,
+            requires_sim_proof: false,
         },
         BodyCapability {
-            id:          "flight.takeoff".into(),
+            id: "flight.takeoff".into(),
             description: "Automated takeoff to hover altitude".into(),
-            risk_class:  CapabilityClass::C3,
-            min_tier:    TrustTier::T3,
+            risk_class: CapabilityClass::C3,
+            min_tier: TrustTier::T3,
             requires_human_loop: true,
-            requires_sim_proof:  true,
+            requires_sim_proof: true,
         },
         BodyCapability {
-            id:          "flight.navigate".into(),
+            id: "flight.navigate".into(),
             description: "Waypoint navigation mission".into(),
-            risk_class:  CapabilityClass::C4,
-            min_tier:    TrustTier::T4,
+            risk_class: CapabilityClass::C4,
+            min_tier: TrustTier::T4,
             requires_human_loop: true,
-            requires_sim_proof:  true,
+            requires_sim_proof: true,
         },
         BodyCapability {
-            id:          "flight.autonomous_mission".into(),
+            id: "flight.autonomous_mission".into(),
             description: "Fully autonomous mission without human in loop".into(),
-            risk_class:  CapabilityClass::C4,
-            min_tier:    TrustTier::T5,
+            risk_class: CapabilityClass::C4,
+            min_tier: TrustTier::T5,
             requires_human_loop: false,
-            requires_sim_proof:  true,
+            requires_sim_proof: true,
         },
         BodyCapability {
-            id:          "flight.land".into(),
+            id: "flight.land".into(),
             description: "Automated landing sequence".into(),
-            risk_class:  CapabilityClass::C3,
-            min_tier:    TrustTier::T3,
+            risk_class: CapabilityClass::C3,
+            min_tier: TrustTier::T3,
             requires_human_loop: false,
-            requires_sim_proof:  false,
+            requires_sim_proof: false,
         },
         BodyCapability {
-            id:          "flight.emergency_stop".into(),
+            id: "flight.emergency_stop".into(),
             description: "Immediate motor kill / emergency stop".into(),
-            risk_class:  CapabilityClass::C1,
-            min_tier:    TrustTier::T0,
+            risk_class: CapabilityClass::C1,
+            min_tier: TrustTier::T0,
             requires_human_loop: false,
-            requires_sim_proof:  false,
+            requires_sim_proof: false,
         },
     ]
 }
 
 /// Policy check: given an agent tier and optional sim proof, which StampFly
 /// capabilities are currently grantable?
-pub fn grantable_stampfly_caps(
-    agent_tier: TrustTier,
-    has_sim_proof: bool,
-) -> Vec<String> {
+pub fn grantable_stampfly_caps(agent_tier: TrustTier, has_sim_proof: bool) -> Vec<String> {
     stampfly_capabilities()
         .into_iter()
         .filter(|cap| {
-            cap.check_tier(agent_tier).is_ok()
-                && (!cap.requires_sim_proof || has_sim_proof)
+            cap.check_tier(agent_tier).is_ok() && (!cap.requires_sim_proof || has_sim_proof)
         })
         .map(|cap| cap.id)
         .collect()
@@ -281,7 +278,9 @@ mod tests {
     #[test]
     fn body_session_t4_supervised_ok() {
         let s = BodySession::new(
-            "agent:1", TrustTier::T4, "stampfly:1",
+            "agent:1",
+            TrustTier::T4,
+            "stampfly:1",
             BodySessionMode::HumanSupervised,
             vec!["flight.navigate".into()],
             Some("proof:1".into()),
@@ -292,7 +291,9 @@ mod tests {
     #[test]
     fn body_session_t3_autonomous_rejected() {
         let s = BodySession::new(
-            "agent:1", TrustTier::T3, "stampfly:1",
+            "agent:1",
+            TrustTier::T3,
+            "stampfly:1",
             BodySessionMode::Autonomous,
             vec!["flight.navigate".into()],
             None,
@@ -303,7 +304,9 @@ mod tests {
     #[test]
     fn body_session_t4_autonomous_rejected() {
         let s = BodySession::new(
-            "agent:1", TrustTier::T4, "stampfly:1",
+            "agent:1",
+            TrustTier::T4,
+            "stampfly:1",
             BodySessionMode::Autonomous,
             vec![],
             None,

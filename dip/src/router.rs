@@ -1,7 +1,7 @@
-use std::collections::HashSet;
-use crate::envelope::DipEnvelope;
 use crate::address::DipNetwork;
+use crate::envelope::DipEnvelope;
 use crate::error::{DipError, DipResult};
+use std::collections::HashSet;
 
 /// What the router should do with an envelope.
 #[derive(Debug)]
@@ -41,7 +41,10 @@ impl DipRouter {
     pub fn route(&mut self, envelope: &DipEnvelope) -> DipResult<RouteDecision> {
         // Deduplication
         if self.seen.contains(&envelope.message_id) {
-            return Ok(RouteDecision::Drop(format!("duplicate: {}", envelope.message_id)));
+            return Ok(RouteDecision::Drop(format!(
+                "duplicate: {}",
+                envelope.message_id
+            )));
         }
 
         // TTL check
@@ -71,9 +74,9 @@ impl DipRouter {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::envelope::{DipEnvelope, DipKind};
     use crate::address::DipAddress;
-    use sovereign_types::{IdentityChain, crypto::generate_keypair};
+    use crate::envelope::{DipEnvelope, DipKind};
+    use sovereign_types::{crypto::generate_keypair, IdentityChain};
 
     fn make_envelope(dest: DipAddress, private_key: &str) -> DipEnvelope {
         DipEnvelope::build(
@@ -84,7 +87,8 @@ mod tests {
             serde_json::json!({"text": "hi"}),
             300,
             private_key,
-        ).unwrap()
+        )
+        .unwrap()
     }
 
     #[test]
@@ -111,7 +115,10 @@ mod tests {
         let mut router = DipRouter::new("did:vantage:agent:koda");
         router.register_adapter(DipNetwork::Nostr);
         let env = make_envelope(DipAddress::nostr("npub1xyz"), &priv_key);
-        matches!(router.route(&env).unwrap(), RouteDecision::Forward(DipNetwork::Nostr));
+        matches!(
+            router.route(&env).unwrap(),
+            RouteDecision::Forward(DipNetwork::Nostr)
+        );
     }
 
     #[test]

@@ -22,8 +22,9 @@ use std::process::Command;
 use tracing::{debug, warn};
 
 use crate::discovery::{DiscoveredDevice, DiscoveryMethod};
-use crate::manifest::{AgentDeviceManifest, VcpCapabilityDecl, VcpSafetyConfig,
-                       VcpTransport, VcpDeviceIdentity};
+use crate::manifest::{
+    AgentDeviceManifest, VcpCapabilityDecl, VcpDeviceIdentity, VcpSafetyConfig, VcpTransport,
+};
 use sovereign_types::SafetyLevel;
 
 /// The mDNS service type for VCP devices.
@@ -46,7 +47,10 @@ pub fn scan_mdns() -> MdnsScanResult {
         return result;
     }
     debug!("no mDNS scanner available (avahi-browse / dns-sd not found)");
-    MdnsScanResult { devices: vec![], scanner: "none" }
+    MdnsScanResult {
+        devices: vec![],
+        scanner: "none",
+    }
 }
 
 // ─── Avahi (Linux / Termux) ───────────────────────────────────────────────────
@@ -64,7 +68,10 @@ fn try_avahi() -> Option<MdnsScanResult> {
     let text = String::from_utf8_lossy(&output.stdout);
     let devices = parse_avahi_output(&text);
     debug!(count = devices.len(), "avahi-browse scan complete");
-    Some(MdnsScanResult { devices, scanner: "avahi" })
+    Some(MdnsScanResult {
+        devices,
+        scanner: "avahi",
+    })
 }
 
 /// Parse avahi-browse -p (parsable) output.
@@ -74,17 +81,23 @@ fn try_avahi() -> Option<MdnsScanResult> {
 fn parse_avahi_output(text: &str) -> Vec<DiscoveredDevice> {
     let mut devices = vec![];
     for line in text.lines() {
-        if !line.starts_with('=') { continue; }
+        if !line.starts_with('=') {
+            continue;
+        }
         let parts: Vec<&str> = line.splitn(10, ';').collect();
-        if parts.len() < 10 { continue; }
+        if parts.len() < 10 {
+            continue;
+        }
 
         let service_type = parts[4];
-        if !service_type.contains(VCP_SERVICE_TYPE) { continue; }
+        if !service_type.contains(VCP_SERVICE_TYPE) {
+            continue;
+        }
 
-        let name      = parts[3];
-        let hostname  = parts[6];
-        let addr      = parts[7];
-        let txt_raw   = parts[9];
+        let name = parts[3];
+        let hostname = parts[6];
+        let addr = parts[7];
+        let txt_raw = parts[9];
 
         let txt = parse_avahi_txt(txt_raw);
         if let Some(dev) = txt_to_device(name, hostname, addr, &txt) {
@@ -99,7 +112,9 @@ fn parse_avahi_txt(raw: &str) -> HashMap<String, String> {
     let mut map = HashMap::new();
     for token in raw.split('"') {
         let token = token.trim();
-        if token.is_empty() { continue; }
+        if token.is_empty() {
+            continue;
+        }
         if let Some((k, v)) = token.split_once('=') {
             map.insert(k.to_string(), v.to_string());
         }
@@ -119,7 +134,10 @@ fn try_dns_sd() -> Option<MdnsScanResult> {
     let text = String::from_utf8_lossy(&output.stdout);
     let devices = parse_dns_sd_output(&text);
     debug!(count = devices.len(), "dns-sd scan complete");
-    Some(MdnsScanResult { devices, scanner: "dns-sd" })
+    Some(MdnsScanResult {
+        devices,
+        scanner: "dns-sd",
+    })
 }
 
 fn parse_dns_sd_output(text: &str) -> Vec<DiscoveredDevice> {
@@ -128,8 +146,12 @@ fn parse_dns_sd_output(text: &str) -> Vec<DiscoveredDevice> {
     let mut devices = vec![];
     for line in text.lines().skip(3) {
         let parts: Vec<&str> = line.split_whitespace().collect();
-        if parts.len() < 7 { continue; }
-        if parts[1] != "Add" { continue; }
+        if parts.len() < 7 {
+            continue;
+        }
+        if parts[1] != "Add" {
+            continue;
+        }
         let name = parts[6];
         let txt: HashMap<String, String> = HashMap::new();
         if let Some(dev) = txt_to_device(name, name, "", &txt) {
@@ -142,58 +164,78 @@ fn parse_dns_sd_output(text: &str) -> Vec<DiscoveredDevice> {
 // ─── TXT → DiscoveredDevice ───────────────────────────────────────────────────
 
 fn txt_to_device(
-    name:     &str,
+    name: &str,
     hostname: &str,
-    addr:     &str,
-    txt:      &HashMap<String, String>,
+    addr: &str,
+    txt: &HashMap<String, String>,
 ) -> Option<DiscoveredDevice> {
-    let device_id = txt.get("device_id")
+    let device_id = txt
+        .get("device_id")
         .cloned()
         .unwrap_or_else(|| format!("mdns:{}", hostname.trim_end_matches('.')));
 
-    let model        = txt.get("model").cloned().unwrap_or_else(|| name.into());
-    let manufacturer = txt.get("manufacturer").cloned().unwrap_or_else(|| "Unknown".into());
-    let public_key   = txt.get("pubkey").cloned().unwrap_or_else(|| "base64url:unknown".into());
-    let protocol     = txt.get("protocol").cloned().unwrap_or_else(|| "vcp/1".into());
+    let model = txt.get("model").cloned().unwrap_or_else(|| name.into());
+    let manufacturer = txt
+        .get("manufacturer")
+        .cloned()
+        .unwrap_or_else(|| "Unknown".into());
+    let public_key = txt
+        .get("pubkey")
+        .cloned()
+        .unwrap_or_else(|| "base64url:unknown".into());
+    let protocol = txt
+        .get("protocol")
+        .cloned()
+        .unwrap_or_else(|| "vcp/1".into());
 
-    let caps: Vec<VcpCapabilityDecl> = txt.get("caps")
-        .map(|c| c.split(',')
-            .filter(|s| !s.is_empty())
-            .map(|cap| VcpCapabilityDecl {
-                id:             cap.trim().into(),
-                description:    cap.trim().into(),
-                params:         None,
-                requires_grant: true,
-                safety_level:   SafetyLevel::Low,
-                ungrantable:    false,
-            })
-            .collect())
+    let caps: Vec<VcpCapabilityDecl> = txt
+        .get("caps")
+        .map(|c| {
+            c.split(',')
+                .filter(|s| !s.is_empty())
+                .map(|cap| VcpCapabilityDecl {
+                    id: cap.trim().into(),
+                    description: cap.trim().into(),
+                    params: None,
+                    requires_grant: true,
+                    safety_level: SafetyLevel::Low,
+                    ungrantable: false,
+                })
+                .collect()
+        })
         .unwrap_or_default();
 
     let manifest = AgentDeviceManifest {
-        device_id:         device_id.clone(),
+        device_id: device_id.clone(),
         manufacturer,
         model,
-        protocol_version:  protocol,
-        firmware_version:  "unknown".into(),
-        dip_identity:      device_id.clone(),
-        capabilities:      caps,
+        protocol_version: protocol,
+        firmware_version: "unknown".into(),
+        dip_identity: device_id.clone(),
+        capabilities: caps,
         safety: VcpSafetyConfig {
-            emergency_stop:      true,
-            geofence:            false,
+            emergency_stop: true,
+            geofence: false,
             collision_avoidance: None,
-            max_speed_ms:        None,
-            ungrantable:         vec![],
+            max_speed_ms: None,
+            ungrantable: vec![],
         },
-        transport:   vec![VcpTransport::Wifi],
-        identity:    VcpDeviceIdentity { public_key, cert_chain: None },
-        timestamp:   0,
+        transport: vec![VcpTransport::Wifi],
+        identity: VcpDeviceIdentity {
+            public_key,
+            cert_chain: None,
+        },
+        timestamp: 0,
         merkle_root: String::new(),
-        signature:   String::new(),
+        signature: String::new(),
     };
 
     let rssi = if addr.is_empty() { None } else { Some(-60i16) };
-    Some(DiscoveredDevice::from_manifest(&manifest, rssi, DiscoveryMethod::Mdns))
+    Some(DiscoveredDevice::from_manifest(
+        &manifest,
+        rssi,
+        DiscoveryMethod::Mdns,
+    ))
 }
 
 #[cfg(test)]
@@ -205,8 +247,8 @@ mod tests {
         let raw = r#""device_id=unitree:go2:192.168.1.10" "model=Go2" "caps=camera,lidar""#;
         let map = parse_avahi_txt(raw);
         assert_eq!(map["device_id"], "unitree:go2:192.168.1.10");
-        assert_eq!(map["model"],     "Go2");
-        assert_eq!(map["caps"],      "camera,lidar");
+        assert_eq!(map["model"], "Go2");
+        assert_eq!(map["caps"], "camera,lidar");
     }
 
     #[test]
@@ -221,7 +263,9 @@ mod tests {
         // In CI / test environment, avahi-browse and dns-sd are unlikely to be present
         // Just verify it doesn't panic
         let result = scan_mdns();
-        assert!(result.scanner == "avahi" || result.scanner == "dns-sd" || result.scanner == "none");
+        assert!(
+            result.scanner == "avahi" || result.scanner == "dns-sd" || result.scanner == "none"
+        );
     }
 
     #[test]

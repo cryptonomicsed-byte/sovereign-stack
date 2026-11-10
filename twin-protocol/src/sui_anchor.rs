@@ -14,45 +14,45 @@
 //!   twin_nft.move::mint_twin(twin_id, merkle_root, f1_score, coverage_pct,
 //!                             splat_hash, license_type, revenue_split)
 
-use serde::{Deserialize, Serialize};
-use crate::scene::SceneReceipt;
-use crate::license::{TwinLicenseGrant, TwinLicenseConstraints};
 use crate::error::{TspError, TspResult};
+use crate::license::{TwinLicenseConstraints, TwinLicenseGrant};
+use crate::scene::SceneReceipt;
+use serde::{Deserialize, Serialize};
 use sovereign_types::{Did, Hash, Timestamp, UsageRight};
 
 /// The on-chain representation of a Twin Asset.
 /// Mirrors twin_nft.move::TwinNFT struct fields.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SuiTwinObject {
-    pub object_id:       String,    // Sui object ID (0x...)
-    pub twin_id:         Hash,      // TSP twin_id (twin:sha256:...)
-    pub owner:           String,    // Sui address of owner
-    pub merkle_root:     Hash,      // binds all twin data
-    pub f1_score_x1000:  u32,       // f1_score * 1000 (no floats on chain)
-    pub coverage_x100:   u32,       // coverage_pct * 100
-    pub splat_hash:      Hash,
-    pub license_type:    u8,        // 0=Exclusive 1=NonExclusive 2=OpenAccess 3=ResearchOnly
-    pub owner_bps:       u16,       // revenue split basis points (7000 = 70%)
-    pub protocol_bps:    u16,       // protocol fee basis points (250 = 2.5%)
-    pub version:         u32,
-    pub created_epoch:   u64,       // Sui epoch
+    pub object_id: String,   // Sui object ID (0x...)
+    pub twin_id: Hash,       // TSP twin_id (twin:sha256:...)
+    pub owner: String,       // Sui address of owner
+    pub merkle_root: Hash,   // binds all twin data
+    pub f1_score_x1000: u32, // f1_score * 1000 (no floats on chain)
+    pub coverage_x100: u32,  // coverage_pct * 100
+    pub splat_hash: Hash,
+    pub license_type: u8, // 0=Exclusive 1=NonExclusive 2=OpenAccess 3=ResearchOnly
+    pub owner_bps: u16,   // revenue split basis points (7000 = 70%)
+    pub protocol_bps: u16, // protocol fee basis points (250 = 2.5%)
+    pub version: u32,
+    pub created_epoch: u64, // Sui epoch
 }
 
 /// A transaction request to mint a Twin NFT on Sui.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SuiMintRequest {
-    pub kind:           String,     // "twin_mint"
-    pub sender:         String,     // Sui address submitting the tx
-    pub twin_id:        Hash,
-    pub merkle_root:    Hash,
-    pub splat_hash:     Hash,
+    pub kind: String,   // "twin_mint"
+    pub sender: String, // Sui address submitting the tx
+    pub twin_id: Hash,
+    pub merkle_root: Hash,
+    pub splat_hash: Hash,
     pub f1_score_x1000: u32,
-    pub coverage_x100:  u32,
-    pub license_type:   u8,
-    pub owner_bps:      u16,
-    pub protocol_bps:   u16,
-    pub receipt_id:     String,     // 31030 receipt_id for audit trail
-    pub gas_budget:     u64,        // MIST
+    pub coverage_x100: u32,
+    pub license_type: u8,
+    pub owner_bps: u16,
+    pub protocol_bps: u16,
+    pub receipt_id: String, // 31030 receipt_id for audit trail
+    pub gas_budget: u64,    // MIST
 }
 
 impl SuiMintRequest {
@@ -60,25 +60,25 @@ impl SuiMintRequest {
         let splat_hash = receipt.splat_hash.clone();
 
         let license_type: u8 = match receipt.license_type {
-            sovereign_types::LicenseType::Exclusive    => 0,
+            sovereign_types::LicenseType::Exclusive => 0,
             sovereign_types::LicenseType::NonExclusive => 1,
-            sovereign_types::LicenseType::OpenAccess   => 2,
+            sovereign_types::LicenseType::OpenAccess => 2,
             sovereign_types::LicenseType::ResearchOnly => 3,
         };
 
         Ok(Self {
-            kind:           "twin_mint".into(),
-            sender:         sender_address.into(),
-            twin_id:        receipt.twin_id.clone(),
-            merkle_root:    receipt.merkle_root.clone(),
+            kind: "twin_mint".into(),
+            sender: sender_address.into(),
+            twin_id: receipt.twin_id.clone(),
+            merkle_root: receipt.merkle_root.clone(),
             splat_hash,
             f1_score_x1000: (receipt.f1_score * 1000.0) as u32,
-            coverage_x100:  (receipt.coverage_pct * 100.0) as u32,
+            coverage_x100: (receipt.coverage_pct * 100.0) as u32,
             license_type,
-            owner_bps:      7000,   // 70% owner
-            protocol_bps:   250,    // 2.5% protocol
-            receipt_id:     receipt.receipt_id.clone(),
-            gas_budget:     10_000_000,  // 0.01 SUI
+            owner_bps: 7000,   // 70% owner
+            protocol_bps: 250, // 2.5% protocol
+            receipt_id: receipt.receipt_id.clone(),
+            gas_budget: 10_000_000, // 0.01 SUI
         })
     }
 
@@ -104,11 +104,11 @@ impl SuiMintRequest {
 /// Response from the Sui node after a mint transaction.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SuiMintResponse {
-    pub tx_digest:   String,        // Sui transaction digest
-    pub object_id:   String,        // newly minted Twin NFT object ID
-    pub gas_used:    u64,           // MIST
-    pub epoch:       u64,
-    pub status:      SuiTxStatus,
+    pub tx_digest: String, // Sui transaction digest
+    pub object_id: String, // newly minted Twin NFT object ID
+    pub gas_used: u64,     // MIST
+    pub epoch: u64,
+    pub status: SuiTxStatus,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -123,25 +123,25 @@ pub enum SuiTxStatus {
 /// Represents a granted right to simulate/view/annotate the twin.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SuiLicenseObject {
-    pub object_id:    String,
-    pub twin_id:      Hash,
-    pub twin_object:  String,        // parent Twin NFT object_id
-    pub grantee:      String,        // Sui address of licensee
-    pub rights_bitmask: u8,          // bit 0=View 1=Simulate 2=Annotate 3=Derive 4=Distribute 5=Commercial
+    pub object_id: String,
+    pub twin_id: Hash,
+    pub twin_object: String, // parent Twin NFT object_id
+    pub grantee: String,     // Sui address of licensee
+    pub rights_bitmask: u8,  // bit 0=View 1=Simulate 2=Annotate 3=Derive 4=Distribute 5=Commercial
     pub max_sim_runs: Option<u32>,
-    pub expires_at:   Option<u64>,   // Sui epoch
+    pub expires_at: Option<u64>, // Sui epoch
 }
 
 fn rights_to_bitmask(rights: &[UsageRight]) -> u8 {
     let mut mask = 0u8;
     for r in rights {
         mask |= match r {
-            UsageRight::View        => 0b00000001,
-            UsageRight::Simulate    => 0b00000010,
-            UsageRight::Annotate    => 0b00000100,
-            UsageRight::Derive      => 0b00001000,
-            UsageRight::Distribute  => 0b00010000,
-            UsageRight::Commercial  => 0b00100000,
+            UsageRight::View => 0b00000001,
+            UsageRight::Simulate => 0b00000010,
+            UsageRight::Annotate => 0b00000100,
+            UsageRight::Derive => 0b00001000,
+            UsageRight::Distribute => 0b00010000,
+            UsageRight::Commercial => 0b00100000,
         };
     }
     mask
@@ -150,16 +150,24 @@ fn rights_to_bitmask(rights: &[UsageRight]) -> u8 {
 /// The Sui anchor client — submits transactions and writes object IDs back.
 pub struct SuiAnchor {
     /// Sui RPC endpoint (e.g. "https://fullnode.mainnet.sui.io")
-    pub rpc_url:  String,
+    pub rpc_url: String,
     /// Sui address used for submitting transactions
-    pub address:  String,
+    pub address: String,
     /// Private key (base64url) — in production, use a keystore/HSM
-    pub key:      String,
+    pub key: String,
 }
 
 impl SuiAnchor {
-    pub fn new(rpc_url: impl Into<String>, address: impl Into<String>, key: impl Into<String>) -> Self {
-        Self { rpc_url: rpc_url.into(), address: address.into(), key: key.into() }
+    pub fn new(
+        rpc_url: impl Into<String>,
+        address: impl Into<String>,
+        key: impl Into<String>,
+    ) -> Self {
+        Self {
+            rpc_url: rpc_url.into(),
+            address: address.into(),
+            key: key.into(),
+        }
     }
 
     /// Anchor a SceneReceipt on Sui by minting a Twin NFT.
@@ -179,26 +187,28 @@ impl SuiAnchor {
         );
 
         let rpc = SuiRpcClient::new(&self.rpc_url);
-        let (tx_digest, object_id) = rpc.mint_twin(
-            &self.address,
-            &self.key,
-            &request.twin_id,
-            &request.merkle_root,
-            &request.splat_hash,
-            request.f1_score_x1000,
-            request.coverage_x100,
-            request.license_type,
-            request.owner_bps,
-            request.protocol_bps,
-            request.gas_budget,
-        ).await?;
+        let (tx_digest, object_id) = rpc
+            .mint_twin(
+                &self.address,
+                &self.key,
+                &request.twin_id,
+                &request.merkle_root,
+                &request.splat_hash,
+                request.f1_score_x1000,
+                request.coverage_x100,
+                request.license_type,
+                request.owner_bps,
+                request.protocol_bps,
+                request.gas_budget,
+            )
+            .await?;
 
         let response = SuiMintResponse {
-            tx_digest:  tx_digest.clone(),
-            object_id:  object_id.clone(),
-            gas_used:   3_500_000,
-            epoch:      1,
-            status:     SuiTxStatus::Success,
+            tx_digest: tx_digest.clone(),
+            object_id: object_id.clone(),
+            gas_used: 3_500_000,
+            epoch: 1,
+            status: SuiTxStatus::Success,
         };
 
         // Write object_id + digest back into the SceneReceipt
@@ -214,7 +224,11 @@ impl SuiAnchor {
     }
 
     /// Issue a License NFT derived from an existing Twin NFT.
-    pub async fn issue_license(&self, grant: &TwinLicenseGrant, twin_object_id: &str) -> TspResult<SuiLicenseObject> {
+    pub async fn issue_license(
+        &self,
+        grant: &TwinLicenseGrant,
+        twin_object_id: &str,
+    ) -> TspResult<SuiLicenseObject> {
         let bitmask = rights_to_bitmask(&grant.rights);
         tracing::info!(
             twin_id   = %grant.twin_id,
@@ -223,16 +237,19 @@ impl SuiAnchor {
             "issuing License NFT"
         );
 
-        let stub_object_id = format!("0xlic:{}", &sovereign_types::hash_str(&grant.grant_id)[7..23]);
+        let stub_object_id = format!(
+            "0xlic:{}",
+            &sovereign_types::hash_str(&grant.grant_id)[7..23]
+        );
 
         Ok(SuiLicenseObject {
-            object_id:     stub_object_id,
-            twin_id:       grant.twin_id.clone(),
-            twin_object:   twin_object_id.into(),
-            grantee:       grant.grantee_did.clone(),
+            object_id: stub_object_id,
+            twin_id: grant.twin_id.clone(),
+            twin_object: twin_object_id.into(),
+            grantee: grant.grantee_did.clone(),
             rights_bitmask: bitmask,
-            max_sim_runs:  grant.constraints.max_sim_runs,
-            expires_at:    None,
+            max_sim_runs: grant.constraints.max_sim_runs,
+            expires_at: None,
         })
     }
 }
@@ -241,42 +258,42 @@ impl SuiAnchor {
 mod tests {
     use super::*;
     use crate::scene::SceneReceipt;
-    use sovereign_types::{IdentityChain, LicenseType, crypto::generate_keypair};
+    use sovereign_types::{crypto::generate_keypair, IdentityChain, LicenseType};
 
     fn make_receipt() -> SceneReceipt {
         // Build a minimal but valid SceneReceipt
         SceneReceipt {
-            kind:                   31030,
-            receipt_id:             "rcpt:31030:test".into(),
-            twin_id:                "twin:sha256:aabbcc".into(),
-            version:                1,
-            identity:               IdentityChain::new("did:p:1".into(), "did:a:1".into()),
-            capture_receipt_ids:    vec!["rcpt:31020:01".into()],
+            kind: 31030,
+            receipt_id: "rcpt:31030:test".into(),
+            twin_id: "twin:sha256:aabbcc".into(),
+            version: 1,
+            identity: IdentityChain::new("did:p:1".into(), "did:a:1".into()),
+            capture_receipt_ids: vec!["rcpt:31020:01".into()],
             reconstruction_engine: "julia-gsplat/2.1".into(),
-            splat_hash:             "sha256:splat01".into(),
-            geometry_hash:          None,
-            semantic_hash:          None,
-            f1_score:               0.891,
-            coverage_pct:           94.2,
-            gaussian_count:         Some(1_842_000),
-            sui_object_id:          None,
-            ip_root_tx:             None,
-            license_type:           LicenseType::NonExclusive,
-            merkle_root:            "sha256:root01".into(),
-            signature:              "base64url:testsig".into(),
-            timestamp:              1725734400000,
+            splat_hash: "sha256:splat01".into(),
+            geometry_hash: None,
+            semantic_hash: None,
+            f1_score: 0.891,
+            coverage_pct: 94.2,
+            gaussian_count: Some(1_842_000),
+            sui_object_id: None,
+            ip_root_tx: None,
+            license_type: LicenseType::NonExclusive,
+            merkle_root: "sha256:root01".into(),
+            signature: "base64url:testsig".into(),
+            timestamp: 1725734400000,
         }
     }
 
     #[test]
     fn mint_request_encodes_f1_correctly() {
-        let receipt  = make_receipt();
-        let request  = SuiMintRequest::from_scene_receipt(&receipt, "0xowner").unwrap();
+        let receipt = make_receipt();
+        let request = SuiMintRequest::from_scene_receipt(&receipt, "0xowner").unwrap();
         assert_eq!(request.f1_score_x1000, 891);
-        assert_eq!(request.coverage_x100,  9420);
-        assert_eq!(request.license_type,   1);  // NonExclusive
-        assert_eq!(request.owner_bps,      7000);
-        assert_eq!(request.protocol_bps,   250);
+        assert_eq!(request.coverage_x100, 9420);
+        assert_eq!(request.license_type, 1); // NonExclusive
+        assert_eq!(request.owner_bps, 7000);
+        assert_eq!(request.protocol_bps, 250);
     }
 
     #[test]
@@ -284,8 +301,14 @@ mod tests {
         let rights = vec![UsageRight::View, UsageRight::Simulate];
         assert_eq!(rights_to_bitmask(&rights), 0b00000011);
 
-        let all = vec![UsageRight::View, UsageRight::Simulate, UsageRight::Annotate,
-                       UsageRight::Derive, UsageRight::Distribute, UsageRight::Commercial];
+        let all = vec![
+            UsageRight::View,
+            UsageRight::Simulate,
+            UsageRight::Annotate,
+            UsageRight::Derive,
+            UsageRight::Distribute,
+            UsageRight::Commercial,
+        ];
         assert_eq!(rights_to_bitmask(&all), 0b00111111);
     }
 

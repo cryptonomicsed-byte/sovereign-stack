@@ -4,11 +4,11 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct GrantProposal {
     pub id: u64,
-    pub proposer: String,       // Sui address
-    pub recipient: String,      // Sui address
+    pub proposer: String,  // Sui address
+    pub recipient: String, // Sui address
     pub amount_micro_ase: u64,
     pub purpose: String,
-    pub veil_id: u64,           // 0 = open grant
+    pub veil_id: u64, // 0 = open grant
     pub votes_for: u64,
     pub votes_against: u64,
     pub created_at: u64,

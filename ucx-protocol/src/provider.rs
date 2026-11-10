@@ -1,4 +1,9 @@
-use crate::{capability::ProviderCapability, error::UcxError, job::{Allocation, Job, JobId, JobStatus}, receipt::ComputeReceipt};
+use crate::{
+    capability::ProviderCapability,
+    error::UcxError,
+    job::{Allocation, Job, JobId, JobStatus},
+    receipt::ComputeReceipt,
+};
 
 pub type ProviderId = String;
 
@@ -8,8 +13,8 @@ pub type ProviderId = String;
 /// `Arc<dyn ComputeProvider>`.  Async is intentionally NOT here; async is an
 /// implementation detail of ucx-broker, not the protocol.
 pub trait ComputeProvider: Send + Sync {
-    fn id(&self)           -> &str;
-    fn capability(&self)   -> &ProviderCapability;
+    fn id(&self) -> &str;
+    fn capability(&self) -> &ProviderCapability;
 
     /// Returns true if this provider CAN accept the job (capability check only,
     /// no side effects).

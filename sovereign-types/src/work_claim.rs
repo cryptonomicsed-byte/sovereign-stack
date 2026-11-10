@@ -35,15 +35,15 @@ pub enum WorkDomain {
 impl WorkDomain {
     pub fn as_str(&self) -> &str {
         match self {
-            Self::GpuCompute    => "gpu_compute",
-            Self::Simulation    => "simulation",
-            Self::SimToReal     => "sim_to_real",
-            Self::PrintJob      => "print_job",
-            Self::AerialFlight  => "aerial_flight",
-            Self::GroundRobot   => "ground_robot",
-            Self::SciSim        => "sci_sim",
+            Self::GpuCompute => "gpu_compute",
+            Self::Simulation => "simulation",
+            Self::SimToReal => "sim_to_real",
+            Self::PrintJob => "print_job",
+            Self::AerialFlight => "aerial_flight",
+            Self::GroundRobot => "ground_robot",
+            Self::SciSim => "sci_sim",
             Self::SpatialCapture => "spatial_capture",
-            Self::Custom(s)     => s.as_str(),
+            Self::Custom(s) => s.as_str(),
         }
     }
 
@@ -51,15 +51,15 @@ impl WorkDomain {
     /// Governance may override these via TOC_CONSTANTS [bonus_ladder].
     pub fn base_multiplier(&self) -> f64 {
         match self {
-            Self::GpuCompute     => 1.0,
-            Self::Simulation     => 1.0,
-            Self::SimToReal      => 5.0,   // predicted + real-world confirmed
-            Self::PrintJob       => 2.0,   // verified physical output
-            Self::AerialFlight   => 3.0,   // real-world + telemetry
-            Self::GroundRobot    => 3.0,
-            Self::SciSim         => 2.0,
+            Self::GpuCompute => 1.0,
+            Self::Simulation => 1.0,
+            Self::SimToReal => 5.0,    // predicted + real-world confirmed
+            Self::PrintJob => 2.0,     // verified physical output
+            Self::AerialFlight => 3.0, // real-world + telemetry
+            Self::GroundRobot => 3.0,
+            Self::SciSim => 2.0,
             Self::SpatialCapture => 2.0,
-            Self::Custom(_)      => 1.0,
+            Self::Custom(_) => 1.0,
         }
     }
 }
@@ -100,19 +100,48 @@ pub struct EvidencePolicy {
 
 impl EvidencePolicy {
     pub fn for_gpu() -> Self {
-        Self { require_input_hash: true, require_output_hash: true, require_measurement: false, custom_tags: vec![] }
+        Self {
+            require_input_hash: true,
+            require_output_hash: true,
+            require_measurement: false,
+            custom_tags: vec![],
+        }
     }
     pub fn for_simulation() -> Self {
-        Self { require_input_hash: true, require_output_hash: true, require_measurement: false, custom_tags: vec!["sim_params_hash".into()] }
+        Self {
+            require_input_hash: true,
+            require_output_hash: true,
+            require_measurement: false,
+            custom_tags: vec!["sim_params_hash".into()],
+        }
     }
     pub fn for_sim_to_real() -> Self {
-        Self { require_input_hash: true, require_output_hash: true, require_measurement: true, custom_tags: vec!["prediction_hash".into(), "measurement_hash".into()] }
+        Self {
+            require_input_hash: true,
+            require_output_hash: true,
+            require_measurement: true,
+            custom_tags: vec!["prediction_hash".into(), "measurement_hash".into()],
+        }
     }
     pub fn for_print_job() -> Self {
-        Self { require_input_hash: true, require_output_hash: true, require_measurement: true, custom_tags: vec!["stl_hash".into(), "gcode_hash".into(), "slicer_params_hash".into()] }
+        Self {
+            require_input_hash: true,
+            require_output_hash: true,
+            require_measurement: true,
+            custom_tags: vec![
+                "stl_hash".into(),
+                "gcode_hash".into(),
+                "slicer_params_hash".into(),
+            ],
+        }
     }
     pub fn for_aerial_flight() -> Self {
-        Self { require_input_hash: false, require_output_hash: true, require_measurement: true, custom_tags: vec!["telemetry_hash".into(), "flight_log_hash".into()] }
+        Self {
+            require_input_hash: false,
+            require_output_hash: true,
+            require_measurement: true,
+            custom_tags: vec!["telemetry_hash".into(), "flight_log_hash".into()],
+        }
     }
 }
 
@@ -197,7 +226,8 @@ impl WorkClaim {
 
     /// Effective emission multiplier (override > domain default).
     pub fn effective_multiplier(&self) -> f64 {
-        self.bonus_multiplier_override.unwrap_or_else(|| self.domain.base_multiplier())
+        self.bonus_multiplier_override
+            .unwrap_or_else(|| self.domain.base_multiplier())
     }
 
     /// Compute score — quantity × effective multiplier, used for Dopamine allocation.

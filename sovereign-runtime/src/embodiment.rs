@@ -1,15 +1,15 @@
-use serde::{Deserialize, Serialize};
 use crate::device::HardwareTier;
 use crate::power::PowerSnapshot;
 use crate::safety::{SafetyCommand, SafetyVerdict};
+use serde::{Deserialize, Serialize};
 
 /// A single sensor connected to this embodiment.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SensorDescriptor {
-    pub sensor_id:  String,
-    pub kind:       SensorKind,
-    pub model:      String,
-    pub active:     bool,
+    pub sensor_id: String,
+    pub kind: SensorKind,
+    pub model: String,
+    pub active: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -34,14 +34,14 @@ pub enum SensorKind {
 /// translates those intents into physical actions that pass through the safety hierarchy.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct EmbodimentDescriptor {
-    pub embodiment_id:  String,
-    pub device_did:     String,
-    pub tier:           HardwareTier,
-    pub model:          String,
-    pub sensors:        Vec<SensorDescriptor>,
-    pub has_actuators:  bool,
-    pub has_gpu:        bool,
-    pub has_npu:        bool,
+    pub embodiment_id: String,
+    pub device_did: String,
+    pub tier: HardwareTier,
+    pub model: String,
+    pub sensors: Vec<SensorDescriptor>,
+    pub has_actuators: bool,
+    pub has_gpu: bool,
+    pub has_npu: bool,
 }
 
 impl EmbodimentDescriptor {
@@ -84,35 +84,35 @@ impl StubEmbodiment {
         Self {
             descriptor: EmbodimentDescriptor {
                 embodiment_id: format!("emb:{}", uuid::Uuid::new_v4()),
-                device_did:    device_did.into(),
-                tier:          HardwareTier::Portable,
-                model:         "stub-portable".into(),
-                sensors:       vec![
-                    SensorDescriptor {
-                        sensor_id: "cam:0".into(),
-                        kind:      SensorKind::Camera,
-                        model:     "stub-cam".into(),
-                        active:    true,
-                    },
-                ],
+                device_did: device_did.into(),
+                tier: HardwareTier::Portable,
+                model: "stub-portable".into(),
+                sensors: vec![SensorDescriptor {
+                    sensor_id: "cam:0".into(),
+                    kind: SensorKind::Camera,
+                    model: "stub-cam".into(),
+                    active: true,
+                }],
                 has_actuators: false,
-                has_gpu:       false,
-                has_npu:       false,
+                has_gpu: false,
+                has_npu: false,
             },
         }
     }
 }
 
 impl EmbodimentManager for StubEmbodiment {
-    fn descriptor(&self) -> &EmbodimentDescriptor { &self.descriptor }
+    fn descriptor(&self) -> &EmbodimentDescriptor {
+        &self.descriptor
+    }
 
     fn power_snapshot(&self) -> PowerSnapshot {
         PowerSnapshot {
-            state:          crate::power::PowerState::Normal,
-            source:         crate::power::PowerSource::Mains,
-            battery_pct:    Some(100),
+            state: crate::power::PowerState::Normal,
+            source: crate::power::PowerSource::Mains,
+            battery_pct: Some(100),
             charge_rate_mw: Some(0),
-            temperature_c:  Some(35.0),
+            temperature_c: Some(35.0),
         }
     }
 
@@ -129,14 +129,21 @@ impl EmbodimentManager for StubEmbodiment {
     }
 
     fn read_sensor(&self, sensor_id: &str) -> Result<serde_json::Value, EmbodimentError> {
-        if self.descriptor.sensors.iter().any(|s| s.sensor_id == sensor_id) {
+        if self
+            .descriptor
+            .sensors
+            .iter()
+            .any(|s| s.sensor_id == sensor_id)
+        {
             Ok(serde_json::json!({ "stub": true, "sensor_id": sensor_id }))
         } else {
             Err(EmbodimentError::SensorNotFound(sensor_id.into()))
         }
     }
 
-    fn is_in_motion(&self) -> bool { false }
+    fn is_in_motion(&self) -> bool {
+        false
+    }
 }
 
 #[derive(Debug, thiserror::Error)]

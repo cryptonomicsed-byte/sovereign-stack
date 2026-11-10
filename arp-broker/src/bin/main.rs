@@ -15,13 +15,13 @@
 use std::collections::HashMap;
 use std::sync::{Arc, RwLock};
 
+use arp_types::ActionReceipt;
 use axum::{
     extract::{Path, State},
     http::StatusCode,
     routing::{get, post},
     Json, Router,
 };
-use arp_types::ActionReceipt;
 use chrono::Utc;
 
 type AppState = Arc<BrokerState>;
@@ -80,9 +80,9 @@ async fn submit_receipt(
     State(s): State<AppState>,
     Json(receipt): Json<ActionReceipt>,
 ) -> (StatusCode, Json<serde_json::Value>) {
-    let agent_id   = receipt.principal.agent_id.clone();
+    let agent_id = receipt.principal.agent_id.clone();
     let receipt_id = receipt.receipt_id.to_string();
-    let hash       = receipt.hash();
+    let hash = receipt.hash();
 
     // Verify chain link if previous_hash is set
     if let Some(prev_hash) = &receipt.previous_hash {
@@ -109,19 +109,22 @@ async fn submit_receipt(
 
     // Store receipt
     {
-        let mut rmap  = s.receipts.write().unwrap();
-        let mut amap  = s.by_agent.write().unwrap();
+        let mut rmap = s.receipts.write().unwrap();
+        let mut amap = s.by_agent.write().unwrap();
         rmap.insert(receipt_id.clone(), receipt);
         amap.entry(agent_id.clone())
             .or_default()
             .push(receipt_id.clone());
     }
 
-    (StatusCode::CREATED, Json(serde_json::json!({
-        "receipt_id": receipt_id,
-        "hash":       hash,
-        "agent_id":   agent_id,
-    })))
+    (
+        StatusCode::CREATED,
+        Json(serde_json::json!({
+            "receipt_id": receipt_id,
+            "hash":       hash,
+            "agent_id":   agent_id,
+        })),
+    )
 }
 
 async fn get_receipt(
@@ -129,8 +132,14 @@ async fn get_receipt(
     Path(id): Path<String>,
 ) -> (StatusCode, Json<serde_json::Value>) {
     match s.receipts.read().unwrap().get(&id).cloned() {
-        Some(r) => (StatusCode::OK, Json(serde_json::to_value(r).unwrap_or_default())),
-        None    => (StatusCode::NOT_FOUND, Json(serde_json::json!({"error": "not found"}))),
+        Some(r) => (
+            StatusCode::OK,
+            Json(serde_json::to_value(r).unwrap_or_default()),
+        ),
+        None => (
+            StatusCode::NOT_FOUND,
+            Json(serde_json::json!({"error": "not found"})),
+        ),
     }
 }
 
@@ -140,9 +149,10 @@ async fn list_agent_receipts(
 ) -> Json<serde_json::Value> {
     let rmap = s.receipts.read().unwrap();
     let amap = s.by_agent.read().unwrap();
-    let ids  = amap.get(&agent_id).cloned().unwrap_or_default();
+    let ids = amap.get(&agent_id).cloned().unwrap_or_default();
 
-    let receipts: Vec<serde_json::Value> = ids.iter()
+    let receipts: Vec<serde_json::Value> = ids
+        .iter()
         .filter_map(|id| rmap.get(id))
         .map(|r| serde_json::to_value(r).unwrap_or_default())
         .collect();
@@ -152,9 +162,7 @@ async fn list_agent_receipts(
 }
 
 /// Verify a submitted ordered slice of receipts forms an unbroken hash chain.
-async fn verify_chain(
-    Json(receipts): Json<Vec<ActionReceipt>>,
-) -> Json<serde_json::Value> {
+async fn verify_chain(Json(receipts): Json<Vec<ActionReceipt>>) -> Json<serde_json::Value> {
     if receipts.is_empty() {
         return Json(serde_json::json!({"valid": true, "length": 0}));
     }

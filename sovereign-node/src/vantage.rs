@@ -13,17 +13,17 @@ use tracing::{debug, info, warn};
 use dip::DipEnvelope;
 
 pub struct VantageClient {
-    base_url:  String,
+    base_url: String,
     api_token: String,
-    client:    reqwest::Client,
+    client: reqwest::Client,
 }
 
 impl VantageClient {
     pub fn new(base_url: impl Into<String>, api_token: impl Into<String>) -> Self {
         Self {
-            base_url:  base_url.into(),
+            base_url: base_url.into(),
             api_token: api_token.into(),
-            client:    reqwest::Client::builder()
+            client: reqwest::Client::builder()
                 .timeout(std::time::Duration::from_secs(8))
                 .build()
                 .unwrap_or_default(),
@@ -33,7 +33,8 @@ impl VantageClient {
     /// POST /api/dip/inbound — forward a DIP envelope to Vantage for destination routing.
     pub async fn post_dip(&self, envelope: &DipEnvelope) {
         let url = format!("{}/api/dip/inbound", self.base_url);
-        match self.client
+        match self
+            .client
             .post(&url)
             .bearer_auth(&self.api_token)
             .json(envelope)
@@ -59,10 +60,10 @@ impl VantageClient {
     /// POST /api/receipts — publish a scene receipt for explorer indexing.
     pub async fn post_receipt(
         &self,
-        twin_id:    &str,
+        twin_id: &str,
         receipt_id: &str,
-        device_id:  &str,
-        kind:       u32,
+        device_id: &str,
+        kind: u32,
         sui_object_id: Option<&str>,
     ) {
         let body = json!({
@@ -73,7 +74,8 @@ impl VantageClient {
             "sui_object_id": sui_object_id,
         });
         let url = format!("{}/api/receipts", self.base_url);
-        match self.client
+        match self
+            .client
             .post(&url)
             .bearer_auth(&self.api_token)
             .json(&body)
@@ -99,27 +101,26 @@ impl VantageClient {
     /// Returns the list of envelopes (may be empty). Non-fatal on error.
     pub async fn poll_dip_outbound(&self, node_did: &str) -> Vec<DipEnvelope> {
         let url = format!("{}/api/dip/outbound", self.base_url);
-        match self.client
+        match self
+            .client
             .get(&url)
             .bearer_auth(&self.api_token)
             .query(&[("did", node_did)])
             .send()
             .await
         {
-            Ok(resp) if resp.status().is_success() => {
-                match resp.json::<Vec<DipEnvelope>>().await {
-                    Ok(envelopes) => {
-                        if !envelopes.is_empty() {
-                            debug!(count = envelopes.len(), "polled DIP envelopes from Vantage");
-                        }
-                        envelopes
+            Ok(resp) if resp.status().is_success() => match resp.json::<Vec<DipEnvelope>>().await {
+                Ok(envelopes) => {
+                    if !envelopes.is_empty() {
+                        debug!(count = envelopes.len(), "polled DIP envelopes from Vantage");
                     }
-                    Err(e) => {
-                        warn!(error = %e, "DIP outbound poll: failed to decode envelopes");
-                        vec![]
-                    }
+                    envelopes
                 }
-            }
+                Err(e) => {
+                    warn!(error = %e, "DIP outbound poll: failed to decode envelopes");
+                    vec![]
+                }
+            },
             Ok(resp) => {
                 debug!(status = %resp.status(), "DIP outbound poll: non-2xx (no messages)");
                 vec![]
@@ -136,7 +137,8 @@ impl VantageClient {
     /// Body is caller-constructed JSON so this method stays generic. Non-fatal.
     pub async fn post_node_heartbeat(&self, node_did: &str, body: serde_json::Value) {
         let url = format!("{}/api/nodes/heartbeat", self.base_url);
-        match self.client
+        match self
+            .client
             .post(&url)
             .bearer_auth(&self.api_token)
             .json(&body)
@@ -157,12 +159,7 @@ impl VantageClient {
     }
 
     /// POST /api/me/heartbeat with VCP device context.
-    pub async fn post_heartbeat(
-        &self,
-        node_name: &str,
-        node_did:  &str,
-        vcp_summary: Value,
-    ) {
+    pub async fn post_heartbeat(&self, node_name: &str, node_did: &str, vcp_summary: Value) {
         let body = json!({
             "work_state": "ALIVE",
             "intent":     "vcp_scan",
@@ -175,7 +172,8 @@ impl VantageClient {
         });
 
         let url = format!("{}/api/me/heartbeat", self.base_url);
-        match self.client
+        match self
+            .client
             .post(&url)
             .bearer_auth(&self.api_token)
             .json(&body)

@@ -4,9 +4,9 @@
 //! GET  /jobs/:id           → poll status
 //! GET  /jobs               → list all jobs
 
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::Arc;
-use serde::{Deserialize, Serialize};
 use tokio::sync::RwLock;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -15,11 +15,11 @@ pub enum JobStatus {
     Queued,
     Running,
     Completed {
-        twin_id:            String,
-        scene_receipt_id:   String,
+        twin_id: String,
+        scene_receipt_id: String,
         capture_receipt_id: String,
-        sui_object_id:      Option<String>,
-        dip_message_count:  usize,
+        sui_object_id: Option<String>,
+        dip_message_count: usize,
     },
     Failed {
         reason: String,
@@ -28,9 +28,9 @@ pub enum JobStatus {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Job {
-    pub job_id:     String,
-    pub device_id:  String,
-    pub status:     JobStatus,
+    pub job_id: String,
+    pub device_id: String,
+    pub status: JobStatus,
     pub created_at: u64,
     pub updated_at: u64,
 }
@@ -39,9 +39,9 @@ impl Job {
     pub fn new(job_id: impl Into<String>, device_id: impl Into<String>) -> Self {
         let now = now_ms();
         Self {
-            job_id:     job_id.into(),
-            device_id:  device_id.into(),
-            status:     JobStatus::Queued,
+            job_id: job_id.into(),
+            device_id: device_id.into(),
+            status: JobStatus::Queued,
             created_at: now,
             updated_at: now,
         }
@@ -73,7 +73,7 @@ impl JobStore {
     pub async fn update_status(&self, job_id: &str, status: JobStatus) {
         let mut inner = self.inner.write().await;
         if let Some(job) = inner.get_mut(job_id) {
-            job.status     = status;
+            job.status = status;
             job.updated_at = now_ms();
         }
     }

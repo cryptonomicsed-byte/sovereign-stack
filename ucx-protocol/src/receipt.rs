@@ -11,12 +11,12 @@ use crate::job::JobId;
 /// Integrate by embedding `zangbeto_anchor` when the receipt flows through OSOVM.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ComputeReceipt {
-    pub job_id:       JobId,
-    pub provider_id:  String,
+    pub job_id: JobId,
+    pub provider_id: String,
     pub completed_at: DateTime<Utc>,
 
-    pub resources:    ResourceUsage,
-    pub billing:      BillingRecord,
+    pub resources: ResourceUsage,
+    pub billing: BillingRecord,
     pub verification: VerificationProof,
 
     /// Optional anchor into OSOVM / Zàngbétò receipt chain.
@@ -42,11 +42,11 @@ impl ComputeReceipt {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ResourceUsage {
-    pub gpu_seconds:     f64,
-    pub cpu_seconds:     f64,
-    pub ram_gb_seconds:  f64,
-    pub storage_gb:      f64,
-    pub egress_gb:       f64,
+    pub gpu_seconds: f64,
+    pub cpu_seconds: f64,
+    pub ram_gb_seconds: f64,
+    pub storage_gb: f64,
+    pub egress_gb: f64,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -54,14 +54,14 @@ pub struct BillingRecord {
     /// Total charged in USD cents.
     pub amount_cents: u64,
     /// Currency — reserved for future ASE/on-chain settlement.
-    pub currency:     BillingCurrency,
-    pub line_items:   Vec<LineItem>,
+    pub currency: BillingCurrency,
+    pub line_items: Vec<LineItem>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct LineItem {
-    pub label:       String,
-    pub cents:       u64,
+    pub label: String,
+    pub cents: u64,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -74,9 +74,9 @@ pub enum BillingCurrency {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct VerificationProof {
     /// SHA-256 of the output artifact(s).
-    pub artifact_hash:      Option<String>,
+    pub artifact_hash: Option<String>,
     /// Runtime attestation — opaque, provider-specific.
     pub runtime_attestation: Option<String>,
     /// Execution hash — deterministic fingerprint of the computation.
-    pub execution_hash:     Option<String>,
+    pub execution_hash: Option<String>,
 }

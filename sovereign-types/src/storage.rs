@@ -128,13 +128,19 @@ impl StorageRouter {
     }
 
     fn find(&self, backend: &StorageBackend) -> Option<&dyn StorageProvider> {
-        self.providers.iter().find(|p| &p.backend() == backend).map(|p| p.as_ref())
+        self.providers
+            .iter()
+            .find(|p| &p.backend() == backend)
+            .map(|p| p.as_ref())
     }
 
     /// Store using the given policy, falling back to alternatives on failure.
     pub fn store(&self, payload: &[u8], policy: &StoragePolicy) -> StorageResult<StorageReceipt> {
         let order = std::iter::once(&policy.preferred).chain(policy.fallbacks.iter());
-        let mut last_err = StorageError::BackendUnavailable(policy.preferred.clone(), "no providers registered".into());
+        let mut last_err = StorageError::BackendUnavailable(
+            policy.preferred.clone(),
+            "no providers registered".into(),
+        );
         for backend in order {
             if let Some(provider) = self.find(backend) {
                 match provider.store(payload, policy) {
@@ -166,14 +172,18 @@ impl Default for StorageRouter {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use sha2::{Sha256, Digest};
+    use sha2::{Digest, Sha256};
 
     struct MockLocal {
         store: std::collections::HashMap<StorageCid, Vec<u8>>,
     }
 
     impl MockLocal {
-        fn new() -> Self { Self { store: Default::default() } }
+        fn new() -> Self {
+            Self {
+                store: Default::default(),
+            }
+        }
         fn sha_cid(payload: &[u8]) -> StorageCid {
             let mut h = Sha256::new();
             h.update(payload);
@@ -193,11 +203,20 @@ mod tests {
             })
         }
         fn fetch(&self, cid: &StorageCid) -> StorageResult<Vec<u8>> {
-            self.store.get(cid).cloned().ok_or_else(|| StorageError::NotFound(cid.clone()))
+            self.store
+                .get(cid)
+                .cloned()
+                .ok_or_else(|| StorageError::NotFound(cid.clone()))
         }
-        fn exists(&self, cid: &StorageCid) -> bool { self.store.contains_key(cid) }
-        fn preview_cid(&self, payload: &[u8]) -> StorageCid { Self::sha_cid(payload) }
-        fn backend(&self) -> StorageBackend { StorageBackend::Local }
+        fn exists(&self, cid: &StorageCid) -> bool {
+            self.store.contains_key(cid)
+        }
+        fn preview_cid(&self, payload: &[u8]) -> StorageCid {
+            Self::sha_cid(payload)
+        }
+        fn backend(&self) -> StorageBackend {
+            StorageBackend::Local
+        }
     }
 
     #[test]

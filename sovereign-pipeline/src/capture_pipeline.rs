@@ -15,50 +15,60 @@
 
 use std::collections::BTreeMap;
 
+use crate::error::PipelineResult;
 use sovereign_types::{IdentityChain, Modality, PrivacyFlag};
-use vcp::{
-    VcpSession, VcpSessionOutcome, VcpSessionReceipt,
-    VcpCapabilityGrant, VcpCommand,
-};
 use twin_protocol::{
-    CaptureReceipt, SceneReceipt, TwinAsset,
-    TwinDataHashes, TwinProvenance, TwinLicenseConfig,
+    CaptureReceipt, SceneReceipt, TwinAsset, TwinDataHashes, TwinLicenseConfig, TwinProvenance,
     TwinQuality, TwinRegion,
 };
-use crate::error::PipelineResult;
+use vcp::{VcpCapabilityGrant, VcpCommand, VcpSession, VcpSessionOutcome, VcpSessionReceipt};
 
 /// Raw bytes collected from the device in one capture run.
 #[derive(Debug, Default)]
 pub struct RawCapture {
-    pub rgb_frames:     Option<Vec<u8>>,
-    pub lidar_cloud:    Option<Vec<u8>>,
-    pub imu_log:        Option<Vec<u8>>,
+    pub rgb_frames: Option<Vec<u8>>,
+    pub lidar_cloud: Option<Vec<u8>>,
+    pub imu_log: Option<Vec<u8>>,
     /// Gaussian splat bytes (.ply) — assembled by splatting engine post-capture
-    pub splat:          Option<Vec<u8>>,
-    pub frame_count:    u32,
-    pub duration_ms:    u64,
+    pub splat: Option<Vec<u8>>,
+    pub frame_count: u32,
+    pub duration_ms: u64,
     /// F1 score from reconstruction engine
-    pub f1_score:       f32,
-    pub coverage_pct:   f32,
-    pub novelty_score:  f32,
+    pub f1_score: f32,
+    pub coverage_pct: f32,
+    pub novelty_score: f32,
     pub delta_coverage: f32,
 }
 
 impl RawCapture {
     pub fn to_raw_data_map(&self) -> BTreeMap<String, Vec<u8>> {
         let mut m = BTreeMap::new();
-        if let Some(b) = &self.rgb_frames  { m.insert("rgb".into(),   b.clone()); }
-        if let Some(b) = &self.lidar_cloud { m.insert("lidar".into(), b.clone()); }
-        if let Some(b) = &self.imu_log     { m.insert("imu".into(),   b.clone()); }
-        if let Some(b) = &self.splat       { m.insert("splat".into(), b.clone()); }
+        if let Some(b) = &self.rgb_frames {
+            m.insert("rgb".into(), b.clone());
+        }
+        if let Some(b) = &self.lidar_cloud {
+            m.insert("lidar".into(), b.clone());
+        }
+        if let Some(b) = &self.imu_log {
+            m.insert("imu".into(), b.clone());
+        }
+        if let Some(b) = &self.splat {
+            m.insert("splat".into(), b.clone());
+        }
         m
     }
 
     pub fn active_modalities(&self) -> Vec<Modality> {
         let mut mods = vec![];
-        if self.rgb_frames.is_some()  { mods.push(Modality::Rgb); }
-        if self.lidar_cloud.is_some() { mods.push(Modality::Lidar); }
-        if self.imu_log.is_some()     { mods.push(Modality::Imu); }
+        if self.rgb_frames.is_some() {
+            mods.push(Modality::Rgb);
+        }
+        if self.lidar_cloud.is_some() {
+            mods.push(Modality::Lidar);
+        }
+        if self.imu_log.is_some() {
+            mods.push(Modality::Imu);
+        }
         mods
     }
 }
@@ -74,7 +84,9 @@ pub struct Go2CaptureDriver {
 
 impl Default for Go2CaptureDriver {
     fn default() -> Self {
-        Self { live_device_id: None }
+        Self {
+            live_device_id: None,
+        }
     }
 }
 
@@ -82,19 +94,32 @@ impl Go2CaptureDriver {
     /// Attempt a real WebSocket capture; fall back to stub on any error.
     pub fn capture(
         &self,
-        grant:     &VcpCapabilityGrant,
+        grant: &VcpCapabilityGrant,
         agent_key: &str,
     ) -> PipelineResult<(RawCapture, Vec<(&'static str, bool)>)> {
         // Issue VCP command stubs for session-level tracking (always runs)
-        let _cam_cmd   = VcpCommand::new(grant, "camera",    "capture_frame",      serde_json::json!({}), agent_key)?;
-        let _lidar_cmd = VcpCommand::new(grant, "lidar",     "capture_pointcloud", serde_json::json!({}), agent_key)?;
-        let _telem_cmd = VcpCommand::new(grant, "telemetry", "poll",               serde_json::json!({}), agent_key)?;
+        let _cam_cmd = VcpCommand::new(
+            grant,
+            "camera",
+            "capture_frame",
+            serde_json::json!({}),
+            agent_key,
+        )?;
+        let _lidar_cmd = VcpCommand::new(
+            grant,
+            "lidar",
+            "capture_pointcloud",
+            serde_json::json!({}),
+            agent_key,
+        )?;
+        let _telem_cmd =
+            VcpCommand::new(grant, "telemetry", "poll", serde_json::json!({}), agent_key)?;
 
         let recorded = vec![("camera", true), ("lidar", true), ("telemetry", true)];
 
         // Try real WebSocket if we have a live device ID
         if let Some(device_id) = &self.live_device_id {
-            use crate::go2_driver::{Go2CaptureConfig, capture_from_go2};
+            use crate::go2_driver::{capture_from_go2, Go2CaptureConfig};
             let cfg = Go2CaptureConfig::from_device_id(device_id);
             match capture_from_go2(&cfg) {
                 Ok(raw) => {
@@ -109,15 +134,15 @@ impl Go2CaptureDriver {
 
         // Stub fallback
         let raw = RawCapture {
-            rgb_frames:     Some(b"STUB_RGB_FRAME_DATA".to_vec()),
-            lidar_cloud:    Some(b"STUB_LIDAR_PCD_DATA".to_vec()),
-            imu_log:        Some(b"STUB_IMU_LOG_DATA".to_vec()),
-            splat:          Some(b"STUB_SPLAT_PLY_DATA".to_vec()),
-            frame_count:    120,
-            duration_ms:    1,
-            f1_score:       0.832,
-            coverage_pct:   78.4,
-            novelty_score:  0.61,
+            rgb_frames: Some(b"STUB_RGB_FRAME_DATA".to_vec()),
+            lidar_cloud: Some(b"STUB_LIDAR_PCD_DATA".to_vec()),
+            imu_log: Some(b"STUB_IMU_LOG_DATA".to_vec()),
+            splat: Some(b"STUB_SPLAT_PLY_DATA".to_vec()),
+            frame_count: 120,
+            duration_ms: 1,
+            f1_score: 0.832,
+            coverage_pct: 78.4,
+            novelty_score: 0.61,
             delta_coverage: 12.3,
         };
         Ok((raw, recorded))
@@ -127,64 +152,68 @@ impl Go2CaptureDriver {
 /// Full output of the capture pipeline.
 pub struct PipelineOutput {
     pub capture_receipt: CaptureReceipt,
-    pub twin:            TwinAsset,
-    pub scene_receipt:   SceneReceipt,
+    pub twin: TwinAsset,
+    pub scene_receipt: SceneReceipt,
     pub session_receipt: VcpSessionReceipt,
 }
 
 /// Configuration for a pipeline run.
 #[derive(Debug, Clone)]
 pub struct PipelineConfig {
-    pub region:                TwinRegion,
+    pub region: TwinRegion,
     pub reconstruction_engine: String,
-    pub owner_did:             String,
-    pub privacy_flags:         Vec<PrivacyFlag>,
-    pub license:               TwinLicenseConfig,
+    pub owner_did: String,
+    pub privacy_flags: Vec<PrivacyFlag>,
+    pub license: TwinLicenseConfig,
     /// If set, invoke the Gaussian splatting engine on captured frames.
     /// Value: binary name/path ("ns-train") or "gsplat" for standalone gsplat.
-    pub splat_bin:             Option<String>,
+    pub splat_bin: Option<String>,
     /// Output directory for splat training artefacts (default /tmp/sovereign-splats).
-    pub splat_output_dir:      Option<String>,
+    pub splat_output_dir: Option<String>,
     /// Training iterations (default 1000).
-    pub splat_steps:           u32,
+    pub splat_steps: u32,
 }
 
 impl Default for PipelineConfig {
     fn default() -> Self {
         Self {
-            region:                TwinRegion::new(0.0, 0.0, 0.001, 0.001),
+            region: TwinRegion::new(0.0, 0.0, 0.001, 0.001),
             reconstruction_engine: "nerfstudio/gaussian-splatting".into(),
-            owner_did:             "did:vantage:principal:default".into(),
-            privacy_flags:         vec![],
-            license:               TwinLicenseConfig::default(),
-            splat_bin:             None,
-            splat_output_dir:      None,
-            splat_steps:           1000,
+            owner_did: "did:vantage:principal:default".into(),
+            privacy_flags: vec![],
+            license: TwinLicenseConfig::default(),
+            splat_bin: None,
+            splat_output_dir: None,
+            splat_steps: 1000,
         }
     }
 }
 
 /// Orchestrates the full VCP → TSP pipeline.
 pub struct CapturePipeline {
-    pub config:    PipelineConfig,
+    pub config: PipelineConfig,
     pub agent_key: String,
-    pub identity:  IdentityChain,
+    pub identity: IdentityChain,
 }
 
 impl CapturePipeline {
     pub fn new(
-        config:    PipelineConfig,
+        config: PipelineConfig,
         agent_key: impl Into<String>,
-        identity:  IdentityChain,
+        identity: IdentityChain,
     ) -> Self {
-        Self { config, agent_key: agent_key.into(), identity }
+        Self {
+            config,
+            agent_key: agent_key.into(),
+            identity,
+        }
     }
 
     /// Run the full pipeline. Takes ownership of `session` and closes it.
     pub fn run(
         &self,
         mut session: VcpSession,
-        driver:      &Go2CaptureDriver,
+        driver: &Go2CaptureDriver,
     ) -> PipelineResult<PipelineOutput> {
         let grant = session.grant.clone();
 
@@ -197,31 +226,37 @@ impl CapturePipeline {
         // Phase 1b: Gaussian splat reconstruction (optional)
         if let Some(splat_bin) = &self.config.splat_bin {
             if let Some(rgb) = &raw.rgb_frames {
-                use crate::splat_engine::{SplatConfig, run_splat};
+                use crate::splat_engine::{run_splat, SplatConfig};
                 let splat_cfg = SplatConfig {
-                    bin:        splat_bin.clone(),
-                    output_dir: self.config.splat_output_dir
+                    bin: splat_bin.clone(),
+                    output_dir: self
+                        .config
+                        .splat_output_dir
                         .as_deref()
                         .map(std::path::PathBuf::from)
                         .unwrap_or_else(|| std::path::PathBuf::from("/tmp/sovereign-splats")),
-                    steps:      self.config.splat_steps,
-                    method:     if splat_bin.ends_with(".py") || splat_bin.contains("gsplat") {
+                    steps: self.config.splat_steps,
+                    method: if splat_bin.ends_with(".py") || splat_bin.contains("gsplat") {
                         "gsplat".into()
                     } else {
                         "gaussian-splatting".into()
                     },
                 };
                 match run_splat(rgb, raw.frame_count, &grant.device_id, &splat_cfg) {
-                    Ok(ply)  => { raw.splat = Some(ply); }
-                    Err(e)   => { tracing::warn!(error = %e, "splat training failed — keeping stub PLY"); }
+                    Ok(ply) => {
+                        raw.splat = Some(ply);
+                    }
+                    Err(e) => {
+                        tracing::warn!(error = %e, "splat training failed — keeping stub PLY");
+                    }
                 }
             }
         }
 
-        let ts_end   = now_ms();
+        let ts_end = now_ms();
         let ts_start = ts_end.saturating_sub(raw.duration_ms);
-        let raw_map  = raw.to_raw_data_map();
-        let mods     = raw.active_modalities();
+        let raw_map = raw.to_raw_data_map();
+        let mods = raw.active_modalities();
 
         // Phase 2: CaptureReceipt (31020)
         let capture_receipt = CaptureReceipt::build(
@@ -243,9 +278,9 @@ impl CapturePipeline {
 
         // Phase 3: Assemble TwinAsset
         let data_hashes = TwinDataHashes {
-            rgb:   capture_receipt.raw_hashes.get("rgb").cloned(),
+            rgb: capture_receipt.raw_hashes.get("rgb").cloned(),
             lidar: capture_receipt.raw_hashes.get("lidar").cloned(),
-            imu:   capture_receipt.raw_hashes.get("imu").cloned(),
+            imu: capture_receipt.raw_hashes.get("imu").cloned(),
             splat: capture_receipt.raw_hashes.get("splat").cloned(),
             ..Default::default()
         };
@@ -258,28 +293,28 @@ impl CapturePipeline {
         let now = now_ms();
         let twin = TwinAsset {
             twin_id,
-            version:      1,
-            owner_did:    self.config.owner_did.clone(),
-            creator_did:  self.identity.agent_id.clone(),
+            version: 1,
+            owner_did: self.config.owner_did.clone(),
+            creator_did: self.identity.agent_id.clone(),
             contributors: vec![],
-            region:       self.config.region.clone(),
+            region: self.config.region.clone(),
             data_hashes,
             quality,
             provenance: TwinProvenance {
-                capture_receipt_ids:  vec![capture_receipt.receipt_id.clone()],
-                capture_epoch:        Some([ts_start, ts_end]),
-                device_ids:           vec![grant.device_id.clone()],
-                camera_ids:           vec![format!("{}:front_rgb", grant.device_id)],
+                capture_receipt_ids: vec![capture_receipt.receipt_id.clone()],
+                capture_epoch: Some([ts_start, ts_end]),
+                device_ids: vec![grant.device_id.clone()],
+                camera_ids: vec![format!("{}:front_rgb", grant.device_id)],
                 pose_estimate_hashes: vec![],
-                calibration_version:  "vcp/1".into(),
-                evidence_ids:         vec![],
+                calibration_version: "vcp/1".into(),
+                evidence_ids: vec![],
             },
-            license:       self.config.license.clone(),
+            license: self.config.license.clone(),
             sui_object_id: None,
-            merkle_root:   String::new(),
-            signature:     String::new(),
-            created_at:    now,
-            updated_at:    now,
+            merkle_root: String::new(),
+            signature: String::new(),
+            created_at: now,
+            updated_at: now,
         };
 
         // Phase 4: SceneReceipt (31030) — IP Root creation event
@@ -314,31 +349,35 @@ fn now_ms() -> u64 {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use sovereign_types::crypto::{generate_keypair, did_from_pubkey};
+    use sovereign_types::crypto::{did_from_pubkey, generate_keypair};
     use vcp::{
-        VcpCapabilityGrant, VcpSession,
-        handshake::{VcpCapabilityRequest, VcpDuration},
         adapters::{Go2Adapter, Go2ConnectionMode},
+        handshake::{VcpCapabilityRequest, VcpDuration},
+        VcpCapabilityGrant, VcpSession,
     };
 
     fn make_grant(device_key: &str, agent_key: &str, agent_did: &str) -> VcpCapabilityGrant {
-        let adapter  = Go2Adapter::new("unitree:go2:test", Go2ConnectionMode::default());
+        let adapter = Go2Adapter::new("unitree:go2:test", Go2ConnectionMode::default());
         let manifest = adapter.manifest("base64url:fakepub");
         let identity = IdentityChain::new(agent_did.into(), agent_did.into());
-        let request  = VcpCapabilityRequest::new(
+        let request = VcpCapabilityRequest::new(
             identity,
             vec!["camera".into(), "lidar".into(), "telemetry".into()],
             "twin_capture",
             VcpDuration::minutes(60),
             agent_key,
-        ).unwrap();
+        )
+        .unwrap();
         VcpCapabilityGrant::issue(&manifest, &request, device_key).unwrap()
     }
 
     fn make_pipeline(agent_key: &str, agent_did: &str) -> CapturePipeline {
         let identity = IdentityChain::new(agent_did.into(), agent_did.into());
         CapturePipeline::new(
-            PipelineConfig { owner_did: agent_did.into(), ..Default::default() },
+            PipelineConfig {
+                owner_did: agent_did.into(),
+                ..Default::default()
+            },
             agent_key,
             identity,
         )
@@ -356,7 +395,7 @@ mod tests {
         let output = pipeline.run(session, &Go2CaptureDriver::default()).unwrap();
 
         assert_eq!(output.capture_receipt.kind, 31020);
-        assert_eq!(output.scene_receipt.kind,   31030);
+        assert_eq!(output.scene_receipt.kind, 31030);
         assert!(output.twin.data_hashes.splat.is_some());
         assert!(output.scene_receipt.f1_score >= 0.777);
         assert!(!output.session_receipt.evidence_ids.is_empty());
@@ -375,7 +414,8 @@ mod tests {
         let grant = make_grant(&device_key, &agent_key, &agent_did);
         let session = VcpSession::new(grant);
         let output = make_pipeline(&agent_key, &agent_did)
-            .run(session, &Go2CaptureDriver::default()).unwrap();
+            .run(session, &Go2CaptureDriver::default())
+            .unwrap();
 
         assert_eq!(output.scene_receipt.twin_id, output.twin.twin_id);
         assert!(output.twin.twin_id.starts_with("twin:sha256:"));
@@ -390,9 +430,12 @@ mod tests {
         let grant = make_grant(&device_key, &agent_key, &agent_did);
         let session = VcpSession::new(grant);
         let output = make_pipeline(&agent_key, &agent_did)
-            .run(session, &Go2CaptureDriver::default()).unwrap();
+            .run(session, &Go2CaptureDriver::default())
+            .unwrap();
 
-        assert!(output.scene_receipt.capture_receipt_ids
+        assert!(output
+            .scene_receipt
+            .capture_receipt_ids
             .contains(&output.capture_receipt.receipt_id));
     }
 
@@ -405,7 +448,8 @@ mod tests {
         let grant = make_grant(&device_key, &agent_key, &agent_did);
         let session = VcpSession::new(grant);
         let output = make_pipeline(&agent_key, &agent_did)
-            .run(session, &Go2CaptureDriver::default()).unwrap();
+            .run(session, &Go2CaptureDriver::default())
+            .unwrap();
 
         assert!(!output.scene_receipt.splat_hash.is_empty());
         assert!(output.scene_receipt.splat_hash.starts_with("sha256:"));
@@ -420,7 +464,8 @@ mod tests {
         let grant = make_grant(&device_key, &agent_key, &agent_did);
         let session = VcpSession::new(grant);
         let output = make_pipeline(&agent_key, &agent_did)
-            .run(session, &Go2CaptureDriver::default()).unwrap();
+            .run(session, &Go2CaptureDriver::default())
+            .unwrap();
 
         assert_eq!(output.session_receipt.commands_issued, 3);
         assert_eq!(output.session_receipt.commands_success, 3);

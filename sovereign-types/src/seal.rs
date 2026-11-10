@@ -169,13 +169,11 @@ mod tests {
         let policy = SealPolicy {
             id: "pol-1".into(),
             owner: "did:p:owner".into(),
-            entries: vec![
-                AccessEntry {
-                    principal: "did:p:alice".into(),
-                    capabilities: vec![SealCapability::Decrypt],
-                    expires_at: Some(1_000),
-                },
-            ],
+            entries: vec![AccessEntry {
+                principal: "did:p:alice".into(),
+                capabilities: vec![SealCapability::Decrypt],
+                expires_at: Some(1_000),
+            }],
             created_at: 0,
         };
         assert!(policy.can("did:p:alice", &SealCapability::Decrypt, 999));

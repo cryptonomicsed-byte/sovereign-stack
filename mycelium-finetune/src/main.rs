@@ -13,7 +13,10 @@ use std::path::PathBuf;
 // ---------------------------------------------------------------------------
 
 #[derive(Parser)]
-#[command(name = "mycelium-finetune", about = "Convert conversation logs → QLoRA training data (supports claude/openai/generic formats)")]
+#[command(
+    name = "mycelium-finetune",
+    about = "Convert conversation logs → QLoRA training data (supports claude/openai/generic formats)"
+)]
 struct Cli {
     #[command(subcommand)]
     command: Commands,
@@ -138,7 +141,10 @@ enum Commands {
         ollama_url: String,
 
         /// System prompt injected via Modelfile
-        #[arg(long, default_value = "You are Sovereign Brain, a local AI running on Omarchy.")]
+        #[arg(
+            long,
+            default_value = "You are Sovereign Brain, a local AI running on Omarchy."
+        )]
         system: String,
 
         /// Dry-run: print the Modelfile without calling Ollama
@@ -242,9 +248,7 @@ pub fn extract_text(content: &Value) -> String {
 
 /// Return true if this user message should be skipped (tool results, hook events, command output).
 pub fn is_skippable(text: &str) -> bool {
-    text.starts_with("<local-command")
-        || text.starts_with("<hook")
-        || text.contains("<tool_result")
+    text.starts_with("<local-command") || text.starts_with("<hook") || text.contains("<tool_result")
 }
 
 /// Compute SHA-256 hex digest of instruction + output for dedup.
@@ -308,7 +312,11 @@ fn parse_file_claude(path: &PathBuf) -> Vec<MsgNode> {
         if role != "user" && role != "assistant" {
             continue;
         }
-        let content = parsed.message.get("content").cloned().unwrap_or(Value::Null);
+        let content = parsed
+            .message
+            .get("content")
+            .cloned()
+            .unwrap_or(Value::Null);
         let text = extract_text(&content);
         nodes.push(MsgNode {
             uuid: parsed.uuid,
@@ -535,9 +543,7 @@ fn build_pairs(nodes: &[MsgNode]) -> Vec<(MsgNode, MsgNode)> {
             if i == 0 {
                 continue;
             }
-            let prev = nodes[..i]
-                .iter()
-                .rposition(|n| n.role == "user");
+            let prev = nodes[..i].iter().rposition(|n| n.role == "user");
             match prev {
                 Some(idx) => idx,
                 None => continue,
@@ -732,7 +738,11 @@ fn cmd_script(model: &str, data: &str, output_dir: &str, steps: usize, quant: &s
     let gguf_file = format!("{output_dir}/sovereign-brain-{quant}.gguf");
 
     // GGUF export block injected after LoRA training when --no-gguf is not set.
-    let gguf_block = if no_gguf { String::new() } else { format!(r#"
+    let gguf_block = if no_gguf {
+        String::new()
+    } else {
+        format!(
+            r#"
 
 # ── GGUF export ───────────────────────────────────────────────────────────────
 print("Merging LoRA into base model...")
@@ -760,7 +770,12 @@ else:
     print(f"WARNING: llama.cpp not found at {{llama_cpp}}.")
     print("Set LLAMA_CPP_DIR=<path> or clone: git clone https://github.com/ggerganov/llama.cpp")
     print("Skipping GGUF quantisation — LoRA adapter is in {output_dir}")
-"#, output_dir=output_dir, gguf_file=gguf_file, quant=quant) };
+"#,
+            output_dir = output_dir,
+            gguf_file = gguf_file,
+            quant = quant
+        )
+    };
 
     let train_py = format!(
         r#"from unsloth import FastLanguageModel
@@ -888,31 +903,31 @@ echo "Done. Artefacts in {output_dir}"
 /// Job spec sent to GPU.ai /v1/jobs endpoint.
 #[derive(Debug, Serialize)]
 struct GpuAiJobSpec {
-    name:       String,
-    image:      String,
-    gpu_type:   String,
-    gpu_count:  u32,
-    command:    Vec<String>,
-    env:        std::collections::HashMap<String, String>,
+    name: String,
+    image: String,
+    gpu_type: String,
+    gpu_count: u32,
+    command: Vec<String>,
+    env: std::collections::HashMap<String, String>,
 }
 
 /// Response from GPU.ai job create.
 #[derive(Debug, Deserialize)]
 struct GpuAiJobResponse {
     #[serde(default)]
-    id:     String,
+    id: String,
     #[serde(default)]
     status: String,
     #[serde(flatten)]
-    extra:  Value,
+    extra: Value,
 }
 
 fn cmd_submit(
-    data:    &str,
-    model:   &str,
+    data: &str,
+    model: &str,
     api_key: Option<&str>,
-    gpu:     &str,
-    steps:   usize,
+    gpu: &str,
+    steps: usize,
     dry_run: bool,
 ) {
     let key = match api_key {
@@ -937,17 +952,20 @@ fn cmd_submit(
     env.insert("MYCELIUM_STEPS".into(), steps.to_string());
 
     let spec = GpuAiJobSpec {
-        name:      format!("mycelium-finetune-{steps}steps"),
-        image:     "nvidia/cuda:12.1.0-cudnn8-devel-ubuntu22.04".into(),
-        gpu_type:  gpu.to_string(),
+        name: format!("mycelium-finetune-{steps}steps"),
+        image: "nvidia/cuda:12.1.0-cudnn8-devel-ubuntu22.04".into(),
+        gpu_type: gpu.to_string(),
         gpu_count: 1,
-        command:   vec!["bash".into(), "-c".into(), train_cmd],
+        command: vec!["bash".into(), "-c".into(), train_cmd],
         env,
     };
 
     if dry_run {
         println!("=== GPU.ai job spec (dry-run) ===");
-        println!("{}", serde_json::to_string_pretty(&spec).unwrap_or_default());
+        println!(
+            "{}",
+            serde_json::to_string_pretty(&spec).unwrap_or_default()
+        );
         println!("\nWould POST to: https://api.gpu.ai/v1/jobs");
         println!("With key:      {}...", &key[..key.len().min(12)]);
         return;
@@ -1026,7 +1044,8 @@ fn main() {
             min_text_len,
             max_tokens_est,
         } => {
-            if let Err(e) = cmd_extract(&input_dir, &format, &output, min_text_len, max_tokens_est) {
+            if let Err(e) = cmd_extract(&input_dir, &format, &output, min_text_len, max_tokens_est)
+            {
                 eprintln!("Error: {}", e);
                 std::process::exit(1);
             }
@@ -1115,7 +1134,10 @@ mod tests {
         // Simulate dedup with a HashSet
         let mut seen: HashSet<String> = HashSet::new();
         assert!(seen.insert(dedup_hash(instruction, output)));
-        assert!(!seen.insert(dedup_hash(instruction, output)), "Duplicate should not be inserted");
+        assert!(
+            !seen.insert(dedup_hash(instruction, output)),
+            "Duplicate should not be inserted"
+        );
         assert_eq!(seen.len(), 1);
     }
 
@@ -1126,7 +1148,11 @@ mod tests {
 
         let mut tmp = NamedTempFile::new().unwrap();
         writeln!(tmp, r#"{{"role":"user","content":"Hello there"}}"#).unwrap();
-        writeln!(tmp, r#"{{"role":"assistant","content":"Hi! How can I help?"}}"#).unwrap();
+        writeln!(
+            tmp,
+            r#"{{"role":"assistant","content":"Hi! How can I help?"}}"#
+        )
+        .unwrap();
         writeln!(tmp, r#"{{"role":"user","content":"What is 2+2?"}}"#).unwrap();
         writeln!(tmp, r#"{{"role":"assistant","content":"It is 4."}}"#).unwrap();
 
@@ -1147,15 +1173,25 @@ mod tests {
         let output_dir = "test-lora";
         let gguf_file = format!("{output_dir}/sovereign-brain-{quant}.gguf");
         let block = format!("GGUF saved to {gguf_file}");
-        assert!(block.contains("GGUF saved to"), "GGUF export block should reference output file");
+        assert!(
+            block.contains("GGUF saved to"),
+            "GGUF export block should reference output file"
+        );
     }
 
     #[test]
     fn script_no_gguf_flag_omits_export() {
         // When no_gguf=true the gguf_block should be empty.
         let no_gguf = true;
-        let gguf_block = if no_gguf { String::new() } else { "GGUF block here".into() };
-        assert!(gguf_block.is_empty(), "no_gguf=true should produce empty gguf_block");
+        let gguf_block = if no_gguf {
+            String::new()
+        } else {
+            "GGUF block here".into()
+        };
+        assert!(
+            gguf_block.is_empty(),
+            "no_gguf=true should produce empty gguf_block"
+        );
     }
 
     #[test]
@@ -1174,14 +1210,23 @@ mod tests {
     #[test]
     fn make_modelfile_includes_system_prompt() {
         let mf = make_modelfile("/tmp/brain.gguf", "You are sovereign brain.");
-        assert!(mf.starts_with("FROM /tmp/brain.gguf"), "should start with FROM");
-        assert!(mf.contains("sovereign brain"), "should include system prompt");
+        assert!(
+            mf.starts_with("FROM /tmp/brain.gguf"),
+            "should start with FROM"
+        );
+        assert!(
+            mf.contains("sovereign brain"),
+            "should include system prompt"
+        );
     }
 
     #[test]
     fn make_modelfile_escapes_quotes() {
         let mf = make_modelfile("/tmp/brain.gguf", r#"Say "hello" always."#);
-        assert!(mf.contains(r#"\""#), "double quotes should be escaped in Modelfile");
+        assert!(
+            mf.contains(r#"\""#),
+            "double quotes should be escaped in Modelfile"
+        );
     }
 
     #[test]
@@ -1189,11 +1234,11 @@ mod tests {
         let mut env = std::collections::HashMap::new();
         env.insert("FOO".into(), "bar".into());
         let spec = GpuAiJobSpec {
-            name:      "test-job".into(),
-            image:     "nvidia/cuda:12.1.0-cudnn8-devel-ubuntu22.04".into(),
-            gpu_type:  "a40".into(),
+            name: "test-job".into(),
+            image: "nvidia/cuda:12.1.0-cudnn8-devel-ubuntu22.04".into(),
+            gpu_type: "a40".into(),
             gpu_count: 1,
-            command:   vec!["bash".into(), "-c".into(), "echo hi".into()],
+            command: vec!["bash".into(), "-c".into(), "echo hi".into()],
             env,
         };
         let json = serde_json::to_string(&spec).unwrap();

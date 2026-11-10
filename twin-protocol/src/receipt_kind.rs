@@ -9,14 +9,14 @@ use serde::{Deserialize, Serialize};
 #[repr(u32)]
 pub enum ReceiptKind {
     /// Physical twin capture — sensor telemetry + trajectory proof.
-    Capture     = 31020,
+    Capture = 31020,
     /// Scene receipt — Gaussian splat or point-cloud spatial anchor.
-    Scene       = 31030,
+    Scene = 31030,
     /// Observation receipt — hardware-witnessed physical signal (LoRa/TPM).
     /// Produced by Witness-firmware (ESP32 + SX1278 LoRa nodes).
     Observation = 31040,
     /// Simulation receipt — OSOVM deterministic run output.
-    Simulation  = 31050,
+    Simulation = 31050,
 }
 
 impl ReceiptKind {
@@ -30,16 +30,16 @@ impl ReceiptKind {
             31030 => Some(Self::Scene),
             31040 => Some(Self::Observation),
             31050 => Some(Self::Simulation),
-            _     => None,
+            _ => None,
         }
     }
 
     pub fn as_str(self) -> &'static str {
         match self {
-            Self::Capture     => "capture",
-            Self::Scene       => "scene",
+            Self::Capture => "capture",
+            Self::Scene => "scene",
             Self::Observation => "observation",
-            Self::Simulation  => "simulation",
+            Self::Simulation => "simulation",
         }
     }
 }
@@ -62,8 +62,12 @@ mod tests {
 
     #[test]
     fn round_trip() {
-        for (n, k) in [(31020, ReceiptKind::Capture), (31030, ReceiptKind::Scene),
-                       (31040, ReceiptKind::Observation), (31050, ReceiptKind::Simulation)] {
+        for (n, k) in [
+            (31020, ReceiptKind::Capture),
+            (31030, ReceiptKind::Scene),
+            (31040, ReceiptKind::Observation),
+            (31050, ReceiptKind::Simulation),
+        ] {
             assert_eq!(k.as_u32(), n);
             assert_eq!(ReceiptKind::from_u32(n), Some(k));
         }

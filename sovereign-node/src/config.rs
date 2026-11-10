@@ -12,27 +12,27 @@ use std::path::{Path, PathBuf};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct NodeConfig {
-    pub node:       NodeSection,
-    pub identity:   IdentitySection,
-    pub vcp:        VcpSection,
-    pub dip:        DipSection,
-    pub pipeline:   PipelineSection,
-    pub api:        ApiSection,
-    pub vantage:    Option<VantageSection>,
-    pub sui:        Option<SuiSection>,
+    pub node: NodeSection,
+    pub identity: IdentitySection,
+    pub vcp: VcpSection,
+    pub dip: DipSection,
+    pub pipeline: PipelineSection,
+    pub api: ApiSection,
+    pub vantage: Option<VantageSection>,
+    pub sui: Option<SuiSection>,
     #[serde(default)]
     pub tile_governance: twin_protocol::tile_governance::TileGovernanceConfig,
     pub meshtastic: Option<MeshtasticSection>,
     #[serde(default)]
-    pub witnesses:  Vec<WitnessConfig>,
+    pub witnesses: Vec<WitnessConfig>,
     #[serde(default)]
-    pub peers:      PeersSection,
+    pub peers: PeersSection,
     /// URL of the OSOVM HTTP server used by the async `run_scenario` path.
     /// If `None`, the deterministic Rust stub is used.
     /// Takes precedence over `pipeline.osovm_endpoint` for the async code path.
     /// Example: `"http://localhost:7780"`
     #[serde(default)]
-    pub osovm_url:  Option<String>,
+    pub osovm_url: Option<String>,
 }
 
 /// Peer sovereign nodes this node may delegate capture tasks to.
@@ -52,28 +52,28 @@ pub struct PeerNodeConfig {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WitnessConfig {
-    pub did:        String,
+    pub did: String,
     pub public_key: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct NodeSection {
     /// Human-readable node name — shown in logs and Vantage dashboard.
-    pub name:        String,
+    pub name: String,
     /// Data directory: keys, receipts, twin cache.
     /// Default: /var/lib/sovereign-node  (system) or ~/.local/share/sovereign-node (user)
-    pub data_dir:    PathBuf,
+    pub data_dir: PathBuf,
     /// Log level: trace | debug | info | warn | error
-    pub log_level:   String,
+    pub log_level: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct IdentitySection {
     /// Path to the ed25519 private key (base64url, one line).
     /// Generated automatically if missing.
-    pub key_file:    PathBuf,
+    pub key_file: PathBuf,
     /// Node DID — derived from key on first boot, then persisted.
-    pub did_file:    PathBuf,
+    pub did_file: PathBuf,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -81,24 +81,24 @@ pub struct VcpSection {
     /// BLE scan interval in seconds.
     pub scan_interval_secs: u64,
     /// Device TTL in seconds (remove if not seen).
-    pub device_ttl_secs:    u64,
+    pub device_ttl_secs: u64,
     /// Known device manifests to register on startup (USB/manual).
-    pub manual_devices:     Vec<String>,  // paths to manifest JSON files
+    pub manual_devices: Vec<String>, // paths to manifest JSON files
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DipSection {
     /// Enable Nostr adapter.
-    pub nostr_enabled:  bool,
+    pub nostr_enabled: bool,
     /// Nostr relay WebSocket URL (e.g. wss://relay.damus.io).
-    pub nostr_relay:    Option<String>,
+    pub nostr_relay: Option<String>,
     /// Nostr npub (base58) for this node's identity on Nostr.
-    pub nostr_npub:     Option<String>,
+    pub nostr_npub: Option<String>,
     /// Nostr nsec (hex 32-byte) — used by ip-layer to sign IP Root + Creation Receipts.
     /// If absent, IP provenance publication is skipped (offline mode still works fully).
-    pub nostr_nsec:     Option<String>,
+    pub nostr_nsec: Option<String>,
     /// Vantage DID for receipt routing.
-    pub vantage_did:    String,
+    pub vantage_did: String,
     /// How often (seconds) to poll Vantage for outbound DIP envelopes (NAT traversal).
     /// Set to 0 to disable. Default 30s.
     #[serde(default = "default_dip_poll_secs")]
@@ -110,50 +110,50 @@ pub struct PipelineSection {
     /// Reconstruction engine label (for SceneReceipt).
     pub reconstruction_engine: String,
     /// ỌSỌVM version string.
-    pub osovm_version:         String,
+    pub osovm_version: String,
     /// Simulation trajectory count per run.
-    pub trajectory_count:      u32,
+    pub trajectory_count: u32,
     /// Selection objective: balanced | min_energy | min_risk | max_throughput
-    pub selection_objective:   String,
+    pub selection_objective: String,
     /// Minimum number of witnesses for simulation proofs.
-    pub min_witnesses:         usize,
+    pub min_witnesses: usize,
     /// Optional ỌSỌVM engine endpoint.
     ///   "http://localhost:9000" → POST to /run (JSON body: twin + scenario)
     ///   "/usr/local/bin/osovm" → exec as binary (JSON on stdin, result on stdout)
     /// Omit to use the built-in stub engine.
     #[serde(default)]
-    pub osovm_endpoint:        Option<String>,
+    pub osovm_endpoint: Option<String>,
     /// Gaussian splatting binary ("ns-train" for nerfstudio, path to gsplat train.py).
     /// Omit to skip real splat training (use stub PLY bytes).
     #[serde(default)]
-    pub splat_bin:             Option<String>,
+    pub splat_bin: Option<String>,
     /// Root output directory for splat training artefacts.
     #[serde(default)]
-    pub splat_output_dir:      Option<String>,
+    pub splat_output_dir: Option<String>,
     /// Training iterations (default 1000).
     #[serde(default = "default_splat_steps")]
-    pub splat_steps:           u32,
+    pub splat_steps: u32,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ApiSection {
     /// Bind address for the local HTTP API.
-    pub bind:        String,   // e.g. "127.0.0.1:7779"
+    pub bind: String, // e.g. "127.0.0.1:7779"
     /// Enable the API server.
-    pub enabled:     bool,
+    pub enabled: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct VantageSection {
-    pub base_url:  String,   // e.g. "https://vantage.example.com"
+    pub base_url: String, // e.g. "https://vantage.example.com"
     pub api_token: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SuiSection {
-    pub rpc_url:    String,
-    pub address:    String,
-    pub key_file:   PathBuf,
+    pub rpc_url: String,
+    pub address: String,
+    pub key_file: PathBuf,
 }
 
 /// Meshtastic device HTTP bridge.
@@ -168,16 +168,22 @@ pub struct MeshtasticSection {
     pub dip_channel: u32,
 }
 
-fn default_mesh_channel()  -> u32 { 1 }
-fn default_splat_steps()   -> u32 { 1000 }
-fn default_dip_poll_secs() -> u64 { 30 }
+fn default_mesh_channel() -> u32 {
+    1
+}
+fn default_splat_steps() -> u32 {
+    1000
+}
+fn default_dip_poll_secs() -> u64 {
+    30
+}
 
 impl Default for NodeConfig {
     fn default() -> Self {
         let home = std::env::var("HOME").unwrap_or_else(|_| "/root".into());
         Self {
             node: NodeSection {
-                name:     "sovereign-node".into(),
+                name: "sovereign-node".into(),
                 data_dir: PathBuf::from(format!("{home}/.local/share/sovereign-node")),
                 log_level: "info".into(),
             },
@@ -187,38 +193,38 @@ impl Default for NodeConfig {
             },
             vcp: VcpSection {
                 scan_interval_secs: 30,
-                device_ttl_secs:    120,
-                manual_devices:     vec![],
+                device_ttl_secs: 120,
+                manual_devices: vec![],
             },
             dip: DipSection {
-                nostr_enabled:      false,
-                nostr_relay:        None,
-                nostr_npub:         None,
-                nostr_nsec:         None,
-                vantage_did:        "did:vantage:api:receipts".into(),
+                nostr_enabled: false,
+                nostr_relay: None,
+                nostr_npub: None,
+                nostr_nsec: None,
+                vantage_did: "did:vantage:api:receipts".into(),
                 poll_interval_secs: 30,
             },
             pipeline: PipelineSection {
                 reconstruction_engine: "nerfstudio/gaussian-splatting".into(),
-                osovm_version:         "osovm/2.0".into(),
-                trajectory_count:      6,
-                selection_objective:   "balanced".into(),
-                min_witnesses:         2,
-                osovm_endpoint:        None,
-                splat_bin:             None,
-                splat_output_dir:      None,
-                splat_steps:           1000,
+                osovm_version: "osovm/2.0".into(),
+                trajectory_count: 6,
+                selection_objective: "balanced".into(),
+                min_witnesses: 2,
+                osovm_endpoint: None,
+                splat_bin: None,
+                splat_output_dir: None,
+                splat_steps: 1000,
             },
             api: ApiSection {
-                bind:    "127.0.0.1:7779".into(),
+                bind: "127.0.0.1:7779".into(),
                 enabled: true,
             },
-            vantage:         None,
-            sui:             None,
-            meshtastic:      None,
-            witnesses:       vec![],
-            peers:           PeersSection::default(),
-            osovm_url:       None,
+            vantage: None,
+            sui: None,
+            meshtastic: None,
+            witnesses: vec![],
+            peers: PeersSection::default(),
+            osovm_url: None,
             tile_governance: Default::default(),
         }
     }
@@ -226,8 +232,8 @@ impl Default for NodeConfig {
 
 impl NodeConfig {
     pub fn load(path: &Path) -> Result<Self, ConfigError> {
-        let text = std::fs::read_to_string(path)
-            .map_err(|e| ConfigError::Io(path.to_path_buf(), e))?;
+        let text =
+            std::fs::read_to_string(path).map_err(|e| ConfigError::Io(path.to_path_buf(), e))?;
         toml::from_str(&text).map_err(ConfigError::Parse)
     }
 
@@ -236,7 +242,8 @@ impl NodeConfig {
         let candidates: Vec<PathBuf> = [
             std::env::var("SOVEREIGN_CONFIG").ok().map(PathBuf::from),
             Some(PathBuf::from("/etc/sovereign-node/config.toml")),
-            std::env::var("HOME").ok()
+            std::env::var("HOME")
+                .ok()
                 .map(|h| PathBuf::from(format!("{h}/.config/sovereign-node/config.toml"))),
             Some(PathBuf::from("sovereign-node.toml")),
         ]

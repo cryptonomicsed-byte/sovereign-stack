@@ -1,5 +1,5 @@
-use serde::{Deserialize, Serialize};
 use crate::error::{TspError, TspResult};
+use serde::{Deserialize, Serialize};
 
 pub const F1_GATE: f32 = 0.777;
 
@@ -7,12 +7,12 @@ pub const F1_GATE: f32 = 0.777;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TwinQuality {
     /// F1 score over reconstruction quality. MUST be >= F1_GATE (0.777).
-    pub f1_score:              f32,
-    pub coverage_pct:          f32,
+    pub f1_score: f32,
+    pub coverage_pct: f32,
     pub reconstruction_engine: String,
-    pub frame_count:           u32,
-    pub gaussian_count:        Option<u32>,
-    pub validated:             bool,
+    pub frame_count: u32,
+    pub gaussian_count: Option<u32>,
+    pub validated: bool,
 }
 
 impl TwinQuality {
@@ -24,9 +24,9 @@ impl TwinQuality {
             f1_score,
             coverage_pct,
             reconstruction_engine: engine.into(),
-            frame_count:    0,
+            frame_count: 0,
             gaussian_count: None,
-            validated:      false,
+            validated: false,
         })
     }
 
@@ -43,7 +43,9 @@ impl TwinQuality {
     /// Re-validate the F1 gate (use when deserializing untrusted data).
     pub fn assert_valid(&self) -> TspResult<()> {
         if self.f1_score < F1_GATE {
-            return Err(TspError::QualityGateFailed { score: self.f1_score });
+            return Err(TspError::QualityGateFailed {
+                score: self.f1_score,
+            });
         }
         Ok(())
     }

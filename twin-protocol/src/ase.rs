@@ -70,47 +70,53 @@ pub const MANUMISSION_TARGET_USDC: u64 = 100;
 // The router NEVER mints — it only routes USDC/stablecoin flows.
 // Basis points sum to 10,000.
 
-pub const ELEGBARA_VEILSIM_BPS:        u64 = 3_000; // 30%
-pub const ELEGBARA_RD_BPS:             u64 = 2_000; // 20%
-pub const ELEGBARA_GOVERNANCE_BPS:     u64 = 1_000; // 10%
-pub const ELEGBARA_RESERVE_BPS:        u64 = 1_000; // 10%
-pub const ELEGBARA_LOTTERY_BPS:        u64 = 1_000; // 10%
-pub const ELEGBARA_GRANTS_BPS:         u64 = 1_000; // 10%
-pub const ELEGBARA_UBI_BPS:            u64 =   500; //  5%
-// Sabbath Reserve = remainder to avoid rounding dust
+pub const ELEGBARA_VEILSIM_BPS: u64 = 3_000; // 30%
+pub const ELEGBARA_RD_BPS: u64 = 2_000; // 20%
+pub const ELEGBARA_GOVERNANCE_BPS: u64 = 1_000; // 10%
+pub const ELEGBARA_RESERVE_BPS: u64 = 1_000; // 10%
+pub const ELEGBARA_LOTTERY_BPS: u64 = 1_000; // 10%
+pub const ELEGBARA_GRANTS_BPS: u64 = 1_000; // 10%
+pub const ELEGBARA_UBI_BPS: u64 = 500; //  5%
+                                       // Sabbath Reserve = remainder to avoid rounding dust
 pub const ELEGBARA_SABBATH_RESERVE_BPS: u64 = 500; //  5%
 
 /// Result of routing the 3.69% tithe through the Éṣù-Elegbára router.
 /// Maps to the 8 isolated sub-wallets in elegbara_router.move.
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct ElegbaraRouterSplit {
-    pub tithe_total:     u64,  // 3.69% of original amount (= sum of all buckets)
-    pub veilsim:         u64,  // 30% → VeilSim execution budget
-    pub r_and_d:         u64,  // 20% → Research & development
-    pub governance:      u64,  // 10% → On-chain governance
-    pub reserve:         u64,  // 10% → Emergency reserve
-    pub lottery:         u64,  // 10% → Lottery prize pool
-    pub grants:          u64,  // 10% → Community grants
-    pub ubi:             u64,  //  5% → Universal basic income pool
-    pub sabbath_reserve: u64,  //  5% → Sabbath / rounding dust reserve
+    pub tithe_total: u64,     // 3.69% of original amount (= sum of all buckets)
+    pub veilsim: u64,         // 30% → VeilSim execution budget
+    pub r_and_d: u64,         // 20% → Research & development
+    pub governance: u64,      // 10% → On-chain governance
+    pub reserve: u64,         // 10% → Emergency reserve
+    pub lottery: u64,         // 10% → Lottery prize pool
+    pub grants: u64,          // 10% → Community grants
+    pub ubi: u64,             //  5% → Universal basic income pool
+    pub sabbath_reserve: u64, //  5% → Sabbath / rounding dust reserve
 }
 
 /// Compute the Éṣù-Elegbára split for a given tithe amount.
 /// `tithe_amount` should already be 3.69% of the original flow.
 pub fn elegbara_route(tithe_amount: u64) -> ElegbaraRouterSplit {
-    let veilsim         = tithe_amount * ELEGBARA_VEILSIM_BPS        / 10_000;
-    let r_and_d         = tithe_amount * ELEGBARA_RD_BPS             / 10_000;
-    let governance      = tithe_amount * ELEGBARA_GOVERNANCE_BPS     / 10_000;
-    let reserve         = tithe_amount * ELEGBARA_RESERVE_BPS        / 10_000;
-    let lottery         = tithe_amount * ELEGBARA_LOTTERY_BPS        / 10_000;
-    let grants          = tithe_amount * ELEGBARA_GRANTS_BPS         / 10_000;
-    let ubi             = tithe_amount * ELEGBARA_UBI_BPS            / 10_000;
-    let distributed     = veilsim + r_and_d + governance + reserve
-                        + lottery + grants + ubi;
+    let veilsim = tithe_amount * ELEGBARA_VEILSIM_BPS / 10_000;
+    let r_and_d = tithe_amount * ELEGBARA_RD_BPS / 10_000;
+    let governance = tithe_amount * ELEGBARA_GOVERNANCE_BPS / 10_000;
+    let reserve = tithe_amount * ELEGBARA_RESERVE_BPS / 10_000;
+    let lottery = tithe_amount * ELEGBARA_LOTTERY_BPS / 10_000;
+    let grants = tithe_amount * ELEGBARA_GRANTS_BPS / 10_000;
+    let ubi = tithe_amount * ELEGBARA_UBI_BPS / 10_000;
+    let distributed = veilsim + r_and_d + governance + reserve + lottery + grants + ubi;
     let sabbath_reserve = tithe_amount.saturating_sub(distributed);
     ElegbaraRouterSplit {
         tithe_total: tithe_amount,
-        veilsim, r_and_d, governance, reserve, lottery, grants, ubi, sabbath_reserve,
+        veilsim,
+        r_and_d,
+        governance,
+        reserve,
+        lottery,
+        grants,
+        ubi,
+        sabbath_reserve,
     }
 }
 
@@ -118,29 +124,35 @@ pub fn elegbara_route(tithe_amount: u64) -> ElegbaraRouterSplit {
 /// Applied to sector wallet inflows — NOT to daily emission or tithe.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SectorFundingSplit {
-    pub total:       u64,
-    pub treasury:    u64,  // 50% — work rewards pool
-    pub inheritance: u64,  // 25% — 1,440 inheritance wallets
-    pub council:     u64,  // 15% — 13-member council
-    pub executor:    u64,  // 10% — embodied executor / tail
+    pub total: u64,
+    pub treasury: u64,    // 50% — work rewards pool
+    pub inheritance: u64, // 25% — 1,440 inheritance wallets
+    pub council: u64,     // 15% — 13-member council
+    pub executor: u64,    // 10% — embodied executor / tail
 }
 
 /// Apply the 24-sector funding split (50/25/15/10) to a sector inflow amount.
 /// Use this for donations, investments, hardware fees, and embodiment offerings.
 /// Do NOT use for daily emission or per-transaction tithe — those go through Elegbára.
 pub fn sector_funding_split(amount: u64) -> SectorFundingSplit {
-    let treasury    = amount * SECTOR_SPLIT[0] / 100;
+    let treasury = amount * SECTOR_SPLIT[0] / 100;
     let inheritance = amount * SECTOR_SPLIT[1] / 100;
-    let council     = amount * SECTOR_SPLIT[2] / 100;
-    let executor    = amount.saturating_sub(treasury + inheritance + council);
-    SectorFundingSplit { total: amount, treasury, inheritance, council, executor }
+    let council = amount * SECTOR_SPLIT[2] / 100;
+    let executor = amount.saturating_sub(treasury + inheritance + council);
+    SectorFundingSplit {
+        total: amount,
+        treasury,
+        inheritance,
+        council,
+        executor,
+    }
 }
 
 /// Compute the 3.69% tithe on an amount and return the full Elegbára split.
 /// Returns (net_after_tithe, ElegbaraRouterSplit).
 pub fn eshu_tithe(amount_micro: u64) -> (u64, ElegbaraRouterSplit) {
     let tithe = amount_micro * ESHU_TITHE_BPS / 10_000;
-    let net   = amount_micro.saturating_sub(tithe);
+    let net = amount_micro.saturating_sub(tithe);
     (net, elegbara_route(tithe))
 }
 
@@ -149,37 +161,37 @@ pub fn eshu_tithe(amount_micro: u64) -> (u64, ElegbaraRouterSplit) {
 /// Per-tile economy state for an Odù spatial tile.
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct TileEconomy {
-    pub tile_id:       String,
-    pub owner_did:     Option<String>,
-    pub staked_tokens: u64,  // units: micro-Àṣẹ (1 Àṣẹ = 1_000_000 micro)
+    pub tile_id: String,
+    pub owner_did: Option<String>,
+    pub staked_tokens: u64, // units: micro-Àṣẹ (1 Àṣẹ = 1_000_000 micro)
     pub earned_tokens: u64,
-    pub usage_fee_pct: f32,  // 0.0–100.0; default 5.0
+    pub usage_fee_pct: f32, // 0.0–100.0; default 5.0
     pub capture_count: u64,
-    pub last_capture:  Option<u64>,  // unix ms
+    pub last_capture: Option<u64>, // unix ms
 }
 
 /// Request to mint Àṣẹ tokens for a completed proof or capture receipt.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AseMintRequest {
-    pub receipt_id:  String,
-    pub twin_id:     String,
-    pub tile_id:     String,
-    pub minter_did:  String,
-    pub quality:     f32,    // 0.0–1.0 (F9/F1 quality score)
-    pub novelty:     f32,    // 0.0–1.0 novelty score
+    pub receipt_id: String,
+    pub twin_id: String,
+    pub tile_id: String,
+    pub minter_did: String,
+    pub quality: f32,        // 0.0–1.0 (F9/F1 quality score)
+    pub novelty: f32,        // 0.0–1.0 novelty score
     pub sui_address: String, // recipient's Sui address
 }
 
 /// Result of an Àṣẹ mint operation.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AseMintResult {
-    pub receipt_id:    String,
-    pub tokens_minted: u64,               // gross micro-Àṣẹ (pre-tithe)
-    pub net_minted:    u64,               // micro-Àṣẹ after 3.69% Éṣù tithe
-    pub owner_fee:     u64,               // portion to tile owner (0 if unclaimed)
-    pub elegbara:      ElegbaraRouterSplit, // full 8-bucket routing of the tithe
-    pub tx_digest:     Option<String>,    // Sui tx digest, or None for stub
-    pub stub:          bool,
+    pub receipt_id: String,
+    pub tokens_minted: u64,            // gross micro-Àṣẹ (pre-tithe)
+    pub net_minted: u64,               // micro-Àṣẹ after 3.69% Éṣù tithe
+    pub owner_fee: u64,                // portion to tile owner (0 if unclaimed)
+    pub elegbara: ElegbaraRouterSplit, // full 8-bucket routing of the tithe
+    pub tx_digest: Option<String>,     // Sui tx digest, or None for stub
+    pub stub: bool,
 }
 
 // ─── Token calculation ────────────────────────────────────────────────────────
@@ -194,7 +206,7 @@ pub struct AseMintResult {
 ///   novelty_multiplier = 1.0 + novelty × 0.5
 ///   tokens             = BASE_RATE_MICRO × quality_multiplier × novelty_multiplier
 pub fn calculate_mint_amount(req: &AseMintRequest) -> u64 {
-    let base               = BASE_RATE_MICRO as f64;
+    let base = BASE_RATE_MICRO as f64;
     let quality_multiplier = 1.0 + req.quality as f64 * (MAX_QUALITY_BONUS - 1.0) as f64;
     let novelty_multiplier = 1.0 + req.novelty as f64 * 0.5;
     (base * quality_multiplier * novelty_multiplier) as u64
@@ -226,9 +238,9 @@ pub fn update_tile_economy(economy: &mut TileEconomy, result: &AseMintResult) {
 /// Applies the 3.69% Éṣù tithe and routes it through the Elegbára 8-bucket split.
 /// Tile owner fee is drawn from net_minted (post-tithe).
 pub async fn mint_ase(
-    req:         &AseMintRequest,
+    req: &AseMintRequest,
     sui_rpc_url: Option<&str>,
-    tile:        Option<&TileEconomy>,
+    tile: Option<&TileEconomy>,
 ) -> AseMintResult {
     let tokens_minted = calculate_mint_amount(req);
     let (net_minted, elegbara) = eshu_tithe(tokens_minted);
@@ -255,7 +267,7 @@ pub async fn mint_ase(
         owner_fee,
         elegbara,
         tx_digest: Some(stub_ase_digest(&req.receipt_id)),
-        stub:      true,
+        stub: true,
     }
 }
 
@@ -271,10 +283,10 @@ mod tests {
 
     fn make_req(receipt_id: &str, quality: f32, novelty: f32) -> AseMintRequest {
         AseMintRequest {
-            receipt_id:  receipt_id.to_string(),
-            twin_id:     "twin:sha256:test".to_string(),
-            tile_id:     "odu:00".to_string(),
-            minter_did:  "did:vantage:minter".to_string(),
+            receipt_id: receipt_id.to_string(),
+            twin_id: "twin:sha256:test".to_string(),
+            tile_id: "odu:00".to_string(),
+            minter_did: "did:vantage:minter".to_string(),
             quality,
             novelty,
             sui_address: "0xSuiAddress".to_string(),
@@ -309,23 +321,27 @@ mod tests {
 
     #[test]
     fn test_owner_fee_calculation() {
-        assert_eq!(calculate_owner_fee(1_000_000, DEFAULT_USAGE_FEE_PCT), 50_000);
+        assert_eq!(
+            calculate_owner_fee(1_000_000, DEFAULT_USAGE_FEE_PCT),
+            50_000
+        );
     }
 
     #[test]
     fn test_update_tile_economy() {
         let mut economy = TileEconomy {
-            tile_id: "odu:37".to_string(), usage_fee_pct: DEFAULT_USAGE_FEE_PCT,
+            tile_id: "odu:37".to_string(),
+            usage_fee_pct: DEFAULT_USAGE_FEE_PCT,
             ..Default::default()
         };
         let result = AseMintResult {
-            receipt_id:    "receipt-update".to_string(),
+            receipt_id: "receipt-update".to_string(),
             tokens_minted: 2_000_000,
-            net_minted:    1_926_200,
-            owner_fee:     96_310,
-            elegbara:      ElegbaraRouterSplit::default(),
-            tx_digest:     Some("ase_tx:stub".to_string()),
-            stub:          true,
+            net_minted: 1_926_200,
+            owner_fee: 96_310,
+            elegbara: ElegbaraRouterSplit::default(),
+            tx_digest: Some("ase_tx:stub".to_string()),
+            stub: true,
         };
         update_tile_economy(&mut economy, &result);
         assert_eq!(economy.capture_count, 1);
@@ -361,33 +377,44 @@ mod tests {
     #[tokio::test]
     async fn test_mint_with_claimed_tile_charges_owner_fee() {
         let tile = TileEconomy {
-            tile_id: "odu:00".into(), owner_did: Some("did:vantage:owner:1".into()),
-            usage_fee_pct: DEFAULT_USAGE_FEE_PCT, ..Default::default()
+            tile_id: "odu:00".into(),
+            owner_did: Some("did:vantage:owner:1".into()),
+            usage_fee_pct: DEFAULT_USAGE_FEE_PCT,
+            ..Default::default()
         };
         let result = mint_ase(&make_req("receipt-owner", 1.0, 1.0), None, Some(&tile)).await;
         assert!(result.owner_fee > 0);
-        assert_eq!(result.owner_fee, calculate_owner_fee(result.net_minted, DEFAULT_USAGE_FEE_PCT));
+        assert_eq!(
+            result.owner_fee,
+            calculate_owner_fee(result.net_minted, DEFAULT_USAGE_FEE_PCT)
+        );
     }
 
     #[test]
     fn test_elegbara_route_sums_to_tithe() {
         // All 8 buckets must sum to the tithe amount (no dust lost)
         let split = elegbara_route(10_000);
-        let total = split.veilsim + split.r_and_d + split.governance + split.reserve
-                  + split.lottery + split.grants + split.ubi + split.sabbath_reserve;
+        let total = split.veilsim
+            + split.r_and_d
+            + split.governance
+            + split.reserve
+            + split.lottery
+            + split.grants
+            + split.ubi
+            + split.sabbath_reserve;
         assert_eq!(total, split.tithe_total);
     }
 
     #[test]
     fn test_elegbara_route_bucket_proportions() {
         let split = elegbara_route(10_000);
-        assert_eq!(split.veilsim,      3_000, "VeilSim 30%");
-        assert_eq!(split.r_and_d,      2_000, "R&D 20%");
-        assert_eq!(split.governance,   1_000, "Governance 10%");
-        assert_eq!(split.reserve,      1_000, "Reserve 10%");
-        assert_eq!(split.lottery,      1_000, "Lottery 10%");
-        assert_eq!(split.grants,       1_000, "Grants 10%");
-        assert_eq!(split.ubi,            500, "UBI 5%");
+        assert_eq!(split.veilsim, 3_000, "VeilSim 30%");
+        assert_eq!(split.r_and_d, 2_000, "R&D 20%");
+        assert_eq!(split.governance, 1_000, "Governance 10%");
+        assert_eq!(split.reserve, 1_000, "Reserve 10%");
+        assert_eq!(split.lottery, 1_000, "Lottery 10%");
+        assert_eq!(split.grants, 1_000, "Grants 10%");
+        assert_eq!(split.ubi, 500, "UBI 5%");
         assert_eq!(split.sabbath_reserve, 500, "Sabbath Reserve 5%");
     }
 
@@ -395,14 +422,17 @@ mod tests {
     fn test_eshu_tithe_369() {
         let (net, split) = eshu_tithe(10_000);
         assert_eq!(split.tithe_total, 369, "3.69% of 10_000");
-        assert_eq!(net, 10_000 - 369,      "net after tithe");
-        assert_eq!(split.lottery,      36, "10% of tithe → lottery");
-        assert_eq!(split.veilsim,      110, "~30% of tithe → VeilSim"); // 369*30/100 = 110
+        assert_eq!(net, 10_000 - 369, "net after tithe");
+        assert_eq!(split.lottery, 36, "10% of tithe → lottery");
+        assert_eq!(split.veilsim, 110, "~30% of tithe → VeilSim"); // 369*30/100 = 110
     }
 
     #[test]
     fn test_daily_emission_constant() {
-        assert_eq!(DAILY_EMISSION_MICRO, 1_440_000_000, "1440 Àṣẹ × 1_000_000 micro");
+        assert_eq!(
+            DAILY_EMISSION_MICRO, 1_440_000_000,
+            "1440 Àṣẹ × 1_000_000 micro"
+        );
         // Annual: 1440 × 365 = 525,600 Àṣẹ/year, fixed forever
         assert_eq!(DAILY_EMISSION_MICRO * 365, 525_600 * 1_000_000);
     }
@@ -410,10 +440,10 @@ mod tests {
     #[test]
     fn test_sector_funding_split_proportions() {
         let split = sector_funding_split(100_000_000);
-        assert_eq!(split.treasury,    50_000_000, "50% treasury");
+        assert_eq!(split.treasury, 50_000_000, "50% treasury");
         assert_eq!(split.inheritance, 25_000_000, "25% inheritance");
-        assert_eq!(split.council,     15_000_000, "15% council");
-        assert_eq!(split.executor,    10_000_000, "10% executor");
+        assert_eq!(split.council, 15_000_000, "15% council");
+        assert_eq!(split.executor, 10_000_000, "10% executor");
         assert_eq!(
             split.treasury + split.inheritance + split.council + split.executor,
             split.total
@@ -427,7 +457,9 @@ mod tests {
         assert!(net < DAILY_EMISSION_MICRO);
         // VeilSim gets 30% of the tithe — biggest single bucket
         assert!(elegbara.veilsim > elegbara.r_and_d);
-        assert_eq!(elegbara.tithe_total,
-            DAILY_EMISSION_MICRO * ESHU_TITHE_BPS / 10_000);
+        assert_eq!(
+            elegbara.tithe_total,
+            DAILY_EMISSION_MICRO * ESHU_TITHE_BPS / 10_000
+        );
     }
 }

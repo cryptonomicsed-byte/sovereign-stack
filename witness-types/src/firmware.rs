@@ -3,12 +3,12 @@ use serde::{Deserialize, Serialize};
 /// Manifest for Witness firmware running on M5Stack-class hardware.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct FirmwareManifest {
-    pub firmware_id:  String,
-    pub kind:         FirmwareKind,
-    pub version:      String,
+    pub firmware_id: String,
+    pub kind: FirmwareKind,
+    pub version: String,
     pub device_class: String,
     pub capabilities: Vec<String>,
-    pub vcp_enabled:  bool,
+    pub vcp_enabled: bool,
     pub nostr_pubkey: Option<String>,
 }
 

@@ -1,15 +1,15 @@
-pub mod envelope;
-pub mod address;
-pub mod identity_doc;
-pub mod router;
 pub mod adapter;
 pub mod adapters;
+pub mod address;
+pub mod envelope;
 pub mod error;
+pub mod identity_doc;
 pub mod oso_router;
+pub mod router;
 
-pub use envelope::*;
 pub use address::*;
-pub use identity_doc::*;
-pub use router::*;
+pub use envelope::*;
 pub use error::*;
-pub use oso_router::{OsoRouter, OsoRouteTrace, CascadeLeg, LegOutcome, OSO_CASCADE};
+pub use identity_doc::*;
+pub use oso_router::{CascadeLeg, LegOutcome, OsoRouteTrace, OsoRouter, OSO_CASCADE};
+pub use router::*;

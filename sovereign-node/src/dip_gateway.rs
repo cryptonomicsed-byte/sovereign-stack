@@ -15,33 +15,33 @@ use std::sync::Arc;
 use tokio::sync::RwLock;
 use tracing::{debug, info, warn};
 
-use dip::{DipEnvelope, DipRouter, RouteDecision, address::DipNetwork};
-use dip::adapters::{MeshtasticAdapter, MeshPacket};
+use dip::adapters::{MeshPacket, MeshtasticAdapter};
+use dip::{address::DipNetwork, DipEnvelope, DipRouter, RouteDecision};
 
+use crate::config::MeshtasticSection;
+use crate::identity::NodeIdentity;
 use crate::nostr_relay::NostrRelayHandle;
 use crate::vantage::VantageClient;
-use crate::identity::NodeIdentity;
-use crate::config::MeshtasticSection;
 
 /// A registered local handler — called when an envelope is addressed to this node.
 pub type LocalHandler = Arc<dyn Fn(DipEnvelope) + Send + Sync>;
 
 pub struct DipGateway {
-    router:           Arc<RwLock<DipRouter>>,
-    vantage:          Option<VantageClient>,
-    nostr:            Option<NostrRelayHandle>,
-    mesh_adapter:     Option<Arc<RwLock<MeshtasticAdapter>>>,
-    mesh_http:        Option<String>,   // device_url for HTTP toRadio bridge
-    http_client:      reqwest::Client,
-    local_handlers:   Vec<LocalHandler>,
+    router: Arc<RwLock<DipRouter>>,
+    vantage: Option<VantageClient>,
+    nostr: Option<NostrRelayHandle>,
+    mesh_adapter: Option<Arc<RwLock<MeshtasticAdapter>>>,
+    mesh_http: Option<String>, // device_url for HTTP toRadio bridge
+    http_client: reqwest::Client,
+    local_handlers: Vec<LocalHandler>,
 }
 
 impl DipGateway {
     pub fn new(
-        local_did:  String,
-        vantage:    Option<VantageClient>,
-        nostr:      Option<NostrRelayHandle>,
-        identity:   &NodeIdentity,
+        local_did: String,
+        vantage: Option<VantageClient>,
+        nostr: Option<NostrRelayHandle>,
+        identity: &NodeIdentity,
         meshtastic: Option<&MeshtasticSection>,
     ) -> Self {
         let mut router = DipRouter::new(local_did.clone());
@@ -52,7 +52,7 @@ impl DipGateway {
         }
 
         let node_id = derive_mesh_node_id(&identity.public_key);
-        let mesh    = MeshtasticAdapter::new(node_id, local_did);
+        let mesh = MeshtasticAdapter::new(node_id, local_did);
 
         let http_client = reqwest::Client::builder()
             .timeout(std::time::Duration::from_secs(5))
@@ -60,11 +60,11 @@ impl DipGateway {
             .unwrap_or_default();
 
         Self {
-            router:         Arc::new(RwLock::new(router)),
+            router: Arc::new(RwLock::new(router)),
             vantage,
             nostr,
-            mesh_adapter:   Some(Arc::new(RwLock::new(mesh))),
-            mesh_http:      meshtastic.map(|m| m.device_url.clone()),
+            mesh_adapter: Some(Arc::new(RwLock::new(mesh))),
+            mesh_http: meshtastic.map(|m| m.device_url.clone()),
             http_client,
             local_handlers: vec![],
         }
@@ -120,7 +120,9 @@ impl DipGateway {
                 if let Some(mesh) = &self.mesh_adapter {
                     let adapter = mesh.read().await;
                     match adapter.wrap(&envelope) {
-                        Err(e) => warn!(error = %e, msg_id = %envelope.message_id, "Meshtastic wrap failed"),
+                        Err(e) => {
+                            warn!(error = %e, msg_id = %envelope.message_id, "Meshtastic wrap failed")
+                        }
                         Ok(pkt) => {
                             info!(
                                 msg_id  = %envelope.message_id,
@@ -157,7 +159,7 @@ impl DipGateway {
             return;
         };
 
-        let url    = format!("{device_url}/api/v1/fromRadio");
+        let url = format!("{device_url}/api/v1/fromRadio");
         let client = self.http_client.clone();
 
         tokio::spawn(async move {
@@ -168,7 +170,7 @@ impl DipGateway {
                 interval.tick().await;
 
                 let resp = match client.get(&url).send().await {
-                    Ok(r)  => r,
+                    Ok(r) => r,
                     Err(e) => {
                         warn!(error = %e, "Meshtastic fromRadio poll error — retrying in 2s");
                         tokio::time::sleep(std::time::Duration::from_secs(2)).await;
@@ -182,7 +184,7 @@ impl DipGateway {
                 }
 
                 let pkt: dip::adapters::MeshPacket = match resp.json().await {
-                    Ok(p)  => p,
+                    Ok(p) => p,
                     Err(_) => continue, // empty body or non-DIP packet — skip silently
                 };
 
@@ -234,7 +236,7 @@ impl DipGateway {
 /// Derive a stable 32-bit Meshtastic node ID from the node's base64url public key.
 fn derive_mesh_node_id(pub_key_b64: &str) -> u32 {
     // Simple: XOR-fold the first 8 bytes of the raw key into a u32.
-    use base64::{Engine, engine::general_purpose::URL_SAFE_NO_PAD};
+    use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine};
     let bytes = URL_SAFE_NO_PAD.decode(pub_key_b64).unwrap_or_default();
     let mut id: u32 = 0x5AFE_0000; // sentinel prefix to distinguish from random IDs
     for (i, &b) in bytes.iter().take(8).enumerate() {

@@ -19,10 +19,10 @@ use serde_json::Value;
 use std::collections::BTreeMap;
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use sovereign_types::{IdentityChain, WitnessAttestation, merkle_root, sign, hash_str};
-use crate::twin::TwinAsset;
-use crate::simulation::{SimPolicy, SimulationReceipt};
 use crate::error::{TspError, TspResult};
+use crate::simulation::{SimPolicy, SimulationReceipt};
+use crate::twin::TwinAsset;
+use sovereign_types::{hash_str, merkle_root, sign, IdentityChain, WitnessAttestation};
 
 /// Parameters for a simulation run.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -43,24 +43,24 @@ pub struct SimScenario {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TrajectoryResult {
     pub trajectory_id: String,
-    pub policy_id:     String,
-    pub success:       bool,
-    pub energy_j:      f32,
-    pub risk_score:    f32,   // 0.0 (safe) → 1.0 (collision)
-    pub duration_s:    f32,
-    pub metrics:       Option<Value>,
+    pub policy_id: String,
+    pub success: bool,
+    pub energy_j: f32,
+    pub risk_score: f32, // 0.0 (safe) → 1.0 (collision)
+    pub duration_s: f32,
+    pub metrics: Option<Value>,
 }
 
 /// Full result returned by the ỌSỌVM engine for one scenario run.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct OsovmRunResult {
-    pub engine_version:    String,
-    pub scenario:          SimScenario,
-    pub trajectories:      Vec<TrajectoryResult>,
+    pub engine_version: String,
+    pub scenario: SimScenario,
+    pub trajectories: Vec<TrajectoryResult>,
     pub candidate_policies: Vec<SimPolicy>,
     pub selected_policy_id: String,
-    pub run_id:            String,
-    pub wall_ms:           u64,
+    pub run_id: String,
+    pub wall_ms: u64,
 }
 
 /// Interface to the ỌSỌVM simulation engine.
@@ -74,7 +74,11 @@ pub struct OsovmEngine {
 
 impl OsovmEngine {
     pub fn new(version: impl Into<String>) -> Self {
-        Self { engine_version: version.into(), endpoint: None, bypass_sabbath: false }
+        Self {
+            engine_version: version.into(),
+            endpoint: None,
+            bypass_sabbath: false,
+        }
     }
 
     pub fn with_endpoint(mut self, endpoint: impl Into<String>) -> Self {
@@ -113,8 +117,7 @@ impl OsovmEngine {
             }
         }
         // No HTTP endpoint configured — use stub
-        self.run_stub(twin, scenario)
-            .map_err(|e| e.to_string())
+        self.run_stub(twin, scenario).map_err(|e| e.to_string())
     }
 
     /// POST `{base_url}/run` with the canonical OSOVM envelope and parse the result.
@@ -158,11 +161,14 @@ impl OsovmEngine {
 
         // Try to parse into our canonical result type.
         // The server may also return `{"status": "ok", "run_id": ..., ...}` — try both shapes.
-        let raw: serde_json::Value = resp.json().await
+        let raw: serde_json::Value = resp
+            .json()
+            .await
             .map_err(|e| format!("response parse: {e}"))?;
 
         if raw.get("status").and_then(|s| s.as_str()).unwrap_or("ok") != "ok" {
-            let err = raw.get("error")
+            let err = raw
+                .get("error")
                 .and_then(|e| e.as_str())
                 .unwrap_or("unknown error from OSOVM server");
             return Err(err.to_string());
@@ -181,24 +187,24 @@ impl OsovmEngine {
 
                 // Build a minimal set of candidate policies from f1_score
                 let p_selected = SimPolicy {
-                    id:         "policy:remote:selected".into(),
-                    energy:     120.0 * (1.0 - f1_score),
-                    risk:       (0.15 - f1_score * 0.1_f32).max(0.0),
+                    id: "policy:remote:selected".into(),
+                    energy: 120.0 * (1.0 - f1_score),
+                    risk: (0.15 - f1_score * 0.1_f32).max(0.0),
                     duration_s: 18.0,
-                    metrics:    Some(serde_json::json!({"f1_score": f1_score})),
+                    metrics: Some(serde_json::json!({"f1_score": f1_score})),
                 };
                 let p_alt = SimPolicy {
-                    id:         "policy:remote:alt".into(),
-                    energy:     p_selected.energy * 1.1,
-                    risk:       (p_selected.risk + 0.05).min(1.0),
+                    id: "policy:remote:alt".into(),
+                    energy: p_selected.energy * 1.1,
+                    risk: (p_selected.risk + 0.05).min(1.0),
                     duration_s: p_selected.duration_s + 3.0,
-                    metrics:    None,
+                    metrics: None,
                 };
 
                 Ok(OsovmRunResult {
-                    engine_version:     self.engine_version.clone(),
-                    scenario:           scenario.clone(),
-                    trajectories:       vec![],
+                    engine_version: self.engine_version.clone(),
+                    scenario: scenario.clone(),
+                    trajectories: vec![],
                     candidate_policies: vec![p_selected.clone(), p_alt],
                     selected_policy_id: p_selected.id,
                     run_id,
@@ -215,55 +221,68 @@ impl OsovmEngine {
         let run_id = format!("osovm:run:{}", uuid::Uuid::new_v4());
         let n_traj = scenario.trajectory_count.max(2);
 
-        let trajectories: Vec<TrajectoryResult> = (0..n_traj).map(|i| {
-            let noise = (i as f32 * 0.07).sin() * 0.05;
-            let energy = 120.0 + (i as f32 * 12.3).sin() * 30.0;
-            let risk   = (0.15 - f1 * 0.1 + noise).max(0.0).min(1.0);
-            let dur    = 18.0 + (i as f32 * 0.9).cos() * 5.0;
-            let policy_id = if i < 3 {
-                ["policy:conservative", "policy:balanced", "policy:aggressive"][i as usize % 3].to_string()
-            } else {
-                format!("policy:variant:{}", i)
-            };
-            TrajectoryResult {
-                trajectory_id: format!("traj:{run_id}:{i}"),
-                policy_id:     policy_id.clone(),
-                success:       risk < 0.5,
-                energy_j:      energy,
-                risk_score:    risk,
-                duration_s:    dur,
-                metrics: Some(serde_json::json!({"f1_grounding": f1})),
-            }
-        }).collect();
+        let trajectories: Vec<TrajectoryResult> = (0..n_traj)
+            .map(|i| {
+                let noise = (i as f32 * 0.07).sin() * 0.05;
+                let energy = 120.0 + (i as f32 * 12.3).sin() * 30.0;
+                let risk = (0.15 - f1 * 0.1 + noise).max(0.0).min(1.0);
+                let dur = 18.0 + (i as f32 * 0.9).cos() * 5.0;
+                let policy_id = if i < 3 {
+                    [
+                        "policy:conservative",
+                        "policy:balanced",
+                        "policy:aggressive",
+                    ][i as usize % 3]
+                        .to_string()
+                } else {
+                    format!("policy:variant:{}", i)
+                };
+                TrajectoryResult {
+                    trajectory_id: format!("traj:{run_id}:{i}"),
+                    policy_id: policy_id.clone(),
+                    success: risk < 0.5,
+                    energy_j: energy,
+                    risk_score: risk,
+                    duration_s: dur,
+                    metrics: Some(serde_json::json!({"f1_grounding": f1})),
+                }
+            })
+            .collect();
 
         let mut policy_map: BTreeMap<String, (f32, f32, f32, u32)> = BTreeMap::new();
         for t in &trajectories {
-            let e = policy_map.entry(t.policy_id.clone()).or_insert((0.0, 0.0, 0.0, 0));
+            let e = policy_map
+                .entry(t.policy_id.clone())
+                .or_insert((0.0, 0.0, 0.0, 0));
             e.0 += t.energy_j;
             e.1 += t.risk_score;
             e.2 += t.duration_s;
             e.3 += 1;
         }
-        let candidate_policies: Vec<SimPolicy> = policy_map.iter().map(|(id, (e, r, d, n))| {
-            let n = *n as f32;
-            SimPolicy {
-                id:         id.clone(),
-                energy:     e / n,
-                risk:       r / n,
-                duration_s: d / n,
-                metrics:    Some(serde_json::json!({"trajectory_count": n})),
-            }
-        }).collect();
+        let candidate_policies: Vec<SimPolicy> = policy_map
+            .iter()
+            .map(|(id, (e, r, d, n))| {
+                let n = *n as f32;
+                SimPolicy {
+                    id: id.clone(),
+                    energy: e / n,
+                    risk: r / n,
+                    duration_s: d / n,
+                    metrics: Some(serde_json::json!({"trajectory_count": n})),
+                }
+            })
+            .collect();
 
         if candidate_policies.len() < 2 {
             return Err(TspError::InsufficientPolicies(candidate_policies.len()));
         }
 
-        let selected_policy_id = self.select_policy(&candidate_policies, &scenario.selection_objective);
+        let selected_policy_id =
+            self.select_policy(&candidate_policies, &scenario.selection_objective);
 
         Ok(OsovmRunResult {
-            engine_version:    self.engine_version.clone(),
-            scenario:          scenario.clone(),
+            engine_version: self.engine_version.clone(),
+            scenario: scenario.clone(),
             trajectories,
             candidate_policies,
             selected_policy_id,
@@ -303,7 +322,12 @@ impl OsovmEngine {
     }
 
     /// Call the real ỌSỌVM engine.
-    fn run_real(&self, twin: &TwinAsset, scenario: &SimScenario, endpoint: &str) -> TspResult<OsovmRunResult> {
+    fn run_real(
+        &self,
+        twin: &TwinAsset,
+        scenario: &SimScenario,
+        endpoint: &str,
+    ) -> TspResult<OsovmRunResult> {
         let payload = serde_json::json!({ "twin": twin, "scenario": scenario });
 
         if endpoint.starts_with("http://") || endpoint.starts_with("https://") {
@@ -314,26 +338,27 @@ impl OsovmEngine {
                 .build()
                 .map_err(|e| TspError::SimulationError(e.to_string()))?;
 
-            let resp = client.post(&url)
+            let resp = client
+                .post(&url)
                 .json(&payload)
                 .send()
                 .map_err(|e| TspError::SimulationError(format!("HTTP POST failed: {e}")))?;
 
             if !resp.status().is_success() {
-                return Err(TspError::SimulationError(
-                    format!("ỌSỌVM endpoint returned {}", resp.status())
-                ));
+                return Err(TspError::SimulationError(format!(
+                    "ỌSỌVM endpoint returned {}",
+                    resp.status()
+                )));
             }
 
             resp.json::<OsovmRunResult>()
                 .map_err(|e| TspError::SimulationError(format!("response parse failed: {e}")))
         } else {
             // Binary exec: write JSON to stdin, read OsovmRunResult from stdout
-            use std::process::{Command, Stdio};
             use std::io::Write;
+            use std::process::{Command, Stdio};
 
-            let input = serde_json::to_string(&payload)
-                .map_err(TspError::Json)?;
+            let input = serde_json::to_string(&payload).map_err(TspError::Json)?;
 
             let mut child = Command::new(endpoint)
                 .stdin(Stdio::piped())
@@ -343,18 +368,21 @@ impl OsovmEngine {
                 .map_err(|e| TspError::SimulationError(format!("spawn {endpoint}: {e}")))?;
 
             if let Some(stdin) = child.stdin.as_mut() {
-                stdin.write_all(input.as_bytes())
+                stdin
+                    .write_all(input.as_bytes())
                     .map_err(|e| TspError::SimulationError(format!("stdin write: {e}")))?;
             }
 
-            let output = child.wait_with_output()
+            let output = child
+                .wait_with_output()
                 .map_err(|e| TspError::SimulationError(format!("wait: {e}")))?;
 
             if !output.status.success() {
                 let stderr = String::from_utf8_lossy(&output.stderr);
-                return Err(TspError::SimulationError(
-                    format!("ỌSỌVM binary exited with {}; stderr: {}", output.status, stderr)
-                ));
+                return Err(TspError::SimulationError(format!(
+                    "ỌSỌVM binary exited with {}; stderr: {}",
+                    output.status, stderr
+                )));
             }
 
             serde_json::from_slice::<OsovmRunResult>(&output.stdout)
@@ -364,9 +392,15 @@ impl OsovmEngine {
 
     fn select_policy(&self, policies: &[SimPolicy], objective: &str) -> String {
         let best = match objective {
-            "min_energy" => policies.iter().min_by(|a, b| a.energy.partial_cmp(&b.energy).unwrap()),
-            "min_risk"   => policies.iter().min_by(|a, b| a.risk.partial_cmp(&b.risk).unwrap()),
-            "max_throughput" => policies.iter().min_by(|a, b| a.duration_s.partial_cmp(&b.duration_s).unwrap()),
+            "min_energy" => policies
+                .iter()
+                .min_by(|a, b| a.energy.partial_cmp(&b.energy).unwrap()),
+            "min_risk" => policies
+                .iter()
+                .min_by(|a, b| a.risk.partial_cmp(&b.risk).unwrap()),
+            "max_throughput" => policies
+                .iter()
+                .min_by(|a, b| a.duration_s.partial_cmp(&b.duration_s).unwrap()),
             _ => {
                 // balanced: minimise energy * 0.4 + risk * 0.6
                 policies.iter().min_by(|a, b| {
@@ -376,7 +410,8 @@ impl OsovmEngine {
                 })
             }
         };
-        best.map(|p| p.id.clone()).unwrap_or_else(|| policies[0].id.clone())
+        best.map(|p| p.id.clone())
+            .unwrap_or_else(|| policies[0].id.clone())
     }
 }
 
@@ -396,11 +431,11 @@ impl ProofOfSimulation {
     /// In production these come from the sovereign node mesh via VCP.
     pub fn prove(
         &self,
-        twin:         &TwinAsset,
-        scenario:     &SimScenario,
-        identity:     IdentityChain,
-        private_key:  &str,
-        witness_keys: &[(&str, &str)],  // (did, signing_key)
+        twin: &TwinAsset,
+        scenario: &SimScenario,
+        identity: IdentityChain,
+        private_key: &str,
+        witness_keys: &[(&str, &str)], // (did, signing_key)
     ) -> TspResult<SimulationReceipt> {
         if witness_keys.len() < 2 {
             return Err(TspError::InsufficientWitnesses(witness_keys.len()));
@@ -410,28 +445,34 @@ impl ProofOfSimulation {
 
         // Compute the same merkle commitment that SimulationReceipt::build will compute
         // (twin_id + engine + trajectory_count + all_policies_hash)
-        let policies_json = serde_json::to_string(&run.candidate_policies)
-            .map_err(TspError::Json)?;
+        let policies_json =
+            serde_json::to_string(&run.candidate_policies).map_err(TspError::Json)?;
         let all_policies_hash = hash_str(&policies_json);
 
         let mut fields = BTreeMap::new();
-        fields.insert("all_policies_hash",  serde_json::json!(&all_policies_hash));
-        fields.insert("robot_model",        serde_json::json!(&run.scenario.robot_model));
-        fields.insert("sim_engine",         serde_json::json!(&run.engine_version));
-        fields.insert("trajectory_count",   serde_json::json!(run.scenario.trajectory_count));
-        fields.insert("twin_id",            serde_json::json!(&twin.twin_id));
+        fields.insert("all_policies_hash", serde_json::json!(&all_policies_hash));
+        fields.insert("robot_model", serde_json::json!(&run.scenario.robot_model));
+        fields.insert("sim_engine", serde_json::json!(&run.engine_version));
+        fields.insert(
+            "trajectory_count",
+            serde_json::json!(run.scenario.trajectory_count),
+        );
+        fields.insert("twin_id", serde_json::json!(&twin.twin_id));
         let commitment = merkle_root(&fields);
 
         // Each witness signs the commitment
-        let witnesses: Vec<WitnessAttestation> = witness_keys.iter().map(|(did, key)| {
-            let sig = sign(&commitment, key).unwrap_or_else(|_| "invalid".into());
-            WitnessAttestation {
-                witness_id:        did.to_string(),
-                merkle_commitment: commitment.clone(),
-                timestamp: now_ms(),
-                signature: sig,
-            }
-        }).collect();
+        let witnesses: Vec<WitnessAttestation> = witness_keys
+            .iter()
+            .map(|(did, key)| {
+                let sig = sign(&commitment, key).unwrap_or_else(|_| "invalid".into());
+                WitnessAttestation {
+                    witness_id: did.to_string(),
+                    merkle_commitment: commitment.clone(),
+                    timestamp: now_ms(),
+                    signature: sig,
+                }
+            })
+            .collect();
 
         SimulationReceipt::build(
             identity,
@@ -455,21 +496,24 @@ impl ProofOfSimulation {
     /// `prove_with_attestations()` to build the final SimulationReceipt.
     pub fn run_and_commitment(
         &self,
-        twin:     &TwinAsset,
+        twin: &TwinAsset,
         scenario: &SimScenario,
     ) -> TspResult<(OsovmRunResult, String)> {
         let run = self.engine.run(twin, scenario)?;
 
-        let policies_json = serde_json::to_string(&run.candidate_policies)
-            .map_err(TspError::Json)?;
+        let policies_json =
+            serde_json::to_string(&run.candidate_policies).map_err(TspError::Json)?;
         let all_policies_hash = hash_str(&policies_json);
 
         let mut fields = BTreeMap::new();
-        fields.insert("all_policies_hash",  serde_json::json!(&all_policies_hash));
-        fields.insert("robot_model",        serde_json::json!(&run.scenario.robot_model));
-        fields.insert("sim_engine",         serde_json::json!(&run.engine_version));
-        fields.insert("trajectory_count",   serde_json::json!(run.scenario.trajectory_count));
-        fields.insert("twin_id",            serde_json::json!(&twin.twin_id));
+        fields.insert("all_policies_hash", serde_json::json!(&all_policies_hash));
+        fields.insert("robot_model", serde_json::json!(&run.scenario.robot_model));
+        fields.insert("sim_engine", serde_json::json!(&run.engine_version));
+        fields.insert(
+            "trajectory_count",
+            serde_json::json!(run.scenario.trajectory_count),
+        );
+        fields.insert("twin_id", serde_json::json!(&twin.twin_id));
         let commitment = merkle_root(&fields);
 
         Ok((run, commitment))
@@ -479,10 +523,10 @@ impl ProofOfSimulation {
     /// Build the SimulationReceipt from a pre-computed run result and pre-collected attestations.
     pub fn prove_with_attestations(
         &self,
-        run:          OsovmRunResult,
-        twin_id:      &str,
-        identity:     IdentityChain,
-        private_key:  &str,
+        run: OsovmRunResult,
+        twin_id: &str,
+        identity: IdentityChain,
+        private_key: &str,
         attestations: Vec<WitnessAttestation>,
     ) -> TspResult<SimulationReceipt> {
         if attestations.len() < 2 {
@@ -513,14 +557,14 @@ fn now_ms() -> u64 {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use sovereign_types::crypto::generate_keypair;
-    use crate::twin::{TwinAsset, TwinDataHashes, TwinProvenance, TwinLicenseConfig, RevenueSplit};
     use crate::quality::TwinQuality;
+    use crate::twin::{RevenueSplit, TwinAsset, TwinDataHashes, TwinLicenseConfig, TwinProvenance};
+    use sovereign_types::crypto::generate_keypair;
 
     fn make_twin() -> TwinAsset {
         let hashes = TwinDataHashes {
-            rgb:   Some("sha256:aabb".into()),
-            imu:   Some("sha256:ccdd".into()),
+            rgb: Some("sha256:aabb".into()),
+            imu: Some("sha256:ccdd".into()),
             splat: Some("sha256:eeff".into()),
             ..Default::default()
         };
@@ -529,20 +573,20 @@ mod tests {
         let ts = 0u64;
         TwinAsset {
             twin_id,
-            version:     1,
-            owner_did:   "did:vantage:principal:test".into(),
+            version: 1,
+            owner_did: "did:vantage:principal:test".into(),
             creator_did: "did:agent:test".into(),
             contributors: vec![],
-            region:       crate::region::TwinRegion::new(0.0, 0.0, 0.001, 0.001),
-            data_hashes:  hashes,
+            region: crate::region::TwinRegion::new(0.0, 0.0, 0.001, 0.001),
+            data_hashes: hashes,
             quality,
-            provenance:   TwinProvenance::default(),
-            license:      TwinLicenseConfig::default(),
+            provenance: TwinProvenance::default(),
+            license: TwinLicenseConfig::default(),
             sui_object_id: None,
-            merkle_root:  String::new(),
-            signature:    String::new(),
-            created_at:   ts,
-            updated_at:   ts,
+            merkle_root: String::new(),
+            signature: String::new(),
+            created_at: ts,
+            updated_at: ts,
         }
     }
 
@@ -562,7 +606,10 @@ mod tests {
         };
         let result = make_engine().run(&twin, &scenario).unwrap();
         assert!(result.candidate_policies.len() >= 2);
-        assert!(result.candidate_policies.iter().any(|p| p.id == result.selected_policy_id));
+        assert!(result
+            .candidate_policies
+            .iter()
+            .any(|p| p.id == result.selected_policy_id));
     }
 
     #[test]
@@ -581,19 +628,27 @@ mod tests {
         let identity = IdentityChain::new("did:p:1".into(), "did:a:1".into());
 
         let proof = ProofOfSimulation::new(make_engine());
-        let receipt = proof.prove(
-            &twin,
-            &scenario,
-            identity,
-            &priv_key,
-            &[("did:witness:node01", &w1_priv), ("did:witness:node02", &w2_priv)],
-        ).unwrap();
+        let receipt = proof
+            .prove(
+                &twin,
+                &scenario,
+                identity,
+                &priv_key,
+                &[
+                    ("did:witness:node01", &w1_priv),
+                    ("did:witness:node02", &w2_priv),
+                ],
+            )
+            .unwrap();
 
         assert_eq!(receipt.kind, "proof_of_simulation");
         assert_eq!(receipt.twin_id, twin.twin_id);
         assert!(receipt.all_policies.len() >= 2);
         assert_eq!(receipt.witness_ids.len(), 2);
-        assert!(receipt.all_policies.iter().any(|p| p.id == receipt.selected_policy_id));
+        assert!(receipt
+            .all_policies
+            .iter()
+            .any(|p| p.id == receipt.selected_policy_id));
     }
 
     #[test]
@@ -630,7 +685,10 @@ mod tests {
         let result = engine.run(&twin, &scenario).unwrap();
         // Stub output is valid even when the real engine is unreachable
         assert!(result.candidate_policies.len() >= 2);
-        assert!(result.candidate_policies.iter().any(|p| p.id == result.selected_policy_id));
+        assert!(result
+            .candidate_policies
+            .iter()
+            .any(|p| p.id == result.selected_policy_id));
     }
 
     #[test]
@@ -663,8 +721,13 @@ mod tests {
                 params: None,
             };
             let result = engine.run(&twin, &scenario).unwrap();
-            assert!(result.candidate_policies.iter().any(|p| p.id == result.selected_policy_id),
-                "objective {obj}: selected policy not in list");
+            assert!(
+                result
+                    .candidate_policies
+                    .iter()
+                    .any(|p| p.id == result.selected_policy_id),
+                "objective {obj}: selected policy not in list"
+            );
         }
     }
 
@@ -720,12 +783,9 @@ mod tests {
             "#!/bin/sh\ncat /dev/null\necho '{}'\n",
             result_json.to_string()
         );
-        std::fs::write(&script_path, &script_body)
-            .expect("write test stub script");
-        std::fs::set_permissions(
-            &script_path,
-            std::fs::Permissions::from_mode(0o755),
-        ).expect("chmod stub script");
+        std::fs::write(&script_path, &script_body).expect("write test stub script");
+        std::fs::set_permissions(&script_path, std::fs::Permissions::from_mode(0o755))
+            .expect("chmod stub script");
 
         let twin = make_twin();
         let scenario = SimScenario {
@@ -737,14 +797,21 @@ mod tests {
         };
 
         // Use `run_real` directly via the public `run()` entry — endpoint is the script path
-        let engine = OsovmEngine::new("osovm/2.0").with_endpoint(script_path.clone()).bypass_sabbath();
-        let result = engine.run(&twin, &scenario).expect("binary exec should succeed");
+        let engine = OsovmEngine::new("osovm/2.0")
+            .with_endpoint(script_path.clone())
+            .bypass_sabbath();
+        let result = engine
+            .run(&twin, &scenario)
+            .expect("binary exec should succeed");
 
         assert_eq!(result.engine_version, "osovm-stub/1.0");
         assert_eq!(result.run_id, "osovm:run:bin-test-001");
         assert_eq!(result.candidate_policies.len(), 2);
         assert_eq!(result.selected_policy_id, "policy:conservative");
-        assert!(result.candidate_policies.iter().any(|p| p.id == result.selected_policy_id));
+        assert!(result
+            .candidate_policies
+            .iter()
+            .any(|p| p.id == result.selected_policy_id));
 
         // Clean up
         let _ = std::fs::remove_file(&script_path);
@@ -759,10 +826,8 @@ mod tests {
         let script_path = format!("{tmp_dir}/sovereign-osovm-test-fail.sh");
         std::fs::write(&script_path, "#!/bin/sh\necho 'fatal error' >&2\nexit 1\n")
             .expect("write fail stub");
-        std::fs::set_permissions(
-            &script_path,
-            std::fs::Permissions::from_mode(0o755),
-        ).expect("chmod fail stub");
+        std::fs::set_permissions(&script_path, std::fs::Permissions::from_mode(0o755))
+            .expect("chmod fail stub");
 
         let twin = make_twin();
         let scenario = SimScenario {
@@ -773,12 +838,17 @@ mod tests {
             params: None,
         };
 
-        let engine = OsovmEngine::new("osovm/2.0").with_endpoint(script_path.clone()).bypass_sabbath();
+        let engine = OsovmEngine::new("osovm/2.0")
+            .with_endpoint(script_path.clone())
+            .bypass_sabbath();
         // Should fall back to stub — not return an Err
-        let result = engine.run(&twin, &scenario)
+        let result = engine
+            .run(&twin, &scenario)
             .expect("non-zero exit should fall back to stub, not hard-fail");
-        assert!(result.candidate_policies.len() >= 2,
-            "stub fallback must produce >= 2 policies");
+        assert!(
+            result.candidate_policies.len() >= 2,
+            "stub fallback must produce >= 2 policies"
+        );
 
         let _ = std::fs::remove_file(&script_path);
     }
@@ -789,15 +859,21 @@ mod tests {
         // Formula: (unix_day + 4) % 7 == 6  →  Saturday UTC.
         // First Saturday since epoch: unix_day = 2  → (2+4)%7 = 6 ✓
         let saturday_ts = 2 * 86_400 + 3600; // Saturday 01:00 UTC
-        assert!(crate::emission::DailyEmissionAllocator::is_sabbath(saturday_ts),
-            "day 2 = Saturday must trigger Sabbath freeze");
+        assert!(
+            crate::emission::DailyEmissionAllocator::is_sabbath(saturday_ts),
+            "day 2 = Saturday must trigger Sabbath freeze"
+        );
 
-        let friday_ts = 1 * 86_400 + 3600;   // Friday 01:00 UTC
-        assert!(!crate::emission::DailyEmissionAllocator::is_sabbath(friday_ts),
-            "day 1 = Friday must not trigger Sabbath freeze");
+        let friday_ts = 1 * 86_400 + 3600; // Friday 01:00 UTC
+        assert!(
+            !crate::emission::DailyEmissionAllocator::is_sabbath(friday_ts),
+            "day 1 = Friday must not trigger Sabbath freeze"
+        );
 
-        let sunday_ts = 3 * 86_400 + 3600;   // Sunday 01:00 UTC
-        assert!(!crate::emission::DailyEmissionAllocator::is_sabbath(sunday_ts),
-            "day 3 = Sunday must not trigger Sabbath freeze");
+        let sunday_ts = 3 * 86_400 + 3600; // Sunday 01:00 UTC
+        assert!(
+            !crate::emission::DailyEmissionAllocator::is_sabbath(sunday_ts),
+            "day 3 = Sunday must not trigger Sabbath freeze"
+        );
     }
 }

@@ -26,14 +26,26 @@ impl WorkId {
 
     pub fn namespace(&self) -> Option<&str> {
         let parts: Vec<&str> = self.0.splitn(3, ':').collect();
-        if parts.len() == 3 && parts[0] == "wk" { Some(parts[1]) } else { None }
+        if parts.len() == 3 && parts[0] == "wk" {
+            Some(parts[1])
+        } else {
+            None
+        }
     }
 
-    pub fn as_str(&self) -> &str { &self.0 }
+    pub fn as_str(&self) -> &str {
+        &self.0
+    }
 
-    pub fn is_simulation(&self) -> bool { self.namespace() == Some("sim") }
-    pub fn is_real(&self) -> bool { self.namespace() == Some("real") }
-    pub fn is_hybrid(&self) -> bool { self.namespace() == Some("hybrid") }
+    pub fn is_simulation(&self) -> bool {
+        self.namespace() == Some("sim")
+    }
+    pub fn is_real(&self) -> bool {
+        self.namespace() == Some("real")
+    }
+    pub fn is_hybrid(&self) -> bool {
+        self.namespace() == Some("hybrid")
+    }
 }
 
 impl std::fmt::Display for WorkId {
@@ -43,11 +55,15 @@ impl std::fmt::Display for WorkId {
 }
 
 impl From<String> for WorkId {
-    fn from(s: String) -> Self { Self(s) }
+    fn from(s: String) -> Self {
+        Self(s)
+    }
 }
 
 impl From<&str> for WorkId {
-    fn from(s: &str) -> Self { Self(s.to_string()) }
+    fn from(s: &str) -> Self {
+        Self(s.to_string())
+    }
 }
 
 // ── WorkKind ──────────────────────────────────────────────────────────────────
@@ -75,31 +91,31 @@ pub enum WorkKind {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ActionReceipt {
     /// BLAKE3 hash of canonical receipt fields (excluding this field).
-    pub receipt_id:       String,
+    pub receipt_id: String,
     /// The work unit this receipt belongs to.
-    pub work_id:          WorkId,
+    pub work_id: WorkId,
     /// DID of the principal who authorised the work.
-    pub principal_id:     String,
+    pub principal_id: String,
     /// Agent DID or pubkey that performed the action.
-    pub agent_id:         String,
+    pub agent_id: String,
     /// VCP / TSP / DIP session identifier (optional).
-    pub session_id:       Option<String>,
+    pub session_id: Option<String>,
     /// OSOVM or job execution run identifier (optional).
-    pub execution_id:     Option<String>,
+    pub execution_id: Option<String>,
     /// Human-readable action name ("ScarabSwarm.run", "TSP.capture", etc.).
-    pub action:           String,
+    pub action: String,
     /// BLAKE3 of serialised input parameters.
-    pub input_hash:       String,
+    pub input_hash: String,
     /// BLAKE3 of serialised output / result.
-    pub output_hash:      String,
+    pub output_hash: String,
     /// Optional: BLAKE3 of attached evidence (video, sensor data, …).
-    pub evidence_hash:    Option<String>,
+    pub evidence_hash: Option<String>,
     /// receipt_id of the immediately preceding receipt in the chain.
     pub previous_receipt: Option<String>,
     /// Unix timestamp millis.
-    pub timestamp_ms:     u64,
+    pub timestamp_ms: u64,
     /// ed25519 hex signature by `agent_id` over all above fields.
-    pub signature:        String,
+    pub signature: String,
 }
 
 impl ActionReceipt {
@@ -131,25 +147,29 @@ impl ActionReceipt {
 /// Must be countersigned by at least 2 independent witnesses before taking effect.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TierTransitionReceipt {
-    pub receipt_id:         String,
-    pub agent_id:           String,
-    pub from_tier:          u8,
-    pub to_tier:            u8,
+    pub receipt_id: String,
+    pub agent_id: String,
+    pub from_tier: u8,
+    pub to_tier: u8,
     /// The ActionReceipt that triggered this evaluation.
     pub triggering_receipt: String,
     /// ProofVector snapshot at evaluation time (JSON).
-    pub proof_vector_json:  String,
+    pub proof_vector_json: String,
     /// Domain that crossed the threshold that enabled this transition.
-    pub qualifying_domain:  String,
-    pub timestamp_ms:       u64,
+    pub qualifying_domain: String,
+    pub timestamp_ms: u64,
     /// Witness attestations: vec of (witness_id, signature) pairs.
-    pub witness_sigs:       Vec<(String, String)>,
-    pub agent_signature:    String,
+    pub witness_sigs: Vec<(String, String)>,
+    pub agent_signature: String,
 }
 
 impl TierTransitionReceipt {
-    pub fn is_promotion(&self) -> bool { self.to_tier > self.from_tier }
-    pub fn is_regression(&self) -> bool { self.to_tier < self.from_tier }
+    pub fn is_promotion(&self) -> bool {
+        self.to_tier > self.from_tier
+    }
+    pub fn is_regression(&self) -> bool {
+        self.to_tier < self.from_tier
+    }
 
     /// Minimum witness count required to finalise a tier transition.
     pub fn required_witnesses(to_tier: u8) -> usize {
@@ -174,19 +194,19 @@ impl TierTransitionReceipt {
 /// are automatic flows. SettlementReceipt covers voluntary work payments.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SettlementReceipt {
-    pub receipt_id:       String,
+    pub receipt_id: String,
     /// The work unit that was compensated.
-    pub work_id:          WorkId,
-    pub payer_did:        String,
-    pub payee_did:        String,
+    pub work_id: WorkId,
+    pub payer_did: String,
+    pub payee_did: String,
     /// Amount in mist (1 Àṣẹ = 1_000_000_000 mist).
-    pub amount_mist:      u64,
+    pub amount_mist: u64,
     /// Optional tithe component already withheld (mist).
-    pub tithe_mist:       Option<u64>,
+    pub tithe_mist: Option<u64>,
     /// Sui transaction digest if on-chain.
-    pub sui_tx:           Option<String>,
-    pub timestamp_ms:     u64,
-    pub payer_signature:  String,
+    pub sui_tx: Option<String>,
+    pub timestamp_ms: u64,
+    pub payer_signature: String,
 }
 
 impl SettlementReceipt {
@@ -220,16 +240,16 @@ pub const SOVEREIGN_WALLET_COUNT: u32 = 1_440;
 /// Published by an agent on the Blockmesh capability discovery mesh.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CapabilityAdvertisement {
-    pub agent_id:       String,
-    pub tier:           u8,
+    pub agent_id: String,
+    pub tier: u8,
     /// MIME-style capability strings, e.g. "scarab.sim/v1", "tsp.capture/v1".
-    pub capabilities:   Vec<String>,
-    pub vcp_endpoint:   Option<String>,
+    pub capabilities: Vec<String>,
+    pub vcp_endpoint: Option<String>,
     pub osovm_endpoint: Option<String>,
     /// Peer list for mesh routing.
-    pub peers:          Vec<String>,
-    pub timestamp_ms:   u64,
-    pub signature:      String,
+    pub peers: Vec<String>,
+    pub timestamp_ms: u64,
+    pub signature: String,
 }
 
 // SovereignWallet is defined in governance.rs — see governance::SovereignWallet.
@@ -282,23 +302,23 @@ mod tests {
     #[test]
     fn tier_transition_not_finalised_without_sigs() {
         let r = TierTransitionReceipt {
-            receipt_id:         "r".into(),
-            agent_id:           "a".into(),
-            from_tier:          2,
-            to_tier:            3,
+            receipt_id: "r".into(),
+            agent_id: "a".into(),
+            from_tier: 2,
+            to_tier: 3,
             triggering_receipt: "t".into(),
-            proof_vector_json:  "{}".into(),
-            qualifying_domain:  "simulation".into(),
-            timestamp_ms:       0,
-            witness_sigs:       vec![],
-            agent_signature:    "s".into(),
+            proof_vector_json: "{}".into(),
+            qualifying_domain: "simulation".into(),
+            timestamp_ms: 0,
+            witness_sigs: vec![],
+            agent_signature: "s".into(),
         };
         assert!(!r.is_finalised(3));
         // 2 witnesses → finalised
-        let r2 = TierTransitionReceipt { witness_sigs: vec![
-            ("w1".into(), "s1".into()),
-            ("w2".into(), "s2".into()),
-        ], ..r };
+        let r2 = TierTransitionReceipt {
+            witness_sigs: vec![("w1".into(), "s1".into()), ("w2".into(), "s2".into())],
+            ..r
+        };
         assert!(r2.is_finalised(3));
     }
 
@@ -327,14 +347,14 @@ mod tests {
     #[test]
     fn capability_advertisement_fields() {
         let ad = CapabilityAdvertisement {
-            agent_id:       "did:key:a".into(),
-            tier:           3,
-            capabilities:   vec!["scarab.sim/v1".into(), "tsp.capture/v1".into()],
-            vcp_endpoint:   Some("ws://localhost:9090".into()),
+            agent_id: "did:key:a".into(),
+            tier: 3,
+            capabilities: vec!["scarab.sim/v1".into(), "tsp.capture/v1".into()],
+            vcp_endpoint: Some("ws://localhost:9090".into()),
             osovm_endpoint: Some("http://localhost:7780".into()),
-            peers:          vec![],
-            timestamp_ms:   1_000,
-            signature:      "sig".into(),
+            peers: vec![],
+            timestamp_ms: 1_000,
+            signature: "sig".into(),
         };
         assert_eq!(ad.capabilities.len(), 2);
         assert_eq!(ad.tier, 3);

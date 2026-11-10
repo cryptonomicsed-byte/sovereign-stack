@@ -30,15 +30,15 @@ use crate::manifest::AgentDeviceManifest;
 /// A discovered VCP device — what the scanner sees before the full handshake.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DiscoveredDevice {
-    pub device_id:            String,
-    pub manufacturer:         String,
-    pub model:                String,
-    pub protocol_version:     String,
-    pub capability_summary:   Vec<String>,    // top-level capability IDs only
-    pub transport:            Vec<String>,
-    pub rssi:                 Option<i16>,    // BLE signal strength (dBm)
-    pub last_seen_ms:         u64,
-    pub discovery_method:     DiscoveryMethod,
+    pub device_id: String,
+    pub manufacturer: String,
+    pub model: String,
+    pub protocol_version: String,
+    pub capability_summary: Vec<String>, // top-level capability IDs only
+    pub transport: Vec<String>,
+    pub rssi: Option<i16>, // BLE signal strength (dBm)
+    pub last_seen_ms: u64,
+    pub discovery_method: DiscoveryMethod,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -47,26 +47,34 @@ pub enum DiscoveryMethod {
     Ble,
     Mdns,
     Meshtastic,
-    Manual,    // explicitly registered (e.g. over USB)
+    Manual, // explicitly registered (e.g. over USB)
 }
 
 impl DiscoveredDevice {
-    pub fn from_manifest(manifest: &AgentDeviceManifest, rssi: Option<i16>, method: DiscoveryMethod) -> Self {
+    pub fn from_manifest(
+        manifest: &AgentDeviceManifest,
+        rssi: Option<i16>,
+        method: DiscoveryMethod,
+    ) -> Self {
         Self {
-            device_id:          manifest.device_id.clone(),
-            manufacturer:       manifest.manufacturer.clone(),
-            model:              manifest.model.clone(),
-            protocol_version:   manifest.protocol_version.clone(),
-            capability_summary: manifest.capabilities.iter()
+            device_id: manifest.device_id.clone(),
+            manufacturer: manifest.manufacturer.clone(),
+            model: manifest.model.clone(),
+            protocol_version: manifest.protocol_version.clone(),
+            capability_summary: manifest
+                .capabilities
+                .iter()
                 .filter(|c| !c.ungrantable)
                 .map(|c| c.id.clone())
                 .collect(),
-            transport:          manifest.transport.iter()
+            transport: manifest
+                .transport
+                .iter()
                 .map(|t| format!("{:?}", t).to_lowercase())
                 .collect(),
             rssi,
-            last_seen_ms:       now_ms(),
-            discovery_method:   method,
+            last_seen_ms: now_ms(),
+            discovery_method: method,
         }
     }
 
@@ -89,7 +97,12 @@ struct RegistryInner {
 
 impl DeviceRegistry {
     pub fn new(ttl_secs: u64) -> Self {
-        Self { inner: Arc::new(RwLock::new(RegistryInner { devices: HashMap::new(), ttl_secs })) }
+        Self {
+            inner: Arc::new(RwLock::new(RegistryInner {
+                devices: HashMap::new(),
+                ttl_secs,
+            })),
+        }
     }
 
     pub async fn upsert(&self, device: DiscoveredDevice) {
@@ -141,24 +154,24 @@ impl DeviceRegistry {
 
 /// The discovery daemon — runs scan loops and maintains the registry.
 pub struct DiscoveryDaemon {
-    pub registry:    DeviceRegistry,
-    scan_interval:   Duration,
+    pub registry: DeviceRegistry,
+    scan_interval: Duration,
     device_ttl_secs: u64,
 
     /// Vantage base URL for heartbeat integration (e.g. "http://localhost:8001")
-    vantage_url:     Option<String>,
+    vantage_url: Option<String>,
     /// Ọmọ Kọ́dà base URL for perception injection (e.g. "http://localhost:7777")
-    koda_url:        Option<String>,
+    koda_url: Option<String>,
 }
 
 impl DiscoveryDaemon {
     pub fn new(scan_interval_secs: u64, device_ttl_secs: u64) -> Self {
         Self {
-            registry:        DeviceRegistry::new(device_ttl_secs),
-            scan_interval:   Duration::from_secs(scan_interval_secs),
+            registry: DeviceRegistry::new(device_ttl_secs),
+            scan_interval: Duration::from_secs(scan_interval_secs),
             device_ttl_secs,
-            vantage_url:     std::env::var("VANTAGE_URL").ok(),
-            koda_url:        std::env::var("KODA_URL").ok(),
+            vantage_url: std::env::var("VANTAGE_URL").ok(),
+            koda_url: std::env::var("KODA_URL").ok(),
         }
     }
 
@@ -175,23 +188,35 @@ impl DiscoveryDaemon {
     /// Simulate a BLE beacon arrival (real impl uses btleplug / bluer crate).
     pub async fn on_ble_beacon(&self, manifest: AgentDeviceManifest, rssi: i16) {
         let device = DiscoveredDevice::from_manifest(&manifest, Some(rssi), DiscoveryMethod::Ble);
-        println!("[vcp-discovery] BLE beacon: {} {} (rssi={}dBm, {} caps)",
-            device.manufacturer, device.model, rssi, device.capability_summary.len());
+        println!(
+            "[vcp-discovery] BLE beacon: {} {} (rssi={}dBm, {} caps)",
+            device.manufacturer,
+            device.model,
+            rssi,
+            device.capability_summary.len()
+        );
         self.registry.upsert(device).await;
     }
 
     /// Simulate an mDNS announcement (real impl uses mdns-sd crate).
     pub async fn on_mdns_announcement(&self, manifest: AgentDeviceManifest) {
         let device = DiscoveredDevice::from_manifest(&manifest, None, DiscoveryMethod::Mdns);
-        println!("[vcp-discovery] mDNS: {} {} ({} caps)",
-            device.manufacturer, device.model, device.capability_summary.len());
+        println!(
+            "[vcp-discovery] mDNS: {} {} ({} caps)",
+            device.manufacturer,
+            device.model,
+            device.capability_summary.len()
+        );
         self.registry.upsert(device).await;
     }
 
     /// Manually register a device (e.g. USB-connected, or entered by user).
     pub async fn register_manual(&self, manifest: AgentDeviceManifest) {
         let device = DiscoveredDevice::from_manifest(&manifest, None, DiscoveryMethod::Manual);
-        println!("[vcp-discovery] manual: {} {}", device.manufacturer, device.model);
+        println!(
+            "[vcp-discovery] manual: {} {}",
+            device.manufacturer, device.model
+        );
         self.registry.upsert(device).await;
     }
 
@@ -199,7 +224,7 @@ impl DiscoveryDaemon {
     /// This is what runs permanently inside the Vantage-Voice or Koda process.
     pub fn spawn(self: Arc<Self>) {
         let daemon = self.clone();
-        let http   = reqwest::Client::builder()
+        let http = reqwest::Client::builder()
             .timeout(Duration::from_secs(8))
             .build()
             .unwrap_or_default();
@@ -207,7 +232,7 @@ impl DiscoveryDaemon {
         tokio::spawn(async move {
             tracing::info!(
                 scan_secs = daemon.scan_interval.as_secs(),
-                ttl_secs  = daemon.device_ttl_secs,
+                ttl_secs = daemon.device_ttl_secs,
                 "VCP discovery daemon started"
             );
 
@@ -222,7 +247,7 @@ impl DiscoveryDaemon {
                     let result = crate::mdns::scan_mdns();
                     if !result.devices.is_empty() {
                         tracing::info!(
-                            count   = result.devices.len(),
+                            count = result.devices.len(),
                             scanner = result.scanner,
                             "mDNS VCP devices discovered"
                         );
@@ -348,45 +373,62 @@ fn now_ms() -> u64 {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::manifest::{VcpCapabilityDecl, VcpSafetyConfig, VcpTransport, VcpDeviceIdentity};
+    use crate::manifest::{VcpCapabilityDecl, VcpDeviceIdentity, VcpSafetyConfig, VcpTransport};
     use sovereign_types::SafetyLevel;
 
     fn test_manifest(device_id: &str, model: &str) -> AgentDeviceManifest {
         AgentDeviceManifest {
-            device_id:        device_id.into(),
-            manufacturer:     "Unitree".into(),
-            model:            model.into(),
+            device_id: device_id.into(),
+            manufacturer: "Unitree".into(),
+            model: model.into(),
             protocol_version: "vcp/1".into(),
             firmware_version: "1.0".into(),
-            dip_identity:     format!("did:device:{device_id}"),
-            capabilities:     vec![
+            dip_identity: format!("did:device:{device_id}"),
+            capabilities: vec![
                 VcpCapabilityDecl {
-                    id: "locomotion".into(), description: "walk".into(),
-                    params: None, requires_grant: true,
-                    safety_level: SafetyLevel::Standard, ungrantable: false,
+                    id: "locomotion".into(),
+                    description: "walk".into(),
+                    params: None,
+                    requires_grant: true,
+                    safety_level: SafetyLevel::Standard,
+                    ungrantable: false,
                 },
                 VcpCapabilityDecl {
-                    id: "firmware.update".into(), description: "fw".into(),
-                    params: None, requires_grant: true,
-                    safety_level: SafetyLevel::Critical, ungrantable: true,
+                    id: "firmware.update".into(),
+                    description: "fw".into(),
+                    params: None,
+                    requires_grant: true,
+                    safety_level: SafetyLevel::Critical,
+                    ungrantable: true,
                 },
             ],
             safety: VcpSafetyConfig {
-                emergency_stop: true, geofence: true,
-                collision_avoidance: None, max_speed_ms: Some(1.5),
+                emergency_stop: true,
+                geofence: true,
+                collision_avoidance: None,
+                max_speed_ms: Some(1.5),
                 ungrantable: vec!["firmware.update".into()],
             },
-            transport:   vec![VcpTransport::Ble, VcpTransport::Wifi],
-            identity:    VcpDeviceIdentity { public_key: "pk".into(), cert_chain: None },
-            timestamp:   0, merkle_root: String::new(), signature: String::new(),
+            transport: vec![VcpTransport::Ble, VcpTransport::Wifi],
+            identity: VcpDeviceIdentity {
+                public_key: "pk".into(),
+                cert_chain: None,
+            },
+            timestamp: 0,
+            merkle_root: String::new(),
+            signature: String::new(),
         }
     }
 
     #[tokio::test]
     async fn registry_upsert_and_list() {
         let daemon = Arc::new(DiscoveryDaemon::new(30, 120));
-        daemon.on_ble_beacon(test_manifest("go2:01", "Go2"), -72).await;
-        daemon.on_mdns_announcement(test_manifest("g1:01", "G1")).await;
+        daemon
+            .on_ble_beacon(test_manifest("go2:01", "Go2"), -72)
+            .await;
+        daemon
+            .on_mdns_announcement(test_manifest("g1:01", "G1"))
+            .await;
 
         let devices = daemon.registry.all().await;
         assert_eq!(devices.len(), 2);
@@ -395,19 +437,25 @@ mod tests {
     #[tokio::test]
     async fn ungrantable_excluded_from_summary() {
         let daemon = Arc::new(DiscoveryDaemon::new(30, 120));
-        daemon.on_ble_beacon(test_manifest("go2:01", "Go2"), -65).await;
+        daemon
+            .on_ble_beacon(test_manifest("go2:01", "Go2"), -65)
+            .await;
 
         let devices = daemon.registry.all().await;
         let caps = &devices[0].capability_summary;
         assert!(caps.contains(&"locomotion".to_string()));
-        assert!(!caps.contains(&"firmware.update".to_string()),
-            "ungrantable capabilities must be hidden from discovery summary");
+        assert!(
+            !caps.contains(&"firmware.update".to_string()),
+            "ungrantable capabilities must be hidden from discovery summary"
+        );
     }
 
     #[tokio::test]
     async fn heartbeat_summary_shape() {
         let daemon = Arc::new(DiscoveryDaemon::new(30, 120));
-        daemon.on_ble_beacon(test_manifest("go2:01", "Go2"), -70).await;
+        daemon
+            .on_ble_beacon(test_manifest("go2:01", "Go2"), -70)
+            .await;
 
         let summary = daemon.registry.heartbeat_summary().await;
         assert_eq!(summary["device_count"], 1);
@@ -421,7 +469,8 @@ mod tests {
         let device = DiscoveredDevice::from_manifest(&manifest, Some(-68), DiscoveryMethod::Ble);
         registry.upsert(device).await;
 
-        let base = serde_json::json!({ "state": "alive", "intent": "watching", "perceived_mesh": true });
+        let base =
+            serde_json::json!({ "state": "alive", "intent": "watching", "perceived_mesh": true });
         let extended = extend_heartbeat_pulse(&base, &registry).await;
 
         assert_eq!(extended["state"], "alive");
@@ -432,7 +481,9 @@ mod tests {
     #[tokio::test]
     async fn tool_nearby_devices_has_perception_hint() {
         let daemon = Arc::new(DiscoveryDaemon::new(30, 120));
-        daemon.on_ble_beacon(test_manifest("go2:01", "Go2"), -55).await;
+        daemon
+            .on_ble_beacon(test_manifest("go2:01", "Go2"), -55)
+            .await;
         let result = daemon.tool_nearby_devices().await;
         assert!(result["perception_hint"].is_string());
     }
@@ -440,7 +491,9 @@ mod tests {
     #[tokio::test]
     async fn connect_tool_found_and_not_found() {
         let daemon = Arc::new(DiscoveryDaemon::new(30, 120));
-        daemon.on_ble_beacon(test_manifest("go2:01", "Go2"), -60).await;
+        daemon
+            .on_ble_beacon(test_manifest("go2:01", "Go2"), -60)
+            .await;
 
         let found = daemon.tool_connect("go2:01").await;
         assert_eq!(found["status"], "ready_for_handshake");

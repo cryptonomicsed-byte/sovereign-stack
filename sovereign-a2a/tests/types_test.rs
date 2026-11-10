@@ -1,20 +1,28 @@
-use sovereign_a2a::{
-    A2aConfig, A2aError, A2aMessage, Artifact, Part,
-    TaskSendParams, TaskState,
-};
 use serde_json::json;
+use sovereign_a2a::{A2aConfig, A2aError, A2aMessage, Artifact, Part, TaskSendParams, TaskState};
 use std::collections::HashMap;
 
-fn text_part(s: &str) -> Part { Part::Text { text: s.into() } }
+fn text_part(s: &str) -> Part {
+    Part::Text { text: s.into() }
+}
 
 fn user_msg(s: &str) -> A2aMessage {
-    A2aMessage { role: "user".into(), parts: vec![text_part(s)] }
+    A2aMessage {
+        role: "user".into(),
+        parts: vec![text_part(s)],
+    }
 }
 
 #[test]
 fn task_state_serde_roundtrip() {
-    for state in &[TaskState::Submitted, TaskState::Working, TaskState::Completed,
-                   TaskState::Failed, TaskState::Canceled, TaskState::InputRequired] {
+    for state in &[
+        TaskState::Submitted,
+        TaskState::Working,
+        TaskState::Completed,
+        TaskState::Failed,
+        TaskState::Canceled,
+        TaskState::InputRequired,
+    ] {
         let s = serde_json::to_string(state).unwrap();
         let d: TaskState = serde_json::from_str(&s).unwrap();
         assert_eq!(*state, d);
@@ -23,8 +31,14 @@ fn task_state_serde_roundtrip() {
 
 #[test]
 fn task_state_lowercase_wire() {
-    assert_eq!(serde_json::to_string(&TaskState::Submitted).unwrap(), "\"submitted\"");
-    assert_eq!(serde_json::to_string(&TaskState::Completed).unwrap(), "\"completed\"");
+    assert_eq!(
+        serde_json::to_string(&TaskState::Submitted).unwrap(),
+        "\"submitted\""
+    );
+    assert_eq!(
+        serde_json::to_string(&TaskState::Completed).unwrap(),
+        "\"completed\""
+    );
 }
 
 #[test]
@@ -38,7 +52,9 @@ fn part_text_serde() {
 
 #[test]
 fn part_data_serde() {
-    let p = Part::Data { data: json!({"key": "value"}) };
+    let p = Part::Data {
+        data: json!({"key": "value"}),
+    };
     let s = serde_json::to_string(&p).unwrap();
     let d: Part = serde_json::from_str(&s).unwrap();
     assert!(matches!(d, Part::Data { .. }));
@@ -54,10 +70,10 @@ fn message_role_and_parts() {
 #[test]
 fn task_send_params_serde_roundtrip() {
     let p = TaskSendParams {
-        id:         Some("task-001".into()),
+        id: Some("task-001".into()),
         session_id: None,
-        message:    user_msg("capture lab"),
-        metadata:   HashMap::new(),
+        message: user_msg("capture lab"),
+        metadata: HashMap::new(),
     };
     let s = serde_json::to_string(&p).unwrap();
     let d: TaskSendParams = serde_json::from_str(&s).unwrap();
@@ -76,12 +92,12 @@ fn default_config_to_agent_card() {
 #[test]
 fn agent_card_url_uses_base_url() {
     let cfg = A2aConfig {
-        name:        "test".into(),
+        name: "test".into(),
         description: "d".into(),
-        base_url:    "http://10.0.0.1:7779".into(),
-        version:     "0.1".into(),
-        skills:      vec![],
-        provider:    None,
+        base_url: "http://10.0.0.1:7779".into(),
+        version: "0.1".into(),
+        skills: vec![],
+        provider: None,
     };
     assert_eq!(cfg.to_agent_card().url, "http://10.0.0.1:7779/a2a/agent");
 }
@@ -114,7 +130,11 @@ fn error_internal() {
 
 #[test]
 fn artifact_serde_without_empty_index() {
-    let a = Artifact { name: "splat.ply".into(), parts: vec![], index: vec![] };
+    let a = Artifact {
+        name: "splat.ply".into(),
+        parts: vec![],
+        index: vec![],
+    };
     let s = serde_json::to_string(&a).unwrap();
     assert!(!s.contains("\"index\""), "empty index should be skipped");
 }

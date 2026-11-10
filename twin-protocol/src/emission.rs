@@ -178,10 +178,9 @@ pub struct DailyEmissionAllocator {
 impl DailyEmissionAllocator {
     /// Canonical genesis chain hash — the first block anchor.
     pub const GENESIS_CHAIN_HASH: [u8; 32] = [
-        0x4f, 0x53, 0x4f, 0x56, 0x4d, 0x5f, 0x47, 0x45,
-        0x4e, 0x45, 0x53, 0x49, 0x53, 0x5f, 0x32, 0x30,
-        0x32, 0x36, 0x30, 0x39, 0x31, 0x30, 0x5f, 0x41,
-        0x53, 0x48, 0x45, 0x5f, 0x01, 0x44, 0x05, 0xa0,
+        0x4f, 0x53, 0x4f, 0x56, 0x4d, 0x5f, 0x47, 0x45, 0x4e, 0x45, 0x53, 0x49, 0x53, 0x5f, 0x32,
+        0x30, 0x32, 0x36, 0x30, 0x39, 0x31, 0x30, 0x5f, 0x41, 0x53, 0x48, 0x45, 0x5f, 0x01, 0x44,
+        0x05, 0xa0,
     ];
 
     pub fn new() -> Self {
@@ -272,7 +271,12 @@ impl DailyEmissionAllocator {
             }
             // Reject: UTXO already claimed
             let key = claim.utxo_key();
-            if self.claimed_utxos.get(&key).map(|u| u.claimed).unwrap_or(false) {
+            if self
+                .claimed_utxos
+                .get(&key)
+                .map(|u| u.claimed)
+                .unwrap_or(false)
+            {
                 rejected_ids.push(claim.proof_id.clone());
                 continue;
             }
@@ -419,7 +423,10 @@ mod tests {
 
     #[test]
     fn test_genesis_difficulty() {
-        assert_eq!(DailyEmissionAllocator::current_difficulty(0), GENESIS_DIFFICULTY);
+        assert_eq!(
+            DailyEmissionAllocator::current_difficulty(0),
+            GENESIS_DIFFICULTY
+        );
     }
 
     #[test]
@@ -506,7 +513,10 @@ mod tests {
         let (_, _) = alloc.allocate_minute(0, 1_000_000, &[claim.clone()]);
         // Submit same proof again next minute
         let (minute2, _) = alloc.allocate_minute(1, 1_000_060, &[claim]);
-        assert!(minute2.inheritance_fallback, "double-claimed UTXO must be rejected → fallback");
+        assert!(
+            minute2.inheritance_fallback,
+            "double-claimed UTXO must be rejected → fallback"
+        );
     }
 
     #[test]
@@ -527,7 +537,10 @@ mod tests {
         let (m2, _) = alloc.allocate_minute(1, 1_000_060, &[c2]);
         // c2 should still win but with novelty weight applied
         assert!(!m2.inheritance_fallback);
-        assert_eq!(m2.workers[0].weighted_score, 0.9 * (1.0_f64 / 1.0_f64.sqrt()));
+        assert_eq!(
+            m2.workers[0].weighted_score,
+            0.9 * (1.0_f64 / 1.0_f64.sqrt())
+        );
     }
 
     #[test]

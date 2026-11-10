@@ -1,21 +1,21 @@
-use serde_json::Value;
-use sovereign_types::identity::Timestamp;
-use crate::principal::Principal;
 use crate::capability::{Capability, CapabilityAction, CapabilityKernel};
 use crate::evidence::EvidenceBundle;
-use crate::receipt::{ActionReceipt, ActionOutcome};
+use crate::principal::Principal;
+use crate::receipt::{ActionOutcome, ActionReceipt};
+use serde_json::Value;
+use sovereign_types::identity::Timestamp;
 
 /// Live execution context — lives for one consequential operation.
 /// Created by `ExecutionEngine::begin`, resolved by `ExecutionContext::complete`.
 #[derive(Debug)]
 pub struct ExecutionContext {
-    pub principal:     Principal,
-    pub capability:    Option<Capability>,
-    pub action:        CapabilityAction,
-    pub resource:      String,
-    pub params:        Value,
-    pub evidence:      EvidenceBundle,
-    pub started_at:    Timestamp,
+    pub principal: Principal,
+    pub capability: Option<Capability>,
+    pub action: CapabilityAction,
+    pub resource: String,
+    pub params: Value,
+    pub evidence: EvidenceBundle,
+    pub started_at: Timestamp,
 }
 
 impl ExecutionContext {
@@ -64,16 +64,22 @@ pub struct ExecutionEngine;
 impl ExecutionEngine {
     /// Begin an execution: validate principal, evaluate capability, return context.
     pub fn begin(
-        principal:  Principal,
+        principal: Principal,
         capability: Option<Capability>,
-        action:     CapabilityAction,
-        resource:   impl Into<String>,
-        params:     Value,
-        now:        Timestamp,
+        action: CapabilityAction,
+        resource: impl Into<String>,
+        params: Value,
+        now: Timestamp,
     ) -> Result<ExecutionContext, ActionReceipt> {
         // Validate principal
         if let Err(e) = principal.validate() {
-            let receipt = ActionReceipt::denied(&principal, action.clone(), resource.into(), e.to_string(), now);
+            let receipt = ActionReceipt::denied(
+                &principal,
+                action.clone(),
+                resource.into(),
+                e.to_string(),
+                now,
+            );
             return Err(receipt);
         }
 
@@ -95,7 +101,7 @@ impl ExecutionEngine {
             action,
             resource,
             params,
-            evidence:   EvidenceBundle::new(),
+            evidence: EvidenceBundle::new(),
             started_at: now,
         })
     }

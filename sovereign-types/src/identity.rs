@@ -21,10 +21,10 @@ pub type Signature = String;
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct IdentityChain {
     pub principal_id: Did,
-    pub agent_id:     AgentDid,
-    pub session_id:   String,
+    pub agent_id: AgentDid,
+    pub session_id: String,
     pub execution_id: String,
-    pub receipt_id:   String,
+    pub receipt_id: String,
 }
 
 impl IdentityChain {
@@ -32,9 +32,9 @@ impl IdentityChain {
         Self {
             principal_id,
             agent_id,
-            session_id:   format!("sess:{}", Uuid::new_v4()),
+            session_id: format!("sess:{}", Uuid::new_v4()),
             execution_id: format!("exec:{}", Uuid::new_v4()),
-            receipt_id:   format!("rcpt:{}", Uuid::new_v4()),
+            receipt_id: format!("rcpt:{}", Uuid::new_v4()),
         }
     }
 

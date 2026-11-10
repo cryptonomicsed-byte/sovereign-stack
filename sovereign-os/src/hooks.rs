@@ -12,12 +12,14 @@ pub type HookFn = Box<dyn Fn(&str, &Value) -> HookResult + Send + Sync>;
 
 #[derive(Default)]
 pub struct HookChain {
-    pre_hooks:  Vec<HookFn>,
+    pre_hooks: Vec<HookFn>,
     post_hooks: Vec<HookFn>,
 }
 
 impl HookChain {
-    pub fn new() -> Self { Self::default() }
+    pub fn new() -> Self {
+        Self::default()
+    }
 
     pub fn pre(mut self, f: HookFn) -> Self {
         self.pre_hooks.push(f);
@@ -43,6 +45,10 @@ impl HookChain {
         Ok(())
     }
 
-    pub fn pre_count(&self)  -> usize { self.pre_hooks.len() }
-    pub fn post_count(&self) -> usize { self.post_hooks.len() }
+    pub fn pre_count(&self) -> usize {
+        self.pre_hooks.len()
+    }
+    pub fn post_count(&self) -> usize {
+        self.post_hooks.len()
+    }
 }

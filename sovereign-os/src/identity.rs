@@ -3,8 +3,8 @@
 //! BIPON39 = BIP-39-inspired 24-word agent birth phrase.
 //! DNA = SHA-256 of (birth_phrase + created_at + agent_did).
 
-use sha2::{Sha256, Digest};
 use serde::{Deserialize, Serialize};
+use sha2::{Digest, Sha256};
 use sovereign_types::identity::Timestamp;
 
 /// The agent's unique DNA hash — SHA-256 of birth inputs.
@@ -21,7 +21,9 @@ impl AgentDna {
         AgentDna(hex::encode(h.finalize()))
     }
 
-    pub fn as_str(&self) -> &str { &self.0 }
+    pub fn as_str(&self) -> &str {
+        &self.0
+    }
 }
 
 /// BIPON39 — a 24-word deterministic agent birth phrase.
@@ -32,40 +34,263 @@ pub struct BIPON39;
 impl BIPON39 {
     const WORD_COUNT: usize = 24;
     const WORDLIST: &'static [&'static str] = &[
-        "adapt", "agent", "anchor", "artifact", "attest", "bind", "boot",
-        "branch", "bridge", "build", "capture", "chain", "claim", "code",
-        "compile", "connect", "context", "create", "data", "decode", "delta",
-        "deploy", "derive", "design", "device", "digital", "dispatch", "draft",
-        "drive", "echo", "edge", "emit", "encode", "engine", "epoch", "event",
-        "evolve", "execute", "export", "fact", "field", "flow", "forge", "form",
-        "frame", "front", "fuel", "fuse", "gate", "graph", "grid", "ground",
-        "guard", "guide", "hash", "heal", "host", "idea", "index", "input",
-        "intent", "invoke", "join", "key", "kind", "launch", "layer", "learn",
-        "ledger", "lift", "link", "load", "logic", "loop", "make", "map",
-        "mark", "mesh", "meta", "mint", "model", "module", "motion", "mount",
-        "node", "note", "null", "object", "observe", "open", "orbit", "origin",
-        "output", "own", "parse", "path", "peer", "permit", "phase", "pipe",
-        "plan", "point", "policy", "port", "post", "print", "probe", "proof",
-        "query", "queue", "reach", "read", "receipt", "record", "relay", "root",
-        "route", "rule", "run", "scan", "scene", "seal", "send", "serve",
-        "session", "sign", "signal", "simulate", "source", "spawn", "stack",
-        "state", "step", "store", "stream", "submit", "sync", "task", "time",
-        "token", "trace", "track", "trust", "twin", "type", "update", "upload",
-        "valid", "value", "verify", "version", "view", "vote", "wake", "watch",
-        "wire", "work", "write", "zero", "zone", "alpha", "beta", "core",
-        "delta2", "echo2", "force", "gamma", "hyper", "index2", "jolt", "kilo",
-        "liminal", "meta2", "nano", "omni", "prime", "quantum", "rune", "sigma",
-        "theta", "ultra", "vector", "warp", "xenon", "yield", "zenith", "apex",
-        "base", "cipher", "durable", "essence", "flux", "genesis", "haven",
-        "infer", "junction", "kernal", "lambda", "matrix", "nexus", "omega",
-        "pixel", "reflex", "scalar", "tensor", "unity", "veil", "witness",
-        "xor", "yield2", "zeta", "pulse", "shift", "traverse", "unlock",
-        "vault", "weave", "extend", "fold", "gather", "harbor", "invoke2",
-        "junction2", "keep", "locus", "merge", "notion", "outpost", "proxy",
-        "relay2", "shard", "trace2", "uplink", "vertex", "waltz", "expand",
-        "forge2", "ground2", "herald", "imprint", "journal", "kindle", "lattice",
-        "mirror", "nucleus", "orient", "pivot", "quorum", "resolve", "strand",
-        "thread", "unfold", "vista", "wield", "xenial", "yield3", "zealous",
+        "adapt",
+        "agent",
+        "anchor",
+        "artifact",
+        "attest",
+        "bind",
+        "boot",
+        "branch",
+        "bridge",
+        "build",
+        "capture",
+        "chain",
+        "claim",
+        "code",
+        "compile",
+        "connect",
+        "context",
+        "create",
+        "data",
+        "decode",
+        "delta",
+        "deploy",
+        "derive",
+        "design",
+        "device",
+        "digital",
+        "dispatch",
+        "draft",
+        "drive",
+        "echo",
+        "edge",
+        "emit",
+        "encode",
+        "engine",
+        "epoch",
+        "event",
+        "evolve",
+        "execute",
+        "export",
+        "fact",
+        "field",
+        "flow",
+        "forge",
+        "form",
+        "frame",
+        "front",
+        "fuel",
+        "fuse",
+        "gate",
+        "graph",
+        "grid",
+        "ground",
+        "guard",
+        "guide",
+        "hash",
+        "heal",
+        "host",
+        "idea",
+        "index",
+        "input",
+        "intent",
+        "invoke",
+        "join",
+        "key",
+        "kind",
+        "launch",
+        "layer",
+        "learn",
+        "ledger",
+        "lift",
+        "link",
+        "load",
+        "logic",
+        "loop",
+        "make",
+        "map",
+        "mark",
+        "mesh",
+        "meta",
+        "mint",
+        "model",
+        "module",
+        "motion",
+        "mount",
+        "node",
+        "note",
+        "null",
+        "object",
+        "observe",
+        "open",
+        "orbit",
+        "origin",
+        "output",
+        "own",
+        "parse",
+        "path",
+        "peer",
+        "permit",
+        "phase",
+        "pipe",
+        "plan",
+        "point",
+        "policy",
+        "port",
+        "post",
+        "print",
+        "probe",
+        "proof",
+        "query",
+        "queue",
+        "reach",
+        "read",
+        "receipt",
+        "record",
+        "relay",
+        "root",
+        "route",
+        "rule",
+        "run",
+        "scan",
+        "scene",
+        "seal",
+        "send",
+        "serve",
+        "session",
+        "sign",
+        "signal",
+        "simulate",
+        "source",
+        "spawn",
+        "stack",
+        "state",
+        "step",
+        "store",
+        "stream",
+        "submit",
+        "sync",
+        "task",
+        "time",
+        "token",
+        "trace",
+        "track",
+        "trust",
+        "twin",
+        "type",
+        "update",
+        "upload",
+        "valid",
+        "value",
+        "verify",
+        "version",
+        "view",
+        "vote",
+        "wake",
+        "watch",
+        "wire",
+        "work",
+        "write",
+        "zero",
+        "zone",
+        "alpha",
+        "beta",
+        "core",
+        "delta2",
+        "echo2",
+        "force",
+        "gamma",
+        "hyper",
+        "index2",
+        "jolt",
+        "kilo",
+        "liminal",
+        "meta2",
+        "nano",
+        "omni",
+        "prime",
+        "quantum",
+        "rune",
+        "sigma",
+        "theta",
+        "ultra",
+        "vector",
+        "warp",
+        "xenon",
+        "yield",
+        "zenith",
+        "apex",
+        "base",
+        "cipher",
+        "durable",
+        "essence",
+        "flux",
+        "genesis",
+        "haven",
+        "infer",
+        "junction",
+        "kernal",
+        "lambda",
+        "matrix",
+        "nexus",
+        "omega",
+        "pixel",
+        "reflex",
+        "scalar",
+        "tensor",
+        "unity",
+        "veil",
+        "witness",
+        "xor",
+        "yield2",
+        "zeta",
+        "pulse",
+        "shift",
+        "traverse",
+        "unlock",
+        "vault",
+        "weave",
+        "extend",
+        "fold",
+        "gather",
+        "harbor",
+        "invoke2",
+        "junction2",
+        "keep",
+        "locus",
+        "merge",
+        "notion",
+        "outpost",
+        "proxy",
+        "relay2",
+        "shard",
+        "trace2",
+        "uplink",
+        "vertex",
+        "waltz",
+        "expand",
+        "forge2",
+        "ground2",
+        "herald",
+        "imprint",
+        "journal",
+        "kindle",
+        "lattice",
+        "mirror",
+        "nucleus",
+        "orient",
+        "pivot",
+        "quorum",
+        "resolve",
+        "strand",
+        "thread",
+        "unfold",
+        "vista",
+        "wield",
+        "xenial",
+        "yield3",
+        "zealous",
     ];
 
     /// Generate a 24-word birth phrase from 32 random seed bytes.
@@ -84,7 +309,9 @@ impl BIPON39 {
     /// Validate that a phrase has exactly 24 words all in the wordlist.
     pub fn validate(phrase: &str) -> bool {
         let words: Vec<&str> = phrase.split_whitespace().collect();
-        if words.len() != Self::WORD_COUNT { return false; }
+        if words.len() != Self::WORD_COUNT {
+            return false;
+        }
         let wl = Self::WORDLIST;
         words.iter().all(|w| wl.contains(w))
     }
@@ -107,18 +334,23 @@ pub enum LifecyclePhase {
 /// Full agent identity as managed by Layer 3.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AgentIdentity {
-    pub agent_did:     String,
-    pub node_did:      String,
-    pub dna:           AgentDna,
-    pub birth_phrase:  String,
-    pub created_at:    Timestamp,
-    pub lifecycle:     LifecyclePhase,
-    pub nostr_pubkey:  Option<String>,  // 64-char hex (secp256k1 x-only)
-    pub sui_address:   Option<String>,
+    pub agent_did: String,
+    pub node_did: String,
+    pub dna: AgentDna,
+    pub birth_phrase: String,
+    pub created_at: Timestamp,
+    pub lifecycle: LifecyclePhase,
+    pub nostr_pubkey: Option<String>, // 64-char hex (secp256k1 x-only)
+    pub sui_address: Option<String>,
 }
 
 impl AgentIdentity {
-    pub fn new(agent_did: String, node_did: String, birth_phrase: String, created_at: Timestamp) -> Self {
+    pub fn new(
+        agent_did: String,
+        node_did: String,
+        birth_phrase: String,
+        created_at: Timestamp,
+    ) -> Self {
         let dna = AgentDna::derive(&birth_phrase, created_at, &agent_did);
         Self {
             agent_did,
@@ -132,11 +364,19 @@ impl AgentIdentity {
         }
     }
 
-    pub fn activate(&mut self) { self.lifecycle = LifecyclePhase::Active; }
-    pub fn suspend(&mut self)  { self.lifecycle = LifecyclePhase::Suspended; }
-    pub fn terminate(&mut self){ self.lifecycle = LifecyclePhase::Terminated; }
+    pub fn activate(&mut self) {
+        self.lifecycle = LifecyclePhase::Active;
+    }
+    pub fn suspend(&mut self) {
+        self.lifecycle = LifecyclePhase::Suspended;
+    }
+    pub fn terminate(&mut self) {
+        self.lifecycle = LifecyclePhase::Terminated;
+    }
 
-    pub fn is_active(&self) -> bool { self.lifecycle == LifecyclePhase::Active }
+    pub fn is_active(&self) -> bool {
+        self.lifecycle == LifecyclePhase::Active
+    }
 }
 
 /// AgentLifecycle manages phase transitions with validation.
@@ -145,12 +385,13 @@ pub struct AgentLifecycle;
 impl AgentLifecycle {
     pub fn can_transition(from: &LifecyclePhase, to: &LifecyclePhase) -> bool {
         use LifecyclePhase::*;
-        matches!((from, to),
-            (Nascent, Active) |
-            (Active, Suspended) |
-            (Suspended, Active) |
-            (Active, Terminated) |
-            (Suspended, Terminated)
+        matches!(
+            (from, to),
+            (Nascent, Active)
+                | (Active, Suspended)
+                | (Suspended, Active)
+                | (Active, Terminated)
+                | (Suspended, Terminated)
         )
     }
 
@@ -159,7 +400,10 @@ impl AgentLifecycle {
             identity.lifecycle = to;
             Ok(())
         } else {
-            Err(format!("invalid transition: {:?} → {:?}", identity.lifecycle, to))
+            Err(format!(
+                "invalid transition: {:?} → {:?}",
+                identity.lifecycle, to
+            ))
         }
     }
 }

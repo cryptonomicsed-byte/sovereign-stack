@@ -6,12 +6,12 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ProviderCapability {
     pub provider_id: String,
-    pub tier:        ProviderTier,
-    pub trust:       TrustLevel,
+    pub tier: ProviderTier,
+    pub trust: TrustLevel,
 
-    pub gpu:     Option<GpuCapability>,
-    pub cpu:     CpuCapability,
-    pub ram_gb:  f64,
+    pub gpu: Option<GpuCapability>,
+    pub cpu: CpuCapability,
+    pub ram_gb: f64,
     pub disk_gb: f64,
 
     /// OCI-compatible container runtimes available.
@@ -31,20 +31,20 @@ pub struct ProviderCapability {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct GpuCapability {
-    pub vendor:   GpuVendor,
-    pub model:    String,      // human label, not matched on
-    pub vram_gb:  f64,
-    pub fp16:     bool,
-    pub bf16:     bool,
-    pub cuda:     bool,
-    pub rocm:     bool,
-    pub count:    u8,          // number of identical GPUs
+    pub vendor: GpuVendor,
+    pub model: String, // human label, not matched on
+    pub vram_gb: f64,
+    pub fp16: bool,
+    pub bf16: bool,
+    pub cuda: bool,
+    pub rocm: bool,
+    pub count: u8, // number of identical GPUs
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CpuCapability {
-    pub cores:        u32,
-    pub arch:         CpuArch,
+    pub cores: u32,
+    pub arch: CpuArch,
     pub frequency_mhz: Option<u32>,
 }
 

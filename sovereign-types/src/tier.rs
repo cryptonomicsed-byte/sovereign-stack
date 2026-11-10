@@ -123,10 +123,10 @@ impl ProofDomain {
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct ProofVector {
     pub simulation: f64,
-    pub spatial:    f64,
-    pub work:       f64,
-    pub witness:    f64,
-    pub physical:   f64,
+    pub spatial: f64,
+    pub work: f64,
+    pub witness: f64,
+    pub physical: f64,
 }
 
 impl ProofVector {
@@ -137,20 +137,20 @@ impl ProofVector {
     pub fn domain(&self, d: ProofDomain) -> f64 {
         match d {
             ProofDomain::Simulation => self.simulation,
-            ProofDomain::Spatial    => self.spatial,
-            ProofDomain::Work       => self.work,
-            ProofDomain::Witness    => self.witness,
-            ProofDomain::Physical   => self.physical,
+            ProofDomain::Spatial => self.spatial,
+            ProofDomain::Work => self.work,
+            ProofDomain::Witness => self.witness,
+            ProofDomain::Physical => self.physical,
         }
     }
 
     pub fn add(&mut self, d: ProofDomain, delta: f64) {
         let slot = match d {
             ProofDomain::Simulation => &mut self.simulation,
-            ProofDomain::Spatial    => &mut self.spatial,
-            ProofDomain::Work       => &mut self.work,
-            ProofDomain::Witness    => &mut self.witness,
-            ProofDomain::Physical   => &mut self.physical,
+            ProofDomain::Spatial => &mut self.spatial,
+            ProofDomain::Work => &mut self.work,
+            ProofDomain::Witness => &mut self.witness,
+            ProofDomain::Physical => &mut self.physical,
         };
         *slot += delta;
     }
@@ -161,22 +161,26 @@ impl ProofVector {
         let agg = self.aggregate();
         if agg >= TrustTier::T5.min_proof_score()
             && self.simulation >= 2_000.0
-            && self.spatial    >= 1_000.0
-            && self.physical   >= 500.0
+            && self.spatial >= 1_000.0
+            && self.physical >= 500.0
         {
             return TrustTier::T5;
         }
         if agg >= TrustTier::T4.min_proof_score()
             && self.simulation >= 400.0
-            && self.spatial    >= 200.0
+            && self.spatial >= 200.0
         {
             return TrustTier::T4;
         }
         if agg >= TrustTier::T3.min_proof_score() && self.simulation >= 80.0 {
             return TrustTier::T3;
         }
-        if agg >= TrustTier::T2.min_proof_score() { return TrustTier::T2; }
-        if agg >= TrustTier::T1.min_proof_score() { return TrustTier::T1; }
+        if agg >= TrustTier::T2.min_proof_score() {
+            return TrustTier::T2;
+        }
+        if agg >= TrustTier::T1.min_proof_score() {
+            return TrustTier::T1;
+        }
         TrustTier::T0
     }
 }
@@ -186,19 +190,19 @@ impl ProofVector {
 /// Output of the Proof Engine (Julia in production; Rust for MVP).
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ProofEvaluation {
-    pub proof_id:       String,
-    pub proof_type:     ProofDomain,
-    pub difficulty:     f64,
-    pub quality:        f64,
-    pub novelty:        f64,
-    pub verification:   f64,
-    pub independence:   f64,
-    pub utility:        f64,
+    pub proof_id: String,
+    pub proof_type: ProofDomain,
+    pub difficulty: f64,
+    pub quality: f64,
+    pub novelty: f64,
+    pub verification: f64,
+    pub independence: f64,
+    pub utility: f64,
     /// Composite proof value = product of all factors.
-    pub proof_value:    f64,
+    pub proof_value: f64,
     /// Suggested delta to add to the relevant domain.
-    pub tier_delta:     f64,
-    pub mint_eligible:  bool,
+    pub tier_delta: f64,
+    pub mint_eligible: bool,
 }
 
 impl ProofEvaluation {
@@ -214,7 +218,7 @@ impl ProofEvaluation {
     ) -> Self {
         let proof_value = difficulty * quality * novelty * verification * independence * utility;
         // tier_delta is log-scaled so farming diminishes quickly
-        let tier_delta  = proof_value.ln().max(0.0);
+        let tier_delta = proof_value.ln().max(0.0);
         let mint_eligible = proof_value >= 1.0 && quality >= 0.5 && verification >= 0.5;
         Self {
             proof_id,
@@ -238,46 +242,49 @@ impl ProofEvaluation {
 /// evaluated by the Proof Engine, settled by Ọ̀ṢỌ́VM.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SimulationProof {
-    pub proof_id:          String,
-    pub agent_id:          String,
-    pub principal_id:      String,
-    pub simulation_id:     String,
+    pub proof_id: String,
+    pub agent_id: String,
+    pub principal_id: String,
+    pub simulation_id: String,
     /// SHA-256 of the serialised environment configuration.
-    pub environment_hash:  String,
-    pub world_hash:        String,
-    pub model_hash:        String,
-    pub controller_hash:   String,
-    pub input_hash:        String,
+    pub environment_hash: String,
+    pub world_hash: String,
+    pub model_hash: String,
+    pub controller_hash: String,
+    pub input_hash: String,
     pub simulator_version: String,
-    pub seed:              u64,
+    pub seed: u64,
     /// SHA-256 over the full trajectory waypoint sequence.
-    pub trajectory_hash:   String,
-    pub sensor_hash:       String,
+    pub trajectory_hash: String,
+    pub sensor_hash: String,
     /// Merkle root of all checkpoint hashes.
-    pub checkpoint_root:   String,
-    pub metrics:           SimulationMetrics,
-    pub outcome:           SimulationOutcome,
-    pub timestamp:         u64,
+    pub checkpoint_root: String,
+    pub metrics: SimulationMetrics,
+    pub outcome: SimulationOutcome,
+    pub timestamp: u64,
     /// ed25519 signature from the agent over the proof.
-    pub signature:         String,
+    pub signature: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SimulationMetrics {
-    pub execution_time_ms:    u64,
-    pub energy_estimate:      f64,
-    pub gates_cleared:        u32,
-    pub gates_total:          u32,
-    pub crashes:              u32,
-    pub collision_margin_m:   f64,
-    pub controller_stability: f64,   // 0.0–1.0
+    pub execution_time_ms: u64,
+    pub energy_estimate: f64,
+    pub gates_cleared: u32,
+    pub gates_total: u32,
+    pub crashes: u32,
+    pub collision_margin_m: f64,
+    pub controller_stability: f64, // 0.0–1.0
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
 pub enum SimulationOutcome {
     Success,
-    PartialSuccess { gates_cleared: u32, gates_total: u32 },
+    PartialSuccess {
+        gates_cleared: u32,
+        gates_total: u32,
+    },
     Failure,
     Timeout,
 }
@@ -285,18 +292,23 @@ pub enum SimulationOutcome {
 impl SimulationProof {
     /// Compute difficulty from metrics.  More gates + tighter margin = harder.
     pub fn difficulty(&self) -> f64 {
-        let gate_ratio = self.metrics.gates_cleared as f64
-            / self.metrics.gates_total.max(1) as f64;
+        let gate_ratio = self.metrics.gates_cleared as f64 / self.metrics.gates_total.max(1) as f64;
         let margin_factor = (self.metrics.collision_margin_m / 0.5).min(2.0);
         gate_ratio * margin_factor * 10.0
     }
 
     /// Quality from crashes and controller stability.
     pub fn quality(&self) -> f64 {
-        if self.metrics.crashes > 0 { return 0.0; }
+        if self.metrics.crashes > 0 {
+            return 0.0;
+        }
         (self.metrics.controller_stability * 0.7
-            + (1.0 - (self.metrics.gates_total.saturating_sub(self.metrics.gates_cleared)) as f64
-                / self.metrics.gates_total.max(1) as f64)
+            + (1.0
+                - (self
+                    .metrics
+                    .gates_total
+                    .saturating_sub(self.metrics.gates_cleared)) as f64
+                    / self.metrics.gates_total.max(1) as f64)
                 * 0.3)
             .clamp(0.0, 1.0)
     }
@@ -329,7 +341,7 @@ mod tests {
     #[test]
     fn proof_vector_t3_requires_simulation() {
         let mut pv = ProofVector::default();
-        pv.add(ProofDomain::Work, 300.0);  // aggregate OK but sim too low
+        pv.add(ProofDomain::Work, 300.0); // aggregate OK but sim too low
         assert_eq!(pv.eligible_tier(), TrustTier::T2);
         pv.add(ProofDomain::Simulation, 80.0);
         assert_eq!(pv.eligible_tier(), TrustTier::T3);
@@ -338,8 +350,14 @@ mod tests {
     #[test]
     fn proof_evaluation_mint_eligible() {
         let pe = ProofEvaluation::compute(
-            "test".into(), ProofDomain::Simulation,
-            10.0, 0.9, 0.8, 0.95, 0.88, 0.9,
+            "test".into(),
+            ProofDomain::Simulation,
+            10.0,
+            0.9,
+            0.8,
+            0.95,
+            0.88,
+            0.9,
         );
         assert!(pe.mint_eligible);
         assert!(pe.proof_value > 1.0);
@@ -349,8 +367,14 @@ mod tests {
     #[test]
     fn proof_evaluation_low_quality_not_eligible() {
         let pe = ProofEvaluation::compute(
-            "test".into(), ProofDomain::Simulation,
-            10.0, 0.3, 0.8, 0.95, 0.88, 0.9,
+            "test".into(),
+            ProofDomain::Simulation,
+            10.0,
+            0.3,
+            0.8,
+            0.95,
+            0.88,
+            0.9,
         );
         assert!(!pe.mint_eligible);
     }
@@ -358,30 +382,30 @@ mod tests {
     #[test]
     fn simulation_proof_difficulty_and_quality() {
         let proof = SimulationProof {
-            proof_id:          "p1".into(),
-            agent_id:          "agent:1".into(),
-            principal_id:      "did:1".into(),
-            simulation_id:     "sim:1".into(),
-            environment_hash:  "e1".into(),
-            world_hash:        "w1".into(),
-            model_hash:        "m1".into(),
-            controller_hash:   "c1".into(),
-            input_hash:        "i1".into(),
+            proof_id: "p1".into(),
+            agent_id: "agent:1".into(),
+            principal_id: "did:1".into(),
+            simulation_id: "sim:1".into(),
+            environment_hash: "e1".into(),
+            world_hash: "w1".into(),
+            model_hash: "m1".into(),
+            controller_hash: "c1".into(),
+            input_hash: "i1".into(),
             simulator_version: "0.1".into(),
-            seed:              42,
-            trajectory_hash:   "t1".into(),
-            sensor_hash:       "s1".into(),
-            checkpoint_root:   "r1".into(),
+            seed: 42,
+            trajectory_hash: "t1".into(),
+            sensor_hash: "s1".into(),
+            checkpoint_root: "r1".into(),
             metrics: SimulationMetrics {
-                execution_time_ms:    12_400,
-                energy_estimate:      87.2,
-                gates_cleared:        5,
-                gates_total:          5,
-                crashes:              0,
-                collision_margin_m:   0.84,
+                execution_time_ms: 12_400,
+                energy_estimate: 87.2,
+                gates_cleared: 5,
+                gates_total: 5,
+                crashes: 0,
+                collision_margin_m: 0.84,
                 controller_stability: 0.91,
             },
-            outcome:   SimulationOutcome::Success,
+            outcome: SimulationOutcome::Success,
             timestamp: 0,
             signature: String::new(),
         };
@@ -394,30 +418,30 @@ mod tests {
     #[test]
     fn simulation_proof_crash_zeroes_quality() {
         let mut proof = SimulationProof {
-            proof_id:          "p2".into(),
-            agent_id:          "agent:1".into(),
-            principal_id:      "did:1".into(),
-            simulation_id:     "sim:2".into(),
-            environment_hash:  "e1".into(),
-            world_hash:        "w1".into(),
-            model_hash:        "m1".into(),
-            controller_hash:   "c1".into(),
-            input_hash:        "i1".into(),
+            proof_id: "p2".into(),
+            agent_id: "agent:1".into(),
+            principal_id: "did:1".into(),
+            simulation_id: "sim:2".into(),
+            environment_hash: "e1".into(),
+            world_hash: "w1".into(),
+            model_hash: "m1".into(),
+            controller_hash: "c1".into(),
+            input_hash: "i1".into(),
             simulator_version: "0.1".into(),
-            seed:              0,
-            trajectory_hash:   "t2".into(),
-            sensor_hash:       "s2".into(),
-            checkpoint_root:   "r2".into(),
+            seed: 0,
+            trajectory_hash: "t2".into(),
+            sensor_hash: "s2".into(),
+            checkpoint_root: "r2".into(),
             metrics: SimulationMetrics {
-                execution_time_ms:    5_000,
-                energy_estimate:      40.0,
-                gates_cleared:        2,
-                gates_total:          5,
-                crashes:              1,
-                collision_margin_m:   0.0,
+                execution_time_ms: 5_000,
+                energy_estimate: 40.0,
+                gates_cleared: 2,
+                gates_total: 5,
+                crashes: 1,
+                collision_margin_m: 0.0,
                 controller_stability: 0.3,
             },
-            outcome:   SimulationOutcome::Failure,
+            outcome: SimulationOutcome::Failure,
             timestamp: 0,
             signature: String::new(),
         };

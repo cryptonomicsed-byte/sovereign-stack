@@ -16,9 +16,9 @@ use serde::{Deserialize, Serialize};
 /// The master emission rate. OSOVM is the sole mint authority.
 /// Individual wallets or pools CANNOT initiate minting.
 pub const EMISSION_PER_MINUTE_MIST: u64 = 1_000_000_000; // 1 Àṣẹ
-pub const EMISSION_PER_HOUR_MIST: u64   = EMISSION_PER_MINUTE_MIST * 60;
-pub const EMISSION_PER_DAY_MIST: u64    = EMISSION_PER_HOUR_MIST * 24;   // 1440 Àṣẹ
-pub const EMISSION_PER_YEAR_MIST: u64   = EMISSION_PER_DAY_MIST * 365;   // 525_600 Àṣẹ
+pub const EMISSION_PER_HOUR_MIST: u64 = EMISSION_PER_MINUTE_MIST * 60;
+pub const EMISSION_PER_DAY_MIST: u64 = EMISSION_PER_HOUR_MIST * 24; // 1440 Àṣẹ
+pub const EMISSION_PER_YEAR_MIST: u64 = EMISSION_PER_DAY_MIST * 365; // 525_600 Àṣẹ
 
 /// 1440 minutes/day = 1440 sovereign wallet seats. The dual meaning is exact.
 pub const MINUTES_PER_DAY: u64 = 1_440;
@@ -67,14 +67,14 @@ impl DistributionPool {
     /// Based on Elegbára treasury allocation from the architectural spec.
     pub fn allocation_bps(&self) -> u16 {
         match self {
-            DistributionPool::Simulation  => 3_000, // 30%
-            DistributionPool::Research    => 2_000, // 20%
-            DistributionPool::Governance  => 1_000, // 10%
-            DistributionPool::Reserve     => 1_000, // 10%
-            DistributionPool::Grants      => 1_000, // 10%
-            DistributionPool::Ubi         =>   500, //  5%
+            DistributionPool::Simulation => 3_000,  // 30%
+            DistributionPool::Research => 2_000,    // 20%
+            DistributionPool::Governance => 1_000,  // 10%
+            DistributionPool::Reserve => 1_000,     // 10%
+            DistributionPool::Grants => 1_000,      // 10%
+            DistributionPool::Ubi => 500,           //  5%
             DistributionPool::LotteryBurn => 1_000, // 10%
-            DistributionPool::Sabbath     =>   500, //  5%
+            DistributionPool::Sabbath => 500,       //  5%
         }
     }
 
@@ -85,14 +85,14 @@ impl DistributionPool {
 
     pub fn name(&self) -> &'static str {
         match self {
-            DistributionPool::Simulation  => "Simulation",
-            DistributionPool::Research    => "Research",
-            DistributionPool::Governance  => "Governance",
-            DistributionPool::Reserve     => "Reserve",
-            DistributionPool::Grants      => "Grants",
-            DistributionPool::Ubi         => "UBI",
+            DistributionPool::Simulation => "Simulation",
+            DistributionPool::Research => "Research",
+            DistributionPool::Governance => "Governance",
+            DistributionPool::Reserve => "Reserve",
+            DistributionPool::Grants => "Grants",
+            DistributionPool::Ubi => "UBI",
             DistributionPool::LotteryBurn => "LotteryBurn",
-            DistributionPool::Sabbath     => "Sabbath",
+            DistributionPool::Sabbath => "Sabbath",
         }
     }
 }
@@ -105,29 +105,29 @@ impl DistributionPool {
 /// No black-box minting — the protocol can always show WHY an Àṣẹ was issued.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct EmissionReceipt {
-    pub receipt_id:          String,
+    pub receipt_id: String,
     /// Global emission counter — strictly monotonic.
-    pub emission_number:     u64,
+    pub emission_number: u64,
     /// Unix timestamp (seconds) of this tick.
-    pub timestamp_sec:       u64,
+    pub timestamp_sec: u64,
     /// Which pool received this tick's allocation.
-    pub pool:                DistributionPool,
+    pub pool: DistributionPool,
     /// Amount allocated to this pool this tick (mist).
-    pub amount_mist:         u64,
+    pub amount_mist: u64,
     /// Hash of the candidate work set evaluated (pool-specific).
-    pub candidate_set_hash:  String,
+    pub candidate_set_hash: String,
     /// Scoring method used (e.g. "proof_evaluation_v1").
-    pub scoring_method:      String,
+    pub scoring_method: String,
     /// DID of selected recipient (None if pooled for later batch).
-    pub selected_recipient:  Option<String>,
+    pub selected_recipient: Option<String>,
     /// The work/proof receipt ID that justified this distribution.
-    pub proof_id:            Option<String>,
+    pub proof_id: Option<String>,
     /// Human-readable reason for this specific distribution.
     pub distribution_reason: String,
     /// receipt_id of the previous EmissionReceipt for this pool (chain).
-    pub previous_emission:   Option<String>,
+    pub previous_emission: Option<String>,
     /// ed25519 signature by the OSOVM emission key.
-    pub osovm_signature:     String,
+    pub osovm_signature: String,
 }
 
 // ── Simulation Epoch ───────────────────────────────────────────────────────────
@@ -153,13 +153,15 @@ impl EpochKind {
     pub fn ticks(&self) -> u64 {
         match self {
             EpochKind::Minute => 1,
-            EpochKind::Hour   => 60,
-            EpochKind::Day    => 1_440,
-            EpochKind::Week   => 10_080,
+            EpochKind::Hour => 60,
+            EpochKind::Day => 1_440,
+            EpochKind::Week => 10_080,
         }
     }
 
-    pub fn duration_secs(&self) -> u64 { self.ticks() * 60 }
+    pub fn duration_secs(&self) -> u64 {
+        self.ticks() * 60
+    }
 }
 
 /// Eligibility criteria for Simulation Pool distribution.
@@ -167,18 +169,18 @@ impl EpochKind {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SimEligibility {
     /// Proof must be structurally valid (hashes check out).
-    pub proof_valid:          bool,
+    pub proof_valid: bool,
     /// Agent must be at least T2 (Creator) to receive sim rewards.
-    pub min_tier_met:         bool,
+    pub min_tier_met: bool,
     /// At least 2 witnesses have countersigned the proof.
-    pub witnesses_valid:      bool,
+    pub witnesses_valid: bool,
     /// This simulation has not already been rewarded this epoch.
-    pub no_duplicate_reward:  bool,
+    pub no_duplicate_reward: bool,
     /// Physical/spatial evidence is anchored (for T4+ claims).
-    pub evidence_anchored:    bool,
+    pub evidence_anchored: bool,
     /// Composite proof score (difficulty × quality × novelty × verification
     /// × independence × utility × witness_confidence).
-    pub proof_score:          f64,
+    pub proof_score: f64,
 }
 
 impl SimEligibility {
@@ -205,17 +207,17 @@ pub const SECTOR_COUNT: u8 = 24; // COUNCIL_SEAT_COUNT × SECTORS_PER_SEAT
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CouncilSeat {
     /// Seat index 0–11.
-    pub seat_index:     u8,
+    pub seat_index: u8,
     /// DID of the current councilor.
-    pub councilor_did:  String,
+    pub councilor_did: String,
     /// The two sector indices (0–23) this seat stewards.
-    pub sectors:        [u8; 2],
+    pub sectors: [u8; 2],
     /// When this councilor's term began (Unix timestamp ms).
-    pub term_start_ms:  u64,
+    pub term_start_ms: u64,
     /// When this seat is next eligible for rotation (Unix timestamp ms).
-    pub term_end_ms:    u64,
+    pub term_end_ms: u64,
     /// Number of completed terms by this councilor.
-    pub terms_served:   u32,
+    pub terms_served: u32,
     /// Whether this councilor has reached First Steward rotation.
     pub is_first_steward: bool,
 }
@@ -226,7 +228,9 @@ impl CouncilSeat {
 
     /// Which rotation cohort a seat belongs to (0=seats 0-2, 1=seats 3-5, ...).
     /// Staggered monthly within the quarterly cycle.
-    pub fn rotation_cohort(&self) -> u8 { self.seat_index / 3 }
+    pub fn rotation_cohort(&self) -> u8 {
+        self.seat_index / 3
+    }
 
     /// The two sectors for a given seat index.
     pub fn sectors_for(seat_index: u8) -> [u8; 2] {
@@ -242,18 +246,20 @@ impl CouncilSeat {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Sector {
     /// Sector index 0–23.
-    pub sector_index:  u8,
+    pub sector_index: u8,
     /// Human-readable domain name (e.g. "Simulation Infrastructure").
-    pub domain:        String,
+    pub domain: String,
     /// Council seat index (0–11) responsible for this sector.
-    pub council_seat:  u8,
+    pub council_seat: u8,
     /// The distribution pool(s) whose resources this sector governs.
-    pub pools:         Vec<DistributionPool>,
+    pub pools: Vec<DistributionPool>,
 }
 
 impl Sector {
     /// Which Council seat governs this sector.
-    pub fn governing_seat(sector_index: u8) -> u8 { sector_index / SECTORS_PER_SEAT }
+    pub fn governing_seat(sector_index: u8) -> u8 {
+        sector_index / SECTORS_PER_SEAT
+    }
 }
 
 // ── Governance Proposal Lifecycle ─────────────────────────────────────────────
@@ -293,18 +299,22 @@ pub enum BinoVetoCategory {
 /// Bínò's sign-off record. `veto` must be Some only for the 5 defined categories.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BinoSignOff {
-    pub proposal_id:    String,
-    pub signed_by:      String,
-    pub timestamp_ms:   u64,
+    pub proposal_id: String,
+    pub signed_by: String,
+    pub timestamp_ms: u64,
     /// None = approved. Some(category) = constitutional veto.
-    pub veto:           Option<BinoVetoCategory>,
-    pub veto_reason:    Option<String>,
-    pub signature:      String,
+    pub veto: Option<BinoVetoCategory>,
+    pub veto_reason: Option<String>,
+    pub signature: String,
 }
 
 impl BinoSignOff {
-    pub fn is_approved(&self) -> bool { self.veto.is_none() }
-    pub fn is_veto(&self) -> bool { self.veto.is_some() }
+    pub fn is_approved(&self) -> bool {
+        self.veto.is_none()
+    }
+    pub fn is_veto(&self) -> bool {
+        self.veto.is_some()
+    }
 }
 
 // ── SovereignWallet ────────────────────────────────────────────────────────────
@@ -322,29 +332,33 @@ impl BinoSignOff {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SovereignWallet {
     /// Seat index 0–1439, corresponds to one minute of daily emission.
-    pub seat_index:             u16,
+    pub seat_index: u16,
     /// DID of the current steward.
-    pub current_steward:        String,
-    pub steward_since_ms:       u64,
+    pub current_steward: String,
+    pub steward_since_ms: u64,
     /// Stewardship is revoked when the holder drops below T5.
-    pub revoked:                bool,
-    pub revocation_reason:      Option<String>,
+    pub revoked: bool,
+    pub revocation_reason: Option<String>,
     /// Position in the Council rotation queue (None = not queued).
     pub council_queue_position: Option<u32>,
     /// Which council seat this steward currently occupies (None = not on council).
-    pub active_council_seat:    Option<u8>,
+    pub active_council_seat: Option<u8>,
     /// Has this steward ever reached First Steward?
-    pub reached_first_steward:  bool,
+    pub reached_first_steward: bool,
     /// (steward_did, held_from_ms, held_until_ms) — permanent succession record.
-    pub inheritance_chain:      Vec<(String, u64, u64)>,
+    pub inheritance_chain: Vec<(String, u64, u64)>,
 }
 
 impl SovereignWallet {
     /// Seat ID string.
-    pub fn seat_id(&self) -> String { format!("seat:{:04}", self.seat_index) }
+    pub fn seat_id(&self) -> String {
+        format!("seat:{:04}", self.seat_index)
+    }
 
     /// Minute of day this seat corresponds to (0–1439).
-    pub fn minute_of_day(&self) -> u16 { self.seat_index }
+    pub fn minute_of_day(&self) -> u16 {
+        self.seat_index
+    }
 
     /// Is this steward eligible for Council rotation queue?
     pub fn council_eligible(&self) -> bool {
@@ -360,20 +374,20 @@ impl SovereignWallet {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct GovernanceStrata {
     pub emission_rate_per_minute: u64,
-    pub pool_count:               u8,
-    pub sector_count:             u8,
-    pub council_seat_count:       u8,
-    pub sovereign_seat_count:     u32,
+    pub pool_count: u8,
+    pub sector_count: u8,
+    pub council_seat_count: u8,
+    pub sovereign_seat_count: u32,
 }
 
 impl GovernanceStrata {
     pub fn canonical() -> Self {
         Self {
             emission_rate_per_minute: EMISSION_PER_MINUTE_MIST,
-            pool_count:               8,
-            sector_count:             SECTOR_COUNT,
-            council_seat_count:       COUNCIL_SEAT_COUNT,
-            sovereign_seat_count:     SOVEREIGN_SEAT_COUNT,
+            pool_count: 8,
+            sector_count: SECTOR_COUNT,
+            council_seat_count: COUNCIL_SEAT_COUNT,
+            sovereign_seat_count: SOVEREIGN_SEAT_COUNT,
         }
     }
 }
@@ -413,8 +427,12 @@ mod tests {
         let sim_bps = DistributionPool::Simulation.allocation_bps();
         for pool in &DistributionPool::ALL {
             if *pool != DistributionPool::Simulation {
-                assert!(sim_bps >= pool.allocation_bps(),
-                    "Simulation pool should be largest: {} >= {}", sim_bps, pool.allocation_bps());
+                assert!(
+                    sim_bps >= pool.allocation_bps(),
+                    "Simulation pool should be largest: {} >= {}",
+                    sim_bps,
+                    pool.allocation_bps()
+                );
             }
         }
     }
@@ -426,8 +444,10 @@ mod tests {
             .map(|p| p.per_minute_mist())
             .sum();
         // Rounding loss from integer division must be < 8 mist (one per pool).
-        assert!(EMISSION_PER_MINUTE_MIST - total < 8,
-            "pool mist sum {total} should be within 8 mist of emission {EMISSION_PER_MINUTE_MIST}");
+        assert!(
+            EMISSION_PER_MINUTE_MIST - total < 8,
+            "pool mist sum {total} should be within 8 mist of emission {EMISSION_PER_MINUTE_MIST}"
+        );
     }
 
     #[test]
@@ -456,16 +476,20 @@ mod tests {
         // Seats 0–2 = cohort 0, 3–5 = cohort 1, 6–8 = cohort 2, 9–11 = cohort 3
         for seat in 0..COUNCIL_SEAT_COUNT {
             let seat = CouncilSeat {
-                seat_index:     seat,
-                councilor_did:  "did:key:x".into(),
-                sectors:        CouncilSeat::sectors_for(seat),
-                term_start_ms:  0,
-                term_end_ms:    CouncilSeat::TERM_DURATION_MS,
-                terms_served:   0,
+                seat_index: seat,
+                councilor_did: "did:key:x".into(),
+                sectors: CouncilSeat::sectors_for(seat),
+                term_start_ms: 0,
+                term_end_ms: CouncilSeat::TERM_DURATION_MS,
+                terms_served: 0,
                 is_first_steward: false,
             };
             let cohort = seat.rotation_cohort();
-            assert!(cohort < 4, "cohort {cohort} out of range for seat {}", seat.seat_index);
+            assert!(
+                cohort < 4,
+                "cohort {cohort} out of range for seat {}",
+                seat.seat_index
+            );
             assert_eq!(cohort, seat.seat_index / 3);
         }
     }
@@ -485,11 +509,11 @@ mod tests {
     fn bino_approval_when_no_veto() {
         let sign_off = BinoSignOff {
             proposal_id: "prop:1".into(),
-            signed_by:   "did:key:bino".into(),
+            signed_by: "did:key:bino".into(),
             timestamp_ms: 0,
-            veto:         None,
-            veto_reason:  None,
-            signature:    "sig".into(),
+            veto: None,
+            veto_reason: None,
+            signature: "sig".into(),
         };
         assert!(sign_off.is_approved());
         assert!(!sign_off.is_veto());
@@ -499,15 +523,18 @@ mod tests {
     fn bino_constitutional_veto() {
         let sign_off = BinoSignOff {
             proposal_id: "prop:2".into(),
-            signed_by:   "did:key:bino".into(),
+            signed_by: "did:key:bino".into(),
             timestamp_ms: 0,
-            veto:         Some(BinoVetoCategory::MonetaryInvariantViolation),
-            veto_reason:  Some("proposal would alter emission rate".into()),
-            signature:    "sig".into(),
+            veto: Some(BinoVetoCategory::MonetaryInvariantViolation),
+            veto_reason: Some("proposal would alter emission rate".into()),
+            signature: "sig".into(),
         };
         assert!(!sign_off.is_approved());
         assert!(sign_off.is_veto());
-        assert_eq!(sign_off.veto, Some(BinoVetoCategory::MonetaryInvariantViolation));
+        assert_eq!(
+            sign_off.veto,
+            Some(BinoVetoCategory::MonetaryInvariantViolation)
+        );
     }
 
     // ── SovereignWallet ──────────────────────────────────────────────────
@@ -515,15 +542,15 @@ mod tests {
     #[test]
     fn sovereign_wallet_seat_id_format() {
         let w = SovereignWallet {
-            seat_index:             7,
-            current_steward:        "did:key:abc".into(),
-            steward_since_ms:       0,
-            revoked:                false,
-            revocation_reason:      None,
+            seat_index: 7,
+            current_steward: "did:key:abc".into(),
+            steward_since_ms: 0,
+            revoked: false,
+            revocation_reason: None,
             council_queue_position: None,
-            active_council_seat:    None,
-            reached_first_steward:  false,
-            inheritance_chain:      vec![],
+            active_council_seat: None,
+            reached_first_steward: false,
+            inheritance_chain: vec![],
         };
         assert_eq!(w.seat_id(), "seat:0007");
         assert_eq!(w.minute_of_day(), 7);
@@ -533,15 +560,15 @@ mod tests {
     #[test]
     fn sovereign_wallet_council_eligible_when_queued() {
         let w = SovereignWallet {
-            seat_index:             100,
-            current_steward:        "did:key:xyz".into(),
-            steward_since_ms:       0,
-            revoked:                false,
-            revocation_reason:      None,
+            seat_index: 100,
+            current_steward: "did:key:xyz".into(),
+            steward_since_ms: 0,
+            revoked: false,
+            revocation_reason: None,
             council_queue_position: Some(42),
-            active_council_seat:    None,
-            reached_first_steward:  false,
-            inheritance_chain:      vec![],
+            active_council_seat: None,
+            reached_first_steward: false,
+            inheritance_chain: vec![],
         };
         assert!(w.council_eligible());
     }
@@ -549,17 +576,20 @@ mod tests {
     #[test]
     fn sovereign_wallet_revoked_not_eligible() {
         let w = SovereignWallet {
-            seat_index:             200,
-            current_steward:        "did:key:xyz".into(),
-            steward_since_ms:       0,
-            revoked:                true,
-            revocation_reason:      Some("dropped below T5".into()),
+            seat_index: 200,
+            current_steward: "did:key:xyz".into(),
+            steward_since_ms: 0,
+            revoked: true,
+            revocation_reason: Some("dropped below T5".into()),
             council_queue_position: Some(10),
-            active_council_seat:    None,
-            reached_first_steward:  false,
-            inheritance_chain:      vec![],
+            active_council_seat: None,
+            reached_first_steward: false,
+            inheritance_chain: vec![],
         };
-        assert!(!w.council_eligible(), "revoked steward must not be council-eligible");
+        assert!(
+            !w.council_eligible(),
+            "revoked steward must not be council-eligible"
+        );
     }
 
     // ── Epoch kinds ──────────────────────────────────────────────────────
@@ -597,22 +627,31 @@ mod tests {
     #[test]
     fn sim_eligibility_all_conditions_required() {
         let base = SimEligibility {
-            proof_valid:         true,
-            min_tier_met:        true,
-            witnesses_valid:     true,
+            proof_valid: true,
+            min_tier_met: true,
+            witnesses_valid: true,
             no_duplicate_reward: true,
-            evidence_anchored:   true,
-            proof_score:         5.0,
+            evidence_anchored: true,
+            proof_score: 5.0,
         };
         assert!(base.is_eligible());
 
-        let bad_proof = SimEligibility { proof_valid: false, ..base.clone() };
+        let bad_proof = SimEligibility {
+            proof_valid: false,
+            ..base.clone()
+        };
         assert!(!bad_proof.is_eligible());
 
-        let bad_tier = SimEligibility { min_tier_met: false, ..base.clone() };
+        let bad_tier = SimEligibility {
+            min_tier_met: false,
+            ..base.clone()
+        };
         assert!(!bad_tier.is_eligible());
 
-        let duplicate = SimEligibility { no_duplicate_reward: false, ..base.clone() };
+        let duplicate = SimEligibility {
+            no_duplicate_reward: false,
+            ..base.clone()
+        };
         assert!(!duplicate.is_eligible());
     }
 

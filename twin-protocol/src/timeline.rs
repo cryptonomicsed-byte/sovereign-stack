@@ -17,23 +17,23 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TwinTimelineEntry {
     /// Unique ID for this timeline snapshot.
-    pub snapshot_id:  String,
+    pub snapshot_id: String,
     /// The TwinAsset twin_id for this capture.
-    pub twin_id:      String,
+    pub twin_id: String,
     /// SceneReceipt ID (kind 31030).
-    pub receipt_id:   String,
+    pub receipt_id: String,
     /// Primary capture device.
-    pub device_id:    String,
+    pub device_id: String,
     /// Unix milliseconds when the capture completed.
-    pub timestamp:    u64,
+    pub timestamp: u64,
     /// Odù tile where this capture occurred (None = location unknown).
-    pub odu_tile:     Option<String>,
+    pub odu_tile: Option<String>,
     /// Sui object ID if the TwinAsset was anchored on-chain.
     pub sui_object_id: Option<String>,
     /// F1 quality score from the reconstruction engine (0.0–1.0).
-    pub quality:      f32,
+    pub quality: f32,
     /// Data modalities present (e.g. ["rgb", "lidar", "splat"]).
-    pub modalities:   Vec<String>,
+    pub modalities: Vec<String>,
 }
 
 /// Ordered sequence of captures for a physical space or device.
@@ -42,20 +42,20 @@ pub struct TwinTimeline {
     /// Logical grouping key (e.g. "timeline:unitree:go2:192.168.1.10" or "timeline:odu:5b").
     pub timeline_id: String,
     /// Human label for this timeline (optional).
-    pub label:       Option<String>,
+    pub label: Option<String>,
     /// Entries in chronological order (oldest first).
-    pub entries:     Vec<TwinTimelineEntry>,
+    pub entries: Vec<TwinTimelineEntry>,
     /// Monotonically increasing version counter (incremented on each append).
-    pub version:     u32,
+    pub version: u32,
 }
 
 impl TwinTimeline {
     pub fn new(timeline_id: impl Into<String>) -> Self {
         Self {
             timeline_id: timeline_id.into(),
-            label:       None,
-            entries:     vec![],
-            version:     0,
+            label: None,
+            entries: vec![],
+            version: 0,
         }
     }
 
@@ -93,7 +93,8 @@ impl TwinTimeline {
 
     /// Filter entries within a time window [from_ms, to_ms].
     pub fn window(&self, from_ms: u64, to_ms: u64) -> Vec<&TwinTimelineEntry> {
-        self.entries.iter()
+        self.entries
+            .iter()
             .filter(|e| e.timestamp >= from_ms && e.timestamp <= to_ms)
             .collect()
     }
@@ -111,27 +112,31 @@ impl TwinTimeline {
 
 /// Construct a TwinTimelineEntry from capture job outputs.
 pub fn entry_from_capture(
-    twin_id:      impl Into<String>,
-    receipt_id:   impl Into<String>,
-    device_id:    impl Into<String>,
-    timestamp:    u64,
-    odu_tile:     Option<String>,
+    twin_id: impl Into<String>,
+    receipt_id: impl Into<String>,
+    device_id: impl Into<String>,
+    timestamp: u64,
+    odu_tile: Option<String>,
     sui_object_id: Option<String>,
-    quality:      f32,
-    has_splat:    bool,
-    has_lidar:    bool,
+    quality: f32,
+    has_splat: bool,
+    has_lidar: bool,
 ) -> TwinTimelineEntry {
     let mut modalities = vec!["rgb".into()];
-    if has_lidar { modalities.push("lidar".into()); }
-    if has_splat { modalities.push("splat".into()); }
+    if has_lidar {
+        modalities.push("lidar".into());
+    }
+    if has_splat {
+        modalities.push("splat".into());
+    }
     modalities.push("telemetry".into());
     modalities.push("imu".into());
 
     TwinTimelineEntry {
-        snapshot_id:  format!("snap:{}", uuid::Uuid::new_v4()),
-        twin_id:      twin_id.into(),
-        receipt_id:   receipt_id.into(),
-        device_id:    device_id.into(),
+        snapshot_id: format!("snap:{}", uuid::Uuid::new_v4()),
+        twin_id: twin_id.into(),
+        receipt_id: receipt_id.into(),
+        device_id: device_id.into(),
         timestamp,
         odu_tile,
         sui_object_id,
@@ -146,15 +151,15 @@ mod tests {
 
     fn make_entry(twin_id: &str, ts: u64) -> TwinTimelineEntry {
         TwinTimelineEntry {
-            snapshot_id:   format!("snap:{twin_id}"),
-            twin_id:       twin_id.into(),
-            receipt_id:    format!("rec:{twin_id}"),
-            device_id:     "go2:1".into(),
-            timestamp:     ts,
-            odu_tile:      None,
+            snapshot_id: format!("snap:{twin_id}"),
+            twin_id: twin_id.into(),
+            receipt_id: format!("rec:{twin_id}"),
+            device_id: "go2:1".into(),
+            timestamp: ts,
+            odu_tile: None,
             sui_object_id: None,
-            quality:       0.8,
-            modalities:    vec!["rgb".into(), "splat".into()],
+            quality: 0.8,
+            modalities: vec!["rgb".into(), "splat".into()],
         }
     }
 

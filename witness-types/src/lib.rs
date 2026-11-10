@@ -1,12 +1,12 @@
 pub mod attestation;
-pub mod observation;
-pub mod firmware;
 pub mod error;
+pub mod firmware;
+pub mod observation;
 
-pub use attestation::{WitnessAttestation, AttestationKind, AttestationStatus};
-pub use observation::{PhysicalObservation, SensorReading, ObservationBundle};
-pub use firmware::{FirmwareManifest, FirmwareKind};
+pub use attestation::{AttestationKind, AttestationStatus, WitnessAttestation};
 pub use error::WitnessError;
+pub use firmware::{FirmwareKind, FirmwareManifest};
+pub use observation::{ObservationBundle, PhysicalObservation, SensorReading};
 
 /// Nostr kind for physical witness attestations (matches vcp-types WitnessAttestation).
 pub const NOSTR_KIND_WITNESS: u32 = 31020;

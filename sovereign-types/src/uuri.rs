@@ -71,29 +71,42 @@ impl UURI {
             });
         }
         if let Some(rest) = s.strip_prefix("sui://") {
-            return Ok(UURI::Sui { object_id: rest.to_string() });
+            return Ok(UURI::Sui {
+                object_id: rest.to_string(),
+            });
         }
         if let Some(rest) = s.strip_prefix("freenet://") {
-            return Ok(UURI::Freenet { contract_key: rest.to_string() });
+            return Ok(UURI::Freenet {
+                contract_key: rest.to_string(),
+            });
         }
         if let Some(rest) = s.strip_prefix("zima://") {
             if let Some(slash) = rest.find('/') {
                 let server_id = rest[..slash].to_string();
                 let app_name = rest[slash + 1..].to_string();
-                return Ok(UURI::Zima { server_id, app_name });
+                return Ok(UURI::Zima {
+                    server_id,
+                    app_name,
+                });
             }
             return Err(UuriError::Malformed(
                 "zima:// requires <server>/<app>".to_string(),
             ));
         }
         if let Some(rest) = s.strip_prefix("mesh://") {
-            return Ok(UURI::Mesh { node_id: rest.to_string() });
+            return Ok(UURI::Mesh {
+                node_id: rest.to_string(),
+            });
         }
         if let Some(rest) = s.strip_prefix("libp2p://") {
-            return Ok(UURI::LibP2P { peer_id: rest.to_string() });
+            return Ok(UURI::LibP2P {
+                peer_id: rest.to_string(),
+            });
         }
         if let Some(rest) = s.strip_prefix("email://") {
-            return Ok(UURI::Email { address: rest.to_string() });
+            return Ok(UURI::Email {
+                address: rest.to_string(),
+            });
         }
         if s.starts_with("https://") || s.starts_with("http://") {
             return Ok(UURI::Web { url: s.to_string() });
@@ -114,7 +127,10 @@ impl std::fmt::Display for UURI {
             UURI::Nostr { relay, npub } => write!(f, "nostr://{relay}/{npub}"),
             UURI::Sui { object_id } => write!(f, "sui://{object_id}"),
             UURI::Freenet { contract_key } => write!(f, "freenet://{contract_key}"),
-            UURI::Zima { server_id, app_name } => write!(f, "zima://{server_id}/{app_name}"),
+            UURI::Zima {
+                server_id,
+                app_name,
+            } => write!(f, "zima://{server_id}/{app_name}"),
             UURI::Mesh { node_id } => write!(f, "mesh://{node_id}"),
             UURI::Web { url } => write!(f, "{url}"),
             UURI::LibP2P { peer_id } => write!(f, "libp2p://{peer_id}"),
@@ -138,43 +154,59 @@ mod tests {
 
     #[test]
     fn sui_roundtrip() {
-        let u = UURI::Sui { object_id: "0xdeadbeef".into() };
+        let u = UURI::Sui {
+            object_id: "0xdeadbeef".into(),
+        };
         assert_eq!(UURI::parse(&u.to_string()).unwrap(), u);
     }
 
     #[test]
     fn zima_roundtrip() {
-        let u = UURI::Zima { server_id: "my-zima".into(), app_name: "vantage".into() };
+        let u = UURI::Zima {
+            server_id: "my-zima".into(),
+            app_name: "vantage".into(),
+        };
         assert_eq!(UURI::parse(&u.to_string()).unwrap(), u);
     }
 
     #[test]
     fn mesh_roundtrip() {
-        let u = UURI::Mesh { node_id: "!aabbccdd".into() };
+        let u = UURI::Mesh {
+            node_id: "!aabbccdd".into(),
+        };
         assert_eq!(UURI::parse(&u.to_string()).unwrap(), u);
     }
 
     #[test]
     fn web_roundtrip() {
-        let u = UURI::Web { url: "https://example.com/path".into() };
+        let u = UURI::Web {
+            url: "https://example.com/path".into(),
+        };
         assert_eq!(UURI::parse(&u.to_string()).unwrap(), u);
     }
 
     #[test]
     fn libp2p_roundtrip() {
-        let u = UURI::LibP2P { peer_id: "QmAbCdEfGh".into() };
+        let u = UURI::LibP2P {
+            peer_id: "QmAbCdEfGh".into(),
+        };
         assert_eq!(UURI::parse(&u.to_string()).unwrap(), u);
     }
 
     #[test]
     fn email_roundtrip() {
-        let u = UURI::Email { address: "agent@omokoda.space".into() };
+        let u = UURI::Email {
+            address: "agent@omokoda.space".into(),
+        };
         assert_eq!(UURI::parse(&u.to_string()).unwrap(), u);
     }
 
     #[test]
     fn unknown_scheme_errors() {
-        assert!(matches!(UURI::parse("ftp://foo"), Err(UuriError::UnknownScheme(_))));
+        assert!(matches!(
+            UURI::parse("ftp://foo"),
+            Err(UuriError::UnknownScheme(_))
+        ));
     }
 
     #[test]
@@ -184,7 +216,19 @@ mod tests {
 
     #[test]
     fn world_mapping() {
-        assert_eq!(UURI::Sui { object_id: "x".into() }.world(), World::Sui);
-        assert_eq!(UURI::Mesh { node_id: "x".into() }.world(), World::Mesh);
+        assert_eq!(
+            UURI::Sui {
+                object_id: "x".into()
+            }
+            .world(),
+            World::Sui
+        );
+        assert_eq!(
+            UURI::Mesh {
+                node_id: "x".into()
+            }
+            .world(),
+            World::Mesh
+        );
     }
 }

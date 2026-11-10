@@ -22,13 +22,13 @@
 //! The hash chain (`previous_hash`) links consecutive receipts from the same
 //! agent into a tamper-evident timeline.
 
-pub mod receipt;
-pub mod principal;
 pub mod error;
+pub mod principal;
+pub mod receipt;
 
-pub use receipt::{
-    ActionReceipt, ActionSpec, EvidenceRef, WitnessAttestation,
-    ConsensusReceipt, PhysicalAttestation, ReceiptKind,
-};
-pub use principal::{Principal, PrincipalKind, CapabilityRef};
 pub use error::ArpError;
+pub use principal::{CapabilityRef, Principal, PrincipalKind};
+pub use receipt::{
+    ActionReceipt, ActionSpec, ConsensusReceipt, EvidenceRef, PhysicalAttestation, ReceiptKind,
+    WitnessAttestation,
+};

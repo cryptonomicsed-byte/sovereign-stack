@@ -1,10 +1,15 @@
-use std::sync::Arc;
-use std::collections::HashMap;
-use std::sync::RwLock;
-use axum::{Router, Json, extract::{State, Path}, routing::{get, post}, http::StatusCode};
-use swarm_types::{SimReceipt, SimOutcome};
-use uuid::Uuid;
+use axum::{
+    extract::{Path, State},
+    http::StatusCode,
+    routing::{get, post},
+    Json, Router,
+};
 use chrono::Utc;
+use std::collections::HashMap;
+use std::sync::Arc;
+use std::sync::RwLock;
+use swarm_types::{SimOutcome, SimReceipt};
+use uuid::Uuid;
 
 type AppState = Arc<BrokerState>;
 
@@ -14,7 +19,9 @@ struct BrokerState {
 
 impl BrokerState {
     fn new() -> Self {
-        Self { receipts: RwLock::new(HashMap::new()) }
+        Self {
+            receipts: RwLock::new(HashMap::new()),
+        }
     }
 }
 
@@ -22,14 +29,15 @@ impl BrokerState {
 async fn main() {
     let state = Arc::new(BrokerState::new());
     let port: u16 = std::env::var("SWARM_PORT")
-        .ok().and_then(|p| p.parse().ok())
+        .ok()
+        .and_then(|p| p.parse().ok())
         .unwrap_or(7793);
 
     let app = Router::new()
         .route("/health", get(health))
-        .route("/api/sim/run",           post(run_simulation))
-        .route("/api/sim/receipts",      get(list_receipts))
-        .route("/api/sim/receipts/:id",  get(get_receipt))
+        .route("/api/sim/run", post(run_simulation))
+        .route("/api/sim/receipts", get(list_receipts))
+        .route("/api/sim/receipts/:id", get(get_receipt))
         .with_state(state);
 
     let addr = format!("0.0.0.0:{port}");
@@ -44,8 +52,8 @@ async fn health() -> Json<serde_json::Value> {
 
 #[derive(serde::Deserialize)]
 struct SimRequest {
-    twin_id:   String,
-    agent_id:  String,
+    twin_id: String,
+    agent_id: String,
     session_id: Option<String>,
     n_candidates: Option<u32>,
 }
@@ -67,38 +75,49 @@ async fn run_simulation(
 
     let receipt = SimReceipt {
         receipt_id: receipt_id.clone(),
-        twin_id:    req.twin_id.clone(),
-        agent_id:   req.agent_id.clone(),
+        twin_id: req.twin_id.clone(),
+        agent_id: req.agent_id.clone(),
         session_id: req.session_id.clone(),
         n_trajectories: n,
-        n_feasible:      n.saturating_sub(n / 10),
+        n_feasible: n.saturating_sub(n / 10),
         winning_traj_id: winning_id.clone(),
-        winner_score:    0.87,
+        winner_score: 0.87,
         merkle_root,
         policy_hash,
         proof_of_sim: proof_of_sim.clone(),
-        outcome:     SimOutcome::PolicySelected,
-        zangbeto_anchor:  None,
+        outcome: SimOutcome::PolicySelected,
+        zangbeto_anchor: None,
         witness_event_id: None,
-        created_at:  Utc::now(),
-        signature:   String::new(),
+        created_at: Utc::now(),
+        signature: String::new(),
     };
 
     let hash = receipt.canonical_hash();
-    s.receipts.write().unwrap().insert(receipt_id.clone(), receipt.clone());
+    s.receipts
+        .write()
+        .unwrap()
+        .insert(receipt_id.clone(), receipt.clone());
 
-    (StatusCode::CREATED, Json(serde_json::json!({
-        "receipt_id":    receipt_id,
-        "winning_traj":  winning_id,
-        "proof_of_sim":  proof_of_sim,
-        "canonical_hash": hash,
-        "n_trajectories": n,
-    })))
+    (
+        StatusCode::CREATED,
+        Json(serde_json::json!({
+            "receipt_id":    receipt_id,
+            "winning_traj":  winning_id,
+            "proof_of_sim":  proof_of_sim,
+            "canonical_hash": hash,
+            "n_trajectories": n,
+        })),
+    )
 }
 
 async fn list_receipts(State(s): State<AppState>) -> Json<Vec<serde_json::Value>> {
     let receipts = s.receipts.read().unwrap();
-    Json(receipts.values().map(|r| serde_json::to_value(r).unwrap_or_default()).collect())
+    Json(
+        receipts
+            .values()
+            .map(|r| serde_json::to_value(r).unwrap_or_default())
+            .collect(),
+    )
 }
 
 async fn get_receipt(
@@ -106,7 +125,13 @@ async fn get_receipt(
     Path(id): Path<String>,
 ) -> (StatusCode, Json<serde_json::Value>) {
     match s.receipts.read().unwrap().get(&id).cloned() {
-        Some(r) => (StatusCode::OK, Json(serde_json::to_value(r).unwrap_or_default())),
-        None    => (StatusCode::NOT_FOUND, Json(serde_json::json!({"error": "not found"}))),
+        Some(r) => (
+            StatusCode::OK,
+            Json(serde_json::to_value(r).unwrap_or_default()),
+        ),
+        None => (
+            StatusCode::NOT_FOUND,
+            Json(serde_json::json!({"error": "not found"})),
+        ),
     }
 }

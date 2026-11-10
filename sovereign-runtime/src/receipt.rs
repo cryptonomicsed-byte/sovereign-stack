@@ -64,7 +64,10 @@ pub enum ActionOutcome {
 impl ActionOutcome {
     /// Whether this receipt represents a completed (non-refused) action.
     pub fn is_conclusive(&self) -> bool {
-        matches!(self, ActionOutcome::Success | ActionOutcome::Failure | ActionOutcome::Partial)
+        matches!(
+            self,
+            ActionOutcome::Success | ActionOutcome::Failure | ActionOutcome::Partial
+        )
     }
 }
 

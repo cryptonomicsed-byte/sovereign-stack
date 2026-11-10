@@ -13,10 +13,10 @@
 //! The AgentCard is built from `A2aConfig`; tasks are handled by the
 //! registered `TaskHandler` trait object.
 
-pub mod types;
-pub mod router;
 pub mod client;
+pub mod router;
+pub mod types;
 
-pub use types::*;
-pub use router::{a2a_router, A2aState, A2aDispatchRequest};
 pub use client::A2aClient;
+pub use router::{a2a_router, A2aDispatchRequest, A2aState};
+pub use types::*;

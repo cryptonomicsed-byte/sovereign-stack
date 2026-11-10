@@ -8,12 +8,12 @@
 //!                    CaptureFailed / StatusUpdate events (no twin_id yet)
 //!   /ws/twin/*     — all events
 
+use axum::extract::ws::{Message, WebSocket};
 use axum::{
     extract::{Path, State, WebSocketUpgrade},
     http::StatusCode,
     response::IntoResponse,
 };
-use axum::extract::ws::{Message, WebSocket};
 use futures_util::{SinkExt, StreamExt};
 use tokio::sync::broadcast;
 use tracing::{debug, info, warn};
@@ -23,18 +23,18 @@ use crate::node::NodeState;
 
 /// GET /ws/twin/:twin_id
 pub async fn handle_ws_twin(
-    ws:              WebSocketUpgrade,
-    Path(twin_id):   Path<String>,
-    State(state):    State<NodeState>,
+    ws: WebSocketUpgrade,
+    Path(twin_id): Path<String>,
+    State(state): State<NodeState>,
 ) -> impl IntoResponse {
     let rx = state.twin_events.subscribe();
     ws.on_upgrade(move |socket| twin_ws_stream(socket, twin_id, rx))
 }
 
 async fn twin_ws_stream(
-    socket:    WebSocket,
+    socket: WebSocket,
     filter_id: String,
-    mut rx:    broadcast::Receiver<TwinEvent>,
+    mut rx: broadcast::Receiver<TwinEvent>,
 ) {
     let (mut tx, mut reader) = socket.split();
     info!(twin_id = %filter_id, "WS twin stream opened");
@@ -85,19 +85,15 @@ async fn twin_ws_stream(
 
 /// GET /ws/splat/:twin_id
 pub async fn handle_ws_splat(
-    ws:            WebSocketUpgrade,
+    ws: WebSocketUpgrade,
     Path(twin_id): Path<String>,
-    State(state):  State<NodeState>,
+    State(state): State<NodeState>,
 ) -> impl IntoResponse {
     let splat_dir = state.config.pipeline.splat_output_dir.clone();
     ws.on_upgrade(move |socket| splat_ws_stream(socket, twin_id, splat_dir))
 }
 
-async fn splat_ws_stream(
-    socket:    WebSocket,
-    twin_id:   String,
-    splat_dir: Option<String>,
-) {
+async fn splat_ws_stream(socket: WebSocket, twin_id: String, splat_dir: Option<String>) {
     let (mut tx, _rx) = socket.split();
 
     let ply_path = match splat_dir {
@@ -121,7 +117,11 @@ async fn splat_ws_stream(
         Ok(bytes) => {
             // Send in 64 KiB chunks so large PLYs don't hit frame size limits.
             for chunk in bytes.chunks(65536) {
-                if tx.send(Message::Binary(chunk.to_vec().into())).await.is_err() {
+                if tx
+                    .send(Message::Binary(chunk.to_vec().into()))
+                    .await
+                    .is_err()
+                {
                     debug!(twin_id = %twin_id, "WS splat client disconnected mid-stream");
                     return;
                 }

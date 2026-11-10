@@ -18,9 +18,9 @@
 //!   handles the packet encoding/decoding only.  Wire transport is injected
 //!   by the caller (see `MeshtasticTransport` trait).
 
-use std::collections::HashMap;
+use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine};
 use serde::{Deserialize, Serialize};
-use base64::{Engine, engine::general_purpose::URL_SAFE_NO_PAD};
+use std::collections::HashMap;
 
 use crate::address::{DipAddress, DipNetwork};
 use crate::envelope::{DipEnvelope, DipKind};
@@ -30,16 +30,16 @@ use crate::error::{DipError, DipResult};
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MeshPacket {
     /// Sending node's 32-bit ID (decimal).
-    pub from:      u32,
+    pub from: u32,
     /// Receiving node's 32-bit ID (0xFFFFFFFF = broadcast).
-    pub to:        u32,
-    pub id:        u32,
-    pub channel:   u8,
-    pub decoded:   MeshDecoded,
+    pub to: u32,
+    pub id: u32,
+    pub channel: u8,
+    pub decoded: MeshDecoded,
     pub hop_limit: u8,
-    pub rx_time:   Option<u64>,
-    pub rx_snr:    Option<f32>,
-    pub rx_rssi:   Option<i32>,
+    pub rx_time: Option<u64>,
+    pub rx_snr: Option<f32>,
+    pub rx_rssi: Option<i32>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -61,9 +61,10 @@ impl MeshPacket {
 
     pub fn to_dip_envelope(&self) -> DipResult<DipEnvelope> {
         if !self.is_dip_packet() {
-            return Err(DipError::RoutingFailed(
-                format!("not a DIP packet (portnum={})", self.decoded.portnum)
-            ));
+            return Err(DipError::RoutingFailed(format!(
+                "not a DIP packet (portnum={})",
+                self.decoded.portnum
+            )));
         }
         let bytes = URL_SAFE_NO_PAD
             .decode(&self.decoded.payload)
@@ -97,9 +98,9 @@ pub struct MeshtasticAdapter {
     /// This node's Meshtastic 32-bit ID.
     pub local_node_id: u32,
     /// DID of this node (filled into envelope origin).
-    pub local_did:     String,
+    pub local_did: String,
     /// DID → Meshtastic node_id table for known peers.
-    pub did_table:     HashMap<String, u32>,
+    pub did_table: HashMap<String, u32>,
 }
 
 impl MeshtasticAdapter {
@@ -119,39 +120,49 @@ impl MeshtasticAdapter {
     /// Resolve a DID to a Meshtastic node ID.
     /// Returns broadcast if unknown (flood the mesh — recipient filters by DID).
     pub fn resolve_node_id(&self, did: &str) -> u32 {
-        self.did_table.get(did).copied().unwrap_or(MeshPacket::BROADCAST_ID)
+        self.did_table
+            .get(did)
+            .copied()
+            .unwrap_or(MeshPacket::BROADCAST_ID)
     }
 
     /// DipKind → Meshtastic channel index.
     fn channel_for(kind: &DipKind) -> u8 {
         match kind {
-            DipKind::Receipt | DipKind::Evidence => 1,  // encrypted/private channel
+            DipKind::Receipt | DipKind::Evidence => 1, // encrypted/private channel
             _ => 0,
         }
     }
 
     /// Wrap a DIP envelope in a MeshPacket ready to transmit.
     pub fn wrap(&self, envelope: &DipEnvelope) -> DipResult<MeshPacket> {
-        let dest_did  = envelope.destination.did.as_deref()
+        let dest_did = envelope
+            .destination
+            .did
+            .as_deref()
             .unwrap_or(&envelope.destination.address);
-        let to        = self.resolve_node_id(dest_did);
-        let channel   = Self::channel_for(&envelope.kind);
+        let to = self.resolve_node_id(dest_did);
+        let channel = Self::channel_for(&envelope.kind);
 
         let payload_bytes = serde_json::to_vec(envelope)?;
-        let payload       = URL_SAFE_NO_PAD.encode(&payload_bytes);
+        let payload = URL_SAFE_NO_PAD.encode(&payload_bytes);
 
         let packet_id = (envelope.timestamp & 0xFFFF_FFFF) as u32;
 
         Ok(MeshPacket {
-            from:      self.local_node_id,
+            from: self.local_node_id,
             to,
-            id:        packet_id,
+            id: packet_id,
             channel,
-            decoded:   MeshDecoded { portnum: 256, payload, bitfield: 0 },
+            decoded: MeshDecoded {
+                portnum: 256,
+                payload,
+                bitfield: 0,
+            },
             hop_limit: 3,
-            rx_time:   None,
-            rx_snr:    None,
-            rx_rssi:   None,
+            rx_time: None,
+            rx_snr: None,
+            rx_rssi: None,
         })
     }
 
@@ -166,9 +177,10 @@ impl MeshtasticAdapter {
 
         // Discard packets not addressed to us (if unicast)
         if packet.to != MeshPacket::BROADCAST_ID && packet.to != self.local_node_id {
-            return Err(DipError::RoutingFailed(
-                format!("packet to={} is not for us (node_id={})", packet.to, self.local_node_id)
-            ));
+            return Err(DipError::RoutingFailed(format!(
+                "packet to={} is not for us (node_id={})",
+                packet.to, self.local_node_id
+            )));
         }
 
         Ok(envelope)
@@ -188,9 +200,9 @@ impl MeshtasticAdapter {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::envelope::DipEnvelope;
     use crate::address::DipAddress;
-    use sovereign_types::{IdentityChain, crypto::generate_keypair};
+    use crate::envelope::DipEnvelope;
+    use sovereign_types::{crypto::generate_keypair, IdentityChain};
 
     fn make_adapter() -> MeshtasticAdapter {
         MeshtasticAdapter::new(0xDEAD_BEEF, "did:vantage:node:local")
@@ -198,26 +210,35 @@ mod tests {
 
     fn make_envelope(priv_key: &str) -> DipEnvelope {
         DipEnvelope::build(
-            DipAddress { network: DipNetwork::Meshtastic, address: "!deadbeef".into(), did: Some("did:vantage:node:local".into()) },
-            DipAddress { network: DipNetwork::Meshtastic, address: "!cafebabe".into(), did: Some("did:vantage:node:peer".into()) },
+            DipAddress {
+                network: DipNetwork::Meshtastic,
+                address: "!deadbeef".into(),
+                did: Some("did:vantage:node:local".into()),
+            },
+            DipAddress {
+                network: DipNetwork::Meshtastic,
+                address: "!cafebabe".into(),
+                did: Some("did:vantage:node:peer".into()),
+            },
             IdentityChain::new("did:p:1".into(), "did:a:node".into()),
             DipKind::Message,
             serde_json::json!({"text": "offline ping"}),
             300,
             priv_key,
-        ).unwrap()
+        )
+        .unwrap()
     }
 
     #[test]
     fn wrap_produces_private_app_portnum() {
         let (priv_key, _) = generate_keypair();
-        let adapter  = make_adapter();
+        let adapter = make_adapter();
         let envelope = make_envelope(&priv_key);
-        let packet   = adapter.wrap(&envelope).unwrap();
+        let packet = adapter.wrap(&envelope).unwrap();
 
         assert_eq!(packet.decoded.portnum, 256);
         assert_eq!(packet.from, 0xDEAD_BEEF);
-        assert_eq!(packet.channel, 0);  // DipKind::Message → channel 0
+        assert_eq!(packet.channel, 0); // DipKind::Message → channel 0
     }
 
     #[test]
@@ -227,26 +248,35 @@ mod tests {
         adapter.learn_peer("did:vantage:node:peer", 0xCAFE_BABE);
 
         let envelope = DipEnvelope::build(
-            DipAddress { network: DipNetwork::Meshtastic, address: "!deadbeef".into(), did: Some("did:vantage:node:local".into()) },
-            DipAddress { network: DipNetwork::Meshtastic, address: "!cafebabe".into(), did: Some("did:vantage:node:peer".into()) },
+            DipAddress {
+                network: DipNetwork::Meshtastic,
+                address: "!deadbeef".into(),
+                did: Some("did:vantage:node:local".into()),
+            },
+            DipAddress {
+                network: DipNetwork::Meshtastic,
+                address: "!cafebabe".into(),
+                did: Some("did:vantage:node:peer".into()),
+            },
             IdentityChain::new("did:p:1".into(), "did:a:node".into()),
             DipKind::Receipt,
             serde_json::json!({"receipt_id": "r:123"}),
             300,
             &priv_key,
-        ).unwrap();
+        )
+        .unwrap();
 
         let packet = adapter.wrap(&envelope).unwrap();
-        assert_eq!(packet.channel, 1);           // Receipt → encrypted channel
-        assert_eq!(packet.to, 0xCAFE_BABE);      // Known peer → unicast, not broadcast
+        assert_eq!(packet.channel, 1); // Receipt → encrypted channel
+        assert_eq!(packet.to, 0xCAFE_BABE); // Known peer → unicast, not broadcast
     }
 
     #[test]
     fn unknown_dest_broadcasts() {
         let (priv_key, _) = generate_keypair();
-        let adapter  = make_adapter();
+        let adapter = make_adapter();
         let envelope = make_envelope(&priv_key);
-        let packet   = adapter.wrap(&envelope).unwrap();
+        let packet = adapter.wrap(&envelope).unwrap();
 
         assert_eq!(packet.to, MeshPacket::BROADCAST_ID);
     }
@@ -254,14 +284,14 @@ mod tests {
     #[test]
     fn roundtrip_wrap_unwrap() {
         let (priv_key, _) = generate_keypair();
-        let mut adapter  = make_adapter();
-        let original     = make_envelope(&priv_key);
-        let packet       = adapter.wrap(&original).unwrap();
+        let mut adapter = make_adapter();
+        let original = make_envelope(&priv_key);
+        let packet = adapter.wrap(&original).unwrap();
 
         // Simulate receiving this packet as a broadcast addressed to us
         let mut recv_packet = packet.clone();
         recv_packet.from = 0xCAFE_BABE;
-        recv_packet.to   = MeshPacket::BROADCAST_ID;
+        recv_packet.to = MeshPacket::BROADCAST_ID;
 
         let recovered = adapter.unwrap(&recv_packet).unwrap();
         assert_eq!(recovered.message_id, original.message_id);
@@ -270,11 +300,11 @@ mod tests {
     #[test]
     fn learns_sender_did_on_unwrap() {
         let (priv_key, _) = generate_keypair();
-        let mut adapter  = make_adapter();
-        let envelope     = make_envelope(&priv_key);
-        let mut packet   = adapter.wrap(&envelope).unwrap();
-        packet.from      = 0x1234_5678;
-        packet.to        = MeshPacket::BROADCAST_ID;
+        let mut adapter = make_adapter();
+        let envelope = make_envelope(&priv_key);
+        let mut packet = adapter.wrap(&envelope).unwrap();
+        packet.from = 0x1234_5678;
+        packet.to = MeshPacket::BROADCAST_ID;
 
         adapter.unwrap(&packet).unwrap();
 
@@ -288,9 +318,19 @@ mod tests {
     #[test]
     fn non_dip_packet_rejected() {
         let packet = MeshPacket {
-            from: 1, to: 2, id: 0, channel: 0,
-            decoded: MeshDecoded { portnum: 1, payload: String::new(), bitfield: 0 },
-            hop_limit: 3, rx_time: None, rx_snr: None, rx_rssi: None,
+            from: 1,
+            to: 2,
+            id: 0,
+            channel: 0,
+            decoded: MeshDecoded {
+                portnum: 1,
+                payload: String::new(),
+                bitfield: 0,
+            },
+            hop_limit: 3,
+            rx_time: None,
+            rx_snr: None,
+            rx_rssi: None,
         };
         assert!(packet.to_dip_envelope().is_err());
     }

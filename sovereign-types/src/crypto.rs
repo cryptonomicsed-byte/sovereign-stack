@@ -1,7 +1,7 @@
-use ed25519_dalek::{SigningKey, VerifyingKey, Signer, Verifier, Signature};
-use rand::rngs::OsRng;
-use base64::{Engine, engine::general_purpose::URL_SAFE_NO_PAD};
 use crate::SovereignError;
+use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine};
+use ed25519_dalek::{Signature, Signer, SigningKey, Verifier, VerifyingKey};
+use rand::rngs::OsRng;
 
 /// Generate a new ed25519 keypair. Returns (private_b64, public_b64).
 pub fn generate_keypair() -> (String, String) {
@@ -15,34 +15,45 @@ pub fn generate_keypair() -> (String, String) {
 
 /// Sign a merkle root (or any bytes) with a private key (base64url).
 pub fn sign(data: &str, private_key_b64: &str) -> Result<String, SovereignError> {
-    let key_bytes = URL_SAFE_NO_PAD.decode(private_key_b64)
+    let key_bytes = URL_SAFE_NO_PAD
+        .decode(private_key_b64)
         .map_err(|e| SovereignError::Crypto(e.to_string()))?;
-    let key_array: [u8; 32] = key_bytes.try_into()
+    let key_array: [u8; 32] = key_bytes
+        .try_into()
         .map_err(|_| SovereignError::Crypto("invalid key length".into()))?;
     let signing_key = SigningKey::from_bytes(&key_array);
     let sig = signing_key.sign(data.as_bytes());
-    Ok(format!("base64url:{}", URL_SAFE_NO_PAD.encode(sig.to_bytes())))
+    Ok(format!(
+        "base64url:{}",
+        URL_SAFE_NO_PAD.encode(sig.to_bytes())
+    ))
 }
 
 /// Verify a signature (base64url:...) against data and public key (base64url).
 pub fn verify(data: &str, signature: &str, public_key_b64: &str) -> Result<(), SovereignError> {
-    let sig_bytes_b64 = signature.strip_prefix("base64url:")
+    let sig_bytes_b64 = signature
+        .strip_prefix("base64url:")
         .ok_or_else(|| SovereignError::Crypto("signature must start with base64url:".into()))?;
-    let sig_bytes = URL_SAFE_NO_PAD.decode(sig_bytes_b64)
+    let sig_bytes = URL_SAFE_NO_PAD
+        .decode(sig_bytes_b64)
         .map_err(|e| SovereignError::Crypto(e.to_string()))?;
-    let sig_array: [u8; 64] = sig_bytes.try_into()
+    let sig_array: [u8; 64] = sig_bytes
+        .try_into()
         .map_err(|_| SovereignError::Crypto("invalid signature length".into()))?;
 
-    let key_bytes = URL_SAFE_NO_PAD.decode(public_key_b64)
+    let key_bytes = URL_SAFE_NO_PAD
+        .decode(public_key_b64)
         .map_err(|e| SovereignError::Crypto(e.to_string()))?;
-    let key_array: [u8; 32] = key_bytes.try_into()
+    let key_array: [u8; 32] = key_bytes
+        .try_into()
         .map_err(|_| SovereignError::Crypto("invalid key length".into()))?;
 
-    let verifying_key = VerifyingKey::from_bytes(&key_array)
-        .map_err(|e| SovereignError::Crypto(e.to_string()))?;
+    let verifying_key =
+        VerifyingKey::from_bytes(&key_array).map_err(|e| SovereignError::Crypto(e.to_string()))?;
     let signature = Signature::from_bytes(&sig_array);
 
-    verifying_key.verify(data.as_bytes(), &signature)
+    verifying_key
+        .verify(data.as_bytes(), &signature)
         .map_err(|_| SovereignError::InvalidSignature)
 }
 

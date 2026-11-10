@@ -21,11 +21,11 @@ use serde::{Deserialize, Serialize};
 use sovereign_types::identity::Timestamp;
 use sovereign_types::proof::{blake3_hex, Confidence};
 
+pub use sovereign_types::proof::Confidence as EpistemicSeverity;
 /// Re-exported so `crate::act_receipt::{PoCWProof, EpistemicSeverity}` keeps
 /// working. `EpistemicSeverity` here has always meant agent confidence, which is
 /// now canonically named [`Confidence`].
 pub use sovereign_types::proof::{EnsembleDisagreement, PoCWProof, SimPlane};
-pub use sovereign_types::proof::Confidence as EpistemicSeverity;
 
 /// One agent-level ActReceipt.
 #[derive(Debug, Clone, Serialize, Deserialize)]

@@ -1,21 +1,21 @@
+use crate::principal::Principal;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use sovereign_types::identity::{SafetyLevel, Timestamp};
-use crate::principal::Principal;
 
 /// A Capability grant — describes what a Principal is allowed to do.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct Capability {
     pub capability_id: String,
-    pub granted_to:    String,           // principal_id
-    pub action:        CapabilityAction,
-    pub resource:      String,           // URI or glob, e.g. "twin:*" or "tile:odu:0a"
-    pub constraints:   Vec<Constraint>,
-    pub safety_level:  SafetyLevel,
-    pub granted_at:    Timestamp,
-    pub expires_at:    Option<Timestamp>,
-    pub delegated_by:  Option<String>,   // principal_id of grantor
-    pub signature:     String,           // grantor's signature over canonical fields
+    pub granted_to: String, // principal_id
+    pub action: CapabilityAction,
+    pub resource: String, // URI or glob, e.g. "twin:*" or "tile:odu:0a"
+    pub constraints: Vec<Constraint>,
+    pub safety_level: SafetyLevel,
+    pub granted_at: Timestamp,
+    pub expires_at: Option<Timestamp>,
+    pub delegated_by: Option<String>, // principal_id of grantor
+    pub signature: String,            // grantor's signature over canonical fields
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -37,11 +37,11 @@ pub enum CapabilityAction {
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(tag = "kind", rename_all = "snake_case")]
 pub enum Constraint {
-    MaxRate     { per_minute: u32 },
-    GeoFence    { tile_ids: Vec<String> },
-    TimeWindow  { from: Timestamp, until: Timestamp },
-    DataClass   { allowed: Vec<String> },
-    Custom      { rule: Value },
+    MaxRate { per_minute: u32 },
+    GeoFence { tile_ids: Vec<String> },
+    TimeWindow { from: Timestamp, until: Timestamp },
+    DataClass { allowed: Vec<String> },
+    Custom { rule: Value },
 }
 
 /// The CapabilityKernel validates Principal → Capability pairs.
@@ -50,32 +50,32 @@ pub struct CapabilityKernel;
 
 #[derive(Debug)]
 pub struct AuthorizationDecision {
-    pub granted:         bool,
-    pub principal_id:    String,
-    pub capability_id:   String,
-    pub action:          CapabilityAction,
-    pub resource:        String,
-    pub denial_reason:   Option<String>,
-    pub evaluated_at:    Timestamp,
+    pub granted: bool,
+    pub principal_id: String,
+    pub capability_id: String,
+    pub action: CapabilityAction,
+    pub resource: String,
+    pub denial_reason: Option<String>,
+    pub evaluated_at: Timestamp,
 }
 
 impl CapabilityKernel {
     /// Core decision function — Principal × Capability × (action, resource) → Decision.
     pub fn evaluate(
-        principal:  &Principal,
+        principal: &Principal,
         capability: &Capability,
-        action:     &CapabilityAction,
-        resource:   &str,
-        now:        Timestamp,
+        action: &CapabilityAction,
+        resource: &str,
+        now: Timestamp,
     ) -> AuthorizationDecision {
         let base = AuthorizationDecision {
-            granted:       false,
-            principal_id:  principal.principal_id().to_string(),
+            granted: false,
+            principal_id: principal.principal_id().to_string(),
             capability_id: capability.capability_id.clone(),
-            action:        action.clone(),
-            resource:      resource.to_string(),
+            action: action.clone(),
+            resource: resource.to_string(),
             denial_reason: None,
-            evaluated_at:  now,
+            evaluated_at: now,
         };
 
         // 1 — capability must be for this principal
@@ -89,7 +89,10 @@ impl CapabilityKernel {
         // 2 — action must match
         if &capability.action != action {
             return AuthorizationDecision {
-                denial_reason: Some(format!("action mismatch: need {:?}, cap has {:?}", action, capability.action)),
+                denial_reason: Some(format!(
+                    "action mismatch: need {:?}, cap has {:?}",
+                    action, capability.action
+                )),
                 ..base
             };
         }
@@ -97,7 +100,10 @@ impl CapabilityKernel {
         // 3 — resource must match (glob or exact)
         if !resource_matches(&capability.resource, resource) {
             return AuthorizationDecision {
-                denial_reason: Some(format!("resource '{}' not covered by '{}'", resource, capability.resource)),
+                denial_reason: Some(format!(
+                    "resource '{}' not covered by '{}'",
+                    resource, capability.resource
+                )),
                 ..base
             };
         }
@@ -126,11 +132,18 @@ impl CapabilityKernel {
         // 6 — evaluate constraints
         for constraint in &capability.constraints {
             if let Some(reason) = evaluate_constraint(constraint, resource, now) {
-                return AuthorizationDecision { denial_reason: Some(reason), ..base };
+                return AuthorizationDecision {
+                    denial_reason: Some(reason),
+                    ..base
+                };
             }
         }
 
-        AuthorizationDecision { granted: true, denial_reason: None, ..base }
+        AuthorizationDecision {
+            granted: true,
+            denial_reason: None,
+            ..base
+        }
     }
 }
 

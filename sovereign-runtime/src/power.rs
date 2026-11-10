@@ -6,7 +6,7 @@ pub enum PowerSource {
     Mains,
     Battery,
     Solar,
-    Poe,            // Power-over-Ethernet
+    Poe, // Power-over-Ethernet
     Usb,
     Unknown,
 }
@@ -29,26 +29,34 @@ pub enum PowerState {
 }
 
 impl PowerState {
-    pub fn allows_gpu(&self)     -> bool { matches!(self, Self::FullPower | Self::Normal) }
-    pub fn allows_camera(&self)  -> bool { !matches!(self, Self::Suspend | Self::Hibernate) }
-    pub fn allows_sensors(&self) -> bool { !matches!(self, Self::Hibernate) }
-    pub fn allows_network(&self) -> bool { !matches!(self, Self::Hibernate) }
+    pub fn allows_gpu(&self) -> bool {
+        matches!(self, Self::FullPower | Self::Normal)
+    }
+    pub fn allows_camera(&self) -> bool {
+        !matches!(self, Self::Suspend | Self::Hibernate)
+    }
+    pub fn allows_sensors(&self) -> bool {
+        !matches!(self, Self::Hibernate)
+    }
+    pub fn allows_network(&self) -> bool {
+        !matches!(self, Self::Hibernate)
+    }
 }
 
 /// Observed power snapshot from the platform.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PowerSnapshot {
-    pub state:            PowerState,
-    pub source:           PowerSource,
-    pub battery_pct:      Option<u8>,     // 0–100
-    pub charge_rate_mw:   Option<i32>,    // positive = charging, negative = discharging
-    pub temperature_c:    Option<f32>,
+    pub state: PowerState,
+    pub source: PowerSource,
+    pub battery_pct: Option<u8>,     // 0–100
+    pub charge_rate_mw: Option<i32>, // positive = charging, negative = discharging
+    pub temperature_c: Option<f32>,
 }
 
 impl PowerSnapshot {
     pub fn is_critical(&self) -> bool {
         matches!(self.state, PowerState::LowBattery)
-        || self.battery_pct.map(|p| p < 10).unwrap_or(false)
+            || self.battery_pct.map(|p| p < 10).unwrap_or(false)
     }
 }
 

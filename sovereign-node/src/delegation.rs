@@ -30,24 +30,26 @@ pub struct DelegateRequest {
 #[derive(Debug, Serialize)]
 pub struct DelegateResult {
     pub peer_name: String,
-    pub peer_url:  String,
-    pub task_id:   String,
-    pub poll_url:  String,
+    pub peer_url: String,
+    pub task_id: String,
+    pub poll_url: String,
 }
 
 /// Delegate a capture task to the best available peer node.
 pub async fn delegate_capture(
-    peers:     &[PeerNodeConfig],
+    peers: &[PeerNodeConfig],
     device_id: &str,
-    hint:      &str,
-    prefer:    Option<&str>,
+    hint: &str,
+    prefer: Option<&str>,
 ) -> Result<DelegateResult, String> {
     let peer = match prefer {
-        Some(name) => peers.iter()
+        Some(name) => peers
+            .iter()
             .find(|p| p.name == name)
             .ok_or_else(|| format!("peer '{name}' not found in config"))?,
-        None => peers.first()
-            .ok_or_else(|| "no peers configured — add [[peers.nodes]] to config.toml".to_string())?,
+        None => peers.first().ok_or_else(|| {
+            "no peers configured — add [[peers.nodes]] to config.toml".to_string()
+        })?,
     };
 
     let client = A2aClient::new(&peer.a2a_base_url);
@@ -58,14 +60,16 @@ pub async fn delegate_capture(
         format!("capture {device_id} {hint}")
     };
 
-    let task: A2aTask = client.submit_task(text)
-        .await.map_err(|e| format!("A2A submit failed: {e}"))?;
+    let task: A2aTask = client
+        .submit_task(text)
+        .await
+        .map_err(|e| format!("A2A submit failed: {e}"))?;
 
     Ok(DelegateResult {
-        poll_url:  format!("{}/a2a/tasks/{}", peer.a2a_base_url, task.id),
+        poll_url: format!("{}/a2a/tasks/{}", peer.a2a_base_url, task.id),
         peer_name: peer.name.clone(),
-        peer_url:  peer.a2a_base_url.clone(),
-        task_id:   task.id,
+        peer_url: peer.a2a_base_url.clone(),
+        task_id: task.id,
     })
 }
 
@@ -85,8 +89,14 @@ mod tests {
     #[test]
     fn pick_peer_by_name() {
         let peers = vec![
-            PeerNodeConfig { name: "alpha".into(), a2a_base_url: "http://alpha:7779".into() },
-            PeerNodeConfig { name: "beta".into(),  a2a_base_url: "http://beta:7779".into() },
+            PeerNodeConfig {
+                name: "alpha".into(),
+                a2a_base_url: "http://alpha:7779".into(),
+            },
+            PeerNodeConfig {
+                name: "beta".into(),
+                a2a_base_url: "http://beta:7779".into(),
+            },
         ];
         let found = peers.iter().find(|p| p.name == "beta").unwrap();
         assert_eq!(found.a2a_base_url, "http://beta:7779");
@@ -110,9 +120,10 @@ mod tests {
 
     #[tokio::test]
     async fn delegate_fails_gracefully_with_unknown_peer() {
-        let peers = vec![
-            PeerNodeConfig { name: "alpha".into(), a2a_base_url: "http://alpha:7779".into() },
-        ];
+        let peers = vec![PeerNodeConfig {
+            name: "alpha".into(),
+            a2a_base_url: "http://alpha:7779".into(),
+        }];
         let result = delegate_capture(&peers, "go2:1", "", Some("gamma")).await;
         assert!(result.is_err());
         assert!(result.unwrap_err().contains("not found"));

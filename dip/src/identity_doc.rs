@@ -1,16 +1,16 @@
+use crate::address::DipNetwork;
 use serde::{Deserialize, Serialize};
 use sovereign_types::{Did, Hash, Signature, Timestamp};
-use crate::address::DipNetwork;
 
 /// A DIP Identity Document — maps one canonical DID to multiple network addresses.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DipIdentityDocument {
-    pub did:               Did,
-    pub created:           Timestamp,
-    pub equivalences:      Vec<DipEquivalence>,
+    pub did: Did,
+    pub created: Timestamp,
+    pub equivalences: Vec<DipEquivalence>,
     pub service_endpoints: Vec<DipServiceEndpoint>,
-    pub merkle_root:       Hash,
-    pub signature:         Signature,  // canonical key signs all equivalences
+    pub merkle_root: Hash,
+    pub signature: Signature, // canonical key signs all equivalences
 }
 
 impl DipIdentityDocument {
@@ -35,7 +35,8 @@ impl DipIdentityDocument {
 
     /// Find the address for a given network.
     pub fn address_for(&self, network: &DipNetwork) -> Option<&str> {
-        self.equivalences.iter()
+        self.equivalences
+            .iter()
             .find(|e| &e.network == network)
             .map(|e| e.address.as_str())
     }
@@ -45,25 +46,30 @@ impl DipIdentityDocument {
 /// The foreign network key signs the canonical DID to prove ownership of both.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DipEquivalence {
-    pub network:  DipNetwork,
-    pub address:  String,
+    pub network: DipNetwork,
+    pub address: String,
     /// Foreign key signature over the canonical DID string
-    pub proof:    Signature,
+    pub proof: Signature,
     /// Set to true after a round-trip challenge has been verified
     pub verified: bool,
 }
 
 impl DipEquivalence {
     pub fn new(network: DipNetwork, address: impl Into<String>, proof: Signature) -> Self {
-        Self { network, address: address.into(), proof, verified: false }
+        Self {
+            network,
+            address: address.into(),
+            proof,
+            verified: false,
+        }
     }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DipServiceEndpoint {
-    pub kind:     String,   // "vantage-mcp", "a2a", "vcp-gateway"
-    pub url:      String,
-    pub protocol: String,   // "mcp/1", "a2a/1", "vcp/1"
+    pub kind: String, // "vantage-mcp", "a2a", "vcp-gateway"
+    pub url: String,
+    pub protocol: String, // "mcp/1", "a2a/1", "vcp/1"
 }
 
 /// In-memory identity registry — stores and resolves DID documents.
@@ -75,7 +81,9 @@ pub struct IdentityRegistry {
 }
 
 impl IdentityRegistry {
-    pub fn new() -> Self { Self::default() }
+    pub fn new() -> Self {
+        Self::default()
+    }
 
     pub fn register(&mut self, doc: DipIdentityDocument) {
         for eq in &doc.equivalences {
@@ -92,7 +100,9 @@ impl IdentityRegistry {
     /// Resolve any network address to its canonical DID.
     pub fn resolve_address(&self, network: &DipNetwork, address: &str) -> Option<&str> {
         let key = format!("{}:{}", network, address);
-        self.by_address.get(&key).map(|did| self.docs.get(did))
+        self.by_address
+            .get(&key)
+            .map(|did| self.docs.get(did))
             .flatten()
             .map(|doc| doc.did.as_str())
     }

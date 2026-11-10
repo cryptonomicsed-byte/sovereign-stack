@@ -22,29 +22,29 @@
 use std::time::{Duration, Instant};
 
 use serde_json::{json, Value};
-use tungstenite::{connect, Message, stream::MaybeTlsStream};
 use tracing::{debug, info, warn};
+use tungstenite::{connect, stream::MaybeTlsStream, Message};
 
 use crate::capture_pipeline::RawCapture;
 
 /// Configuration for a real Go2 WebSocket capture session.
 #[derive(Debug, Clone)]
 pub struct Go2CaptureConfig {
-    pub host:                 String,
-    pub port:                 u16,
+    pub host: String,
+    pub port: u16,
     /// How long to collect frames (seconds).
     pub capture_duration_secs: u64,
     /// Maximum frames to collect (prevents unbounded memory).
-    pub max_rgb_frames:       usize,
+    pub max_rgb_frames: usize,
 }
 
 impl Default for Go2CaptureConfig {
     fn default() -> Self {
         Self {
-            host:                  "192.168.123.161".into(),
-            port:                  8080,
+            host: "192.168.123.161".into(),
+            port: 8080,
             capture_duration_secs: 30,
-            max_rgb_frames:        300,
+            max_rgb_frames: 300,
         }
     }
 }
@@ -72,8 +72,7 @@ pub fn capture_from_go2(cfg: &Go2CaptureConfig) -> Result<RawCapture, String> {
     let url = format!("ws://{}:{}/", cfg.host, cfg.port);
     info!(url = %url, "connecting to Go2 WebSocket");
 
-    let (mut ws, _) = connect(&url)
-        .map_err(|e| format!("Go2 WebSocket connect failed: {e}"))?;
+    let (mut ws, _) = connect(&url).map_err(|e| format!("Go2 WebSocket connect failed: {e}"))?;
 
     info!(url = %url, "Go2 WebSocket connected");
 
@@ -85,15 +84,17 @@ pub fn capture_from_go2(cfg: &Go2CaptureConfig) -> Result<RawCapture, String> {
         debug!(topic = %topic, "subscribed");
     }
 
-    let deadline  = Instant::now() + Duration::from_secs(cfg.capture_duration_secs);
-    let mut rgb_frames:  Vec<Vec<u8>> = vec![];
-    let mut lidar_cloud: Vec<u8>      = vec![];
-    let mut imu_samples: Vec<u8>      = vec![];
-    let mut frame_count: u32          = 0;
+    let deadline = Instant::now() + Duration::from_secs(cfg.capture_duration_secs);
+    let mut rgb_frames: Vec<Vec<u8>> = vec![];
+    let mut lidar_cloud: Vec<u8> = vec![];
+    let mut imu_samples: Vec<u8> = vec![];
+    let mut frame_count: u32 = 0;
 
     // Set a short read timeout so we can check the deadline
     match ws.get_mut() {
-        MaybeTlsStream::Plain(tcp) => { tcp.set_read_timeout(Some(Duration::from_millis(200))).ok(); }
+        MaybeTlsStream::Plain(tcp) => {
+            tcp.set_read_timeout(Some(Duration::from_millis(200))).ok();
+        }
         _ => {}
     }
 
@@ -146,7 +147,8 @@ pub fn capture_from_go2(cfg: &Go2CaptureConfig) -> Result<RawCapture, String> {
             }
             Err(tungstenite::Error::Io(e))
                 if e.kind() == std::io::ErrorKind::WouldBlock
-                || e.kind() == std::io::ErrorKind::TimedOut => {
+                    || e.kind() == std::io::ErrorKind::TimedOut =>
+            {
                 // Timeout on read — deadline check next iteration
                 continue;
             }
@@ -161,9 +163,9 @@ pub fn capture_from_go2(cfg: &Go2CaptureConfig) -> Result<RawCapture, String> {
     let _ = ws.close(None);
 
     info!(
-        frames  = frame_count,
+        frames = frame_count,
         lidar_b = lidar_cloud.len(),
-        imu_b   = imu_samples.len(),
+        imu_b = imu_samples.len(),
         "Go2 capture complete"
     );
 
@@ -178,15 +180,23 @@ pub fn capture_from_go2(cfg: &Go2CaptureConfig) -> Result<RawCapture, String> {
     let f1 = estimate_f1_from_frame_count(frame_count, cfg.capture_duration_secs);
 
     Ok(RawCapture {
-        rgb_frames:     Some(rgb_flat),
-        lidar_cloud:    if lidar_cloud.is_empty() { None } else { Some(lidar_cloud) },
-        imu_log:        if imu_samples.is_empty() { None } else { Some(imu_samples) },
-        splat:          None, // built post-capture by nerfstudio / gaussian-splatting
+        rgb_frames: Some(rgb_flat),
+        lidar_cloud: if lidar_cloud.is_empty() {
+            None
+        } else {
+            Some(lidar_cloud)
+        },
+        imu_log: if imu_samples.is_empty() {
+            None
+        } else {
+            Some(imu_samples)
+        },
+        splat: None, // built post-capture by nerfstudio / gaussian-splatting
         frame_count,
         duration_ms,
-        f1_score:       f1,
-        coverage_pct:   (frame_count as f32 * 0.6).min(100.0),
-        novelty_score:  0.7,
+        f1_score: f1,
+        coverage_pct: (frame_count as f32 * 0.6).min(100.0),
+        novelty_score: 0.7,
         delta_coverage: 12.0,
     })
 }
@@ -213,16 +223,27 @@ fn base64_decode(s: &str) -> Result<Vec<u8>, ()> {
     let mut out = Vec::with_capacity(bytes.len() * 3 / 4);
     let mut i = 0;
     while i + 3 < bytes.len() {
-        let b0 = table[bytes[i]     as usize] as u32;
+        let b0 = table[bytes[i] as usize] as u32;
         let b1 = table[bytes[i + 1] as usize] as u32;
-        let b2 = if bytes[i + 2] == b'=' { 0 } else { table[bytes[i + 2] as usize] as u32 };
-        let b3 = if bytes[i + 3] == b'=' { 0 } else { table[bytes[i + 3] as usize] as u32 };
+        let b2 = if bytes[i + 2] == b'=' {
+            0
+        } else {
+            table[bytes[i + 2] as usize] as u32
+        };
+        let b3 = if bytes[i + 3] == b'=' {
+            0
+        } else {
+            table[bytes[i + 3] as usize] as u32
+        };
         let n = (b0 << 18) | (b1 << 12) | (b2 << 6) | b3;
         out.push((n >> 16) as u8);
-        if bytes[i + 2] != b'=' { out.push((n >> 8) as u8); }
-        if bytes[i + 3] != b'=' { out.push(n as u8); }
+        if bytes[i + 2] != b'=' {
+            out.push((n >> 8) as u8);
+        }
+        if bytes[i + 3] != b'=' {
+            out.push(n as u8);
+        }
         i += 4;
     }
     Ok(out)
 }
-

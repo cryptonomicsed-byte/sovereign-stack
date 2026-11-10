@@ -1,6 +1,6 @@
-use async_trait::async_trait;
 use crate::envelope::DipEnvelope;
 use crate::error::DipResult;
+use async_trait::async_trait;
 
 /// The two-function interface every DIP adapter must implement.
 /// to_dip: native message → DIP envelope
@@ -28,13 +28,18 @@ pub struct StubAdapter {
 
 impl StubAdapter {
     pub fn new(name: &'static str) -> Self {
-        Self { name_str: name, sent: Default::default() }
+        Self {
+            name_str: name,
+            sent: Default::default(),
+        }
     }
 }
 
 #[async_trait]
 impl DipAdapter for StubAdapter {
-    fn name(&self) -> &'static str { self.name_str }
+    fn name(&self) -> &'static str {
+        self.name_str
+    }
 
     async fn to_dip(&self, _native: &[u8]) -> DipResult<DipEnvelope> {
         unimplemented!("stub to_dip")

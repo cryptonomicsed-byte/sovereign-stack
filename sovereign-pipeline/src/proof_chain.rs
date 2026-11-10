@@ -14,15 +14,15 @@
 //!   • Sui object_id written back into SceneReceipt before DIP broadcast
 //!   • DIP events emitted in order: capture → scene (with Sui) → session
 
-use sovereign_types::{IdentityChain, WitnessAttestation, crypto::generate_keypair};
-use twin_protocol::{
-    TwinAsset, SceneReceipt, SimulationReceipt,
-    osovm::{OsovmEngine, SimScenario, ProofOfSimulation},
-    sui_anchor::{SuiAnchor, SuiMintResponse},
-};
 use crate::capture_pipeline::PipelineOutput;
-use crate::event_bus::PipelineEventBus;
 use crate::error::{PipelineError, PipelineResult};
+use crate::event_bus::PipelineEventBus;
+use sovereign_types::{crypto::generate_keypair, IdentityChain, WitnessAttestation};
+use twin_protocol::{
+    osovm::{OsovmEngine, ProofOfSimulation, SimScenario},
+    sui_anchor::{SuiAnchor, SuiMintResponse},
+    SceneReceipt, SimulationReceipt, TwinAsset,
+};
 
 /// Witnesses for a simulation run: (did, signing_key) pairs.
 pub type WitnessPair<'a> = (&'a str, &'a str);
@@ -30,44 +30,44 @@ pub type WitnessPair<'a> = (&'a str, &'a str);
 /// Full output of the proof chain.
 pub struct ProofChainOutput {
     /// The original capture + scene + session receipts
-    pub pipeline:   PipelineOutput,
+    pub pipeline: PipelineOutput,
     /// Proof-of-Simulation receipt
     pub simulation: SimulationReceipt,
     /// Sui mint response (stub in dev, real tx in prod)
-    pub sui_mint:   SuiMintResponse,
+    pub sui_mint: SuiMintResponse,
     /// Message IDs of all DIP events emitted
     pub dip_message_ids: Vec<String>,
 }
 
 /// Configuration for the proof chain.
 pub struct ProofChainConfig {
-    pub scenario:           SimScenario,
-    pub osovm_version:      String,
-    pub sui_rpc:            String,
-    pub sui_address:        String,
-    pub sui_key:            String,
-    pub nostr_npub:         Option<String>,
-    pub vantage_did:        String,
+    pub scenario: SimScenario,
+    pub osovm_version: String,
+    pub sui_rpc: String,
+    pub sui_address: String,
+    pub sui_key: String,
+    pub nostr_npub: Option<String>,
+    pub vantage_did: String,
     /// Skip Sabbath freeze check (for tests and CI).
-    pub bypass_sabbath:     bool,
+    pub bypass_sabbath: bool,
 }
 
 impl Default for ProofChainConfig {
     fn default() -> Self {
         Self {
             scenario: SimScenario {
-                name:               "default_navigation".into(),
-                robot_model:        "Go2".into(),
-                trajectory_count:   6,
+                name: "default_navigation".into(),
+                robot_model: "Go2".into(),
+                trajectory_count: 6,
                 selection_objective: "balanced".into(),
-                params:             None,
+                params: None,
             },
-            osovm_version:  "osovm/2.0".into(),
-            sui_rpc:        "https://fullnode.mainnet.sui.io".into(),
-            sui_address:    "0xdefault".into(),
-            sui_key:        "stubkey".into(),
-            nostr_npub:     None,
-            vantage_did:    "did:vantage:api:receipts".into(),
+            osovm_version: "osovm/2.0".into(),
+            sui_rpc: "https://fullnode.mainnet.sui.io".into(),
+            sui_address: "0xdefault".into(),
+            sui_key: "stubkey".into(),
+            nostr_npub: None,
+            vantage_did: "did:vantage:api:receipts".into(),
             bypass_sabbath: false,
         }
     }
@@ -75,18 +75,22 @@ impl Default for ProofChainConfig {
 
 /// Orchestrates ỌSỌVM → Sui → DIP in a single async call.
 pub struct ProofChain {
-    pub config:     ProofChainConfig,
-    pub agent_key:  String,
-    pub identity:   IdentityChain,
+    pub config: ProofChainConfig,
+    pub agent_key: String,
+    pub identity: IdentityChain,
 }
 
 impl ProofChain {
     pub fn new(
-        config:    ProofChainConfig,
+        config: ProofChainConfig,
         agent_key: impl Into<String>,
-        identity:  IdentityChain,
+        identity: IdentityChain,
     ) -> Self {
-        Self { config, agent_key: agent_key.into(), identity }
+        Self {
+            config,
+            agent_key: agent_key.into(),
+            identity,
+        }
     }
 
     /// Run the full proof chain.
@@ -100,8 +104,10 @@ impl ProofChain {
     ) -> PipelineResult<ProofChainOutput> {
         // --- Step 1: ỌSỌVM Proof-of-Simulation ---
         let mut engine = OsovmEngine::new(&self.config.osovm_version);
-        if self.config.bypass_sabbath { engine = engine.bypass_sabbath(); }
-        let proof  = ProofOfSimulation::new(engine);
+        if self.config.bypass_sabbath {
+            engine = engine.bypass_sabbath();
+        }
+        let proof = ProofOfSimulation::new(engine);
 
         let simulation = proof.prove(
             &pipeline_output.twin,
@@ -137,11 +143,13 @@ impl ProofChain {
         let mut dip_message_ids = vec![];
 
         // Emit capture → scene (with Sui object_id) → session
-        let events = bus.emit_pipeline_output(
-            &pipeline_output.capture_receipt,
-            &pipeline_output.scene_receipt,
-            &pipeline_output.session_receipt,
-        ).map_err(|e| PipelineError::CaptureFailed(e.to_string()))?;
+        let events = bus
+            .emit_pipeline_output(
+                &pipeline_output.capture_receipt,
+                &pipeline_output.scene_receipt,
+                &pipeline_output.session_receipt,
+            )
+            .map_err(|e| PipelineError::CaptureFailed(e.to_string()))?;
 
         for ev in events {
             dip_message_ids.push(ev.envelope.message_id.clone());
@@ -149,13 +157,14 @@ impl ProofChain {
 
         // Cross-post scene receipt to Nostr if configured
         if self.config.nostr_npub.is_some() {
-            let nostr_ev = bus.cross_post_to_nostr(&pipeline_output.scene_receipt)
+            let nostr_ev = bus
+                .cross_post_to_nostr(&pipeline_output.scene_receipt)
                 .map_err(|e| PipelineError::CaptureFailed(e.to_string()))?;
             dip_message_ids.push(nostr_ev.envelope.message_id);
         }
 
         Ok(ProofChainOutput {
-            pipeline:       pipeline_output,
+            pipeline: pipeline_output,
             simulation,
             sui_mint,
             dip_message_ids,
@@ -193,51 +202,63 @@ impl ProofChain {
         }
 
         let mut dip_message_ids = vec![];
-        let events = bus.emit_pipeline_output(
-            &pipeline_output.capture_receipt,
-            &pipeline_output.scene_receipt,
-            &pipeline_output.session_receipt,
-        ).map_err(|e| PipelineError::CaptureFailed(e.to_string()))?;
+        let events = bus
+            .emit_pipeline_output(
+                &pipeline_output.capture_receipt,
+                &pipeline_output.scene_receipt,
+                &pipeline_output.session_receipt,
+            )
+            .map_err(|e| PipelineError::CaptureFailed(e.to_string()))?;
         for ev in events {
             dip_message_ids.push(ev.envelope.message_id.clone());
         }
         if self.config.nostr_npub.is_some() {
-            let nostr_ev = bus.cross_post_to_nostr(&pipeline_output.scene_receipt)
+            let nostr_ev = bus
+                .cross_post_to_nostr(&pipeline_output.scene_receipt)
                 .map_err(|e| PipelineError::CaptureFailed(e.to_string()))?;
             dip_message_ids.push(nostr_ev.envelope.message_id);
         }
 
-        Ok(ProofChainOutput { pipeline: pipeline_output, simulation, sui_mint, dip_message_ids })
+        Ok(ProofChainOutput {
+            pipeline: pipeline_output,
+            simulation,
+            sui_mint,
+            dip_message_ids,
+        })
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use sovereign_types::crypto::{generate_keypair, did_from_pubkey};
+    use crate::capture_pipeline::{CapturePipeline, Go2CaptureDriver, PipelineConfig};
+    use sovereign_types::crypto::{did_from_pubkey, generate_keypair};
     use vcp::{
-        VcpSession, VcpCapabilityGrant,
-        handshake::{VcpCapabilityRequest, VcpDuration},
         adapters::{Go2Adapter, Go2ConnectionMode},
+        handshake::{VcpCapabilityRequest, VcpDuration},
+        VcpCapabilityGrant, VcpSession,
     };
-    use crate::capture_pipeline::{CapturePipeline, PipelineConfig, Go2CaptureDriver};
 
     fn build_pipeline_output(agent_key: &str, agent_did: &str) -> PipelineOutput {
         let (device_key, _) = generate_keypair();
-        let adapter  = Go2Adapter::new("unitree:go2:test", Go2ConnectionMode::default());
+        let adapter = Go2Adapter::new("unitree:go2:test", Go2ConnectionMode::default());
         let manifest = adapter.manifest("base64url:fakepub");
         let identity = IdentityChain::new(agent_did.into(), agent_did.into());
-        let request  = VcpCapabilityRequest::new(
+        let request = VcpCapabilityRequest::new(
             identity.clone(),
             vec!["camera".into(), "lidar".into(), "telemetry".into()],
             "twin_capture",
             VcpDuration::minutes(60),
             agent_key,
-        ).unwrap();
-        let grant   = VcpCapabilityGrant::issue(&manifest, &request, &device_key).unwrap();
+        )
+        .unwrap();
+        let grant = VcpCapabilityGrant::issue(&manifest, &request, &device_key).unwrap();
         let session = VcpSession::new(grant);
         let pipeline = CapturePipeline::new(
-            PipelineConfig { owner_did: agent_did.into(), ..Default::default() },
+            PipelineConfig {
+                owner_did: agent_did.into(),
+                ..Default::default()
+            },
             agent_key,
             identity,
         );
@@ -255,15 +276,24 @@ mod tests {
         let identity = IdentityChain::new(agent_did.clone(), agent_did.clone());
 
         let chain = ProofChain::new(
-            ProofChainConfig { bypass_sabbath: true, ..Default::default() },
+            ProofChainConfig {
+                bypass_sabbath: true,
+                ..Default::default()
+            },
             &agent_key,
             identity,
         );
 
-        let result = chain.run(
-            output,
-            &[("did:witness:node01", &w1_key), ("did:witness:node02", &w2_key)],
-        ).await.unwrap();
+        let result = chain
+            .run(
+                output,
+                &[
+                    ("did:witness:node01", &w1_key),
+                    ("did:witness:node02", &w2_key),
+                ],
+            )
+            .await
+            .unwrap();
 
         // SimulationReceipt
         assert_eq!(result.simulation.kind, "proof_of_simulation");
@@ -272,10 +302,19 @@ mod tests {
         assert_eq!(result.simulation.twin_id, result.pipeline.twin.twin_id);
 
         // Sui anchor
-        assert_eq!(result.sui_mint.status, twin_protocol::sui_anchor::SuiTxStatus::Success);
+        assert_eq!(
+            result.sui_mint.status,
+            twin_protocol::sui_anchor::SuiTxStatus::Success
+        );
         assert!(result.pipeline.scene_receipt.sui_object_id.is_some());
         assert!(result.pipeline.twin.sui_object_id.is_some());
-        assert!(result.pipeline.scene_receipt.sui_object_id.as_deref().unwrap().starts_with("0x"));
+        assert!(result
+            .pipeline
+            .scene_receipt
+            .sui_object_id
+            .as_deref()
+            .unwrap()
+            .starts_with("0x"));
 
         // DIP events: capture + scene + session = 3 minimum
         assert!(result.dip_message_ids.len() >= 3);
@@ -288,18 +327,27 @@ mod tests {
         let (w1_key, _) = generate_keypair();
         let (w2_key, _) = generate_keypair();
 
-        let output   = build_pipeline_output(&agent_key, &agent_did);
+        let output = build_pipeline_output(&agent_key, &agent_did);
         let identity = IdentityChain::new(agent_did.clone(), agent_did.clone());
-        let chain    = ProofChain::new(ProofChainConfig { bypass_sabbath: true, ..Default::default() }, &agent_key, identity);
+        let chain = ProofChain::new(
+            ProofChainConfig {
+                bypass_sabbath: true,
+                ..Default::default()
+            },
+            &agent_key,
+            identity,
+        );
 
-        let result = chain.run(
-            output,
-            &[("did:witness:w1", &w1_key), ("did:witness:w2", &w2_key)],
-        ).await.unwrap();
+        let result = chain
+            .run(
+                output,
+                &[("did:witness:w1", &w1_key), ("did:witness:w2", &w2_key)],
+            )
+            .await
+            .unwrap();
 
         assert_eq!(
-            result.pipeline.scene_receipt.sui_object_id,
-            result.pipeline.twin.sui_object_id,
+            result.pipeline.scene_receipt.sui_object_id, result.pipeline.twin.sui_object_id,
             "scene_receipt and twin should share the same Sui object ID"
         );
     }
@@ -311,7 +359,7 @@ mod tests {
         let (w1_key, _) = generate_keypair();
         let (w2_key, _) = generate_keypair();
 
-        let output   = build_pipeline_output(&agent_key, &agent_did);
+        let output = build_pipeline_output(&agent_key, &agent_did);
         let identity = IdentityChain::new(agent_did.clone(), agent_did.clone());
 
         let chain = ProofChain::new(
@@ -324,10 +372,13 @@ mod tests {
             identity,
         );
 
-        let result = chain.run(
-            output,
-            &[("did:witness:w1", &w1_key), ("did:witness:w2", &w2_key)],
-        ).await.unwrap();
+        let result = chain
+            .run(
+                output,
+                &[("did:witness:w1", &w1_key), ("did:witness:w2", &w2_key)],
+            )
+            .await
+            .unwrap();
 
         // 3 Vantage events + 1 Nostr cross-post = 4
         assert_eq!(result.dip_message_ids.len(), 4);
@@ -339,9 +390,9 @@ mod tests {
         let agent_did = did_from_pubkey(&agent_pub, "agent");
         let (w1_key, _) = generate_keypair();
 
-        let output   = build_pipeline_output(&agent_key, &agent_did);
+        let output = build_pipeline_output(&agent_key, &agent_did);
         let identity = IdentityChain::new(agent_did.clone(), agent_did.clone());
-        let chain    = ProofChain::new(ProofChainConfig::default(), &agent_key, identity);
+        let chain = ProofChain::new(ProofChainConfig::default(), &agent_key, identity);
 
         // Only 1 witness — should fail at SimulationReceipt::build
         let result = chain.run(output, &[("did:witness:w1", &w1_key)]).await;

@@ -24,14 +24,12 @@ use axum::{
 };
 use serde_json::{json, Value};
 use ucx_broker::{Broker, VantageDiscovery};
-use ucx_protocol::{
-    ComputeConstraints, Job, TrustLevel, WorkloadRequirements, WorkloadType,
-};
+use ucx_protocol::{ComputeConstraints, Job, TrustLevel, WorkloadRequirements, WorkloadType};
 use uuid::Uuid;
 
 #[derive(Clone)]
 struct AppState {
-    broker:    Arc<Broker>,
+    broker: Arc<Broker>,
     discovery: Option<Arc<VantageDiscovery>>,
 }
 
@@ -40,45 +38,51 @@ struct AppState {
 #[derive(serde::Deserialize)]
 struct SubmitBody {
     submitter_id: String,
-    workload:     Option<String>,
+    workload: Option<String>,
     requirements: Option<Value>,
-    constraints:  Option<Value>,
+    constraints: Option<Value>,
     runtime_spec: Option<Value>,
 }
 
 fn parse_workload(s: &str) -> WorkloadType {
     match s {
-        "Inference"  => WorkloadType::Inference,
-        "Training"   => WorkloadType::Training,
-        "Rendering"  => WorkloadType::Rendering,
+        "Inference" => WorkloadType::Inference,
+        "Training" => WorkloadType::Training,
+        "Rendering" => WorkloadType::Rendering,
         "Simulation" => WorkloadType::Simulation,
-        "CiCd"       => WorkloadType::CiCd,
-        _            => WorkloadType::Generic,
+        "CiCd" => WorkloadType::CiCd,
+        _ => WorkloadType::Generic,
     }
 }
 
 fn parse_requirements(v: Option<&Value>) -> WorkloadRequirements {
     let v = v.and_then(|x| x.as_object()).cloned().unwrap_or_default();
     WorkloadRequirements {
-        vram_gb:   v.get("vram_gb").and_then(|x| x.as_f64()),
-        ram_gb:    v.get("ram_gb").and_then(|x| x.as_f64()),
-        cpu_cores: v.get("cpu_cores").and_then(|x| x.as_u64()).map(|n| n as u32),
+        vram_gb: v.get("vram_gb").and_then(|x| x.as_f64()),
+        ram_gb: v.get("ram_gb").and_then(|x| x.as_f64()),
+        cpu_cores: v
+            .get("cpu_cores")
+            .and_then(|x| x.as_u64())
+            .map(|n| n as u32),
         gpu_count: v.get("gpu_count").and_then(|x| x.as_u64()).map(|n| n as u8),
-        fp16:      v.get("fp16").and_then(|x| x.as_bool()).unwrap_or(false),
-        bf16:      v.get("bf16").and_then(|x| x.as_bool()).unwrap_or(false),
-        cuda:      v.get("cuda").and_then(|x| x.as_bool()).unwrap_or(false),
-        min_tier:  None,
+        fp16: v.get("fp16").and_then(|x| x.as_bool()).unwrap_or(false),
+        bf16: v.get("bf16").and_then(|x| x.as_bool()).unwrap_or(false),
+        cuda: v.get("cuda").and_then(|x| x.as_bool()).unwrap_or(false),
+        min_tier: None,
     }
 }
 
 fn parse_constraints(v: Option<&Value>) -> ComputeConstraints {
     let v = v.and_then(|x| x.as_object()).cloned().unwrap_or_default();
     ComputeConstraints {
-        max_price_cents:  v.get("max_price_cents").and_then(|x| x.as_u64()),
-        max_queue_secs:   v.get("max_queue_secs").and_then(|x| x.as_u64()),
-        privacy:          TrustLevel::Standard,
-        regions:          vec![],
-        allow_external:   v.get("allow_external").and_then(|x| x.as_bool()).unwrap_or(true),
+        max_price_cents: v.get("max_price_cents").and_then(|x| x.as_u64()),
+        max_queue_secs: v.get("max_queue_secs").and_then(|x| x.as_u64()),
+        privacy: TrustLevel::Standard,
+        regions: vec![],
+        allow_external: v
+            .get("allow_external")
+            .and_then(|x| x.as_bool())
+            .unwrap_or(true),
     }
 }
 
@@ -107,16 +111,22 @@ async fn submit_job(
     match state.broker.submit(job) {
         Ok(allocation) => {
             tracing::info!(job_id = %job_id, provider = %allocation.provider_id, "job allocated");
-            (StatusCode::OK, Json(json!({
-                "job_id":      allocation.job_id,
-                "provider_id": allocation.provider_id,
-                "status":      format!("{:?}", allocation.status),
-                "allocated_at": allocation.allocated_at.to_rfc3339(),
-            })))
+            (
+                StatusCode::OK,
+                Json(json!({
+                    "job_id":      allocation.job_id,
+                    "provider_id": allocation.provider_id,
+                    "status":      format!("{:?}", allocation.status),
+                    "allocated_at": allocation.allocated_at.to_rfc3339(),
+                })),
+            )
         }
         Err(e) => {
             tracing::warn!(job_id = %job_id, error = %e, "job allocation failed");
-            (StatusCode::UNPROCESSABLE_ENTITY, Json(json!({ "error": e.to_string() })))
+            (
+                StatusCode::UNPROCESSABLE_ENTITY,
+                Json(json!({ "error": e.to_string() })),
+            )
         }
     }
 }
@@ -127,11 +137,22 @@ async fn get_job_status(
 ) -> impl IntoResponse {
     let job_id = match Uuid::parse_str(&job_id_str) {
         Ok(id) => id,
-        Err(_) => return (StatusCode::BAD_REQUEST, Json(json!({ "error": "invalid job_id" }))),
+        Err(_) => {
+            return (
+                StatusCode::BAD_REQUEST,
+                Json(json!({ "error": "invalid job_id" })),
+            )
+        }
     };
     match state.broker.status(job_id, &provider_id) {
-        Ok(status) => (StatusCode::OK, Json(json!({ "status": format!("{status:?}") }))),
-        Err(e)     => (StatusCode::NOT_FOUND, Json(json!({ "error": e.to_string() }))),
+        Ok(status) => (
+            StatusCode::OK,
+            Json(json!({ "status": format!("{status:?}") })),
+        ),
+        Err(e) => (
+            StatusCode::NOT_FOUND,
+            Json(json!({ "error": e.to_string() })),
+        ),
     }
 }
 
@@ -141,22 +162,33 @@ async fn get_receipt(
 ) -> impl IntoResponse {
     let job_id = match Uuid::parse_str(&job_id_str) {
         Ok(id) => id,
-        Err(_) => return (StatusCode::BAD_REQUEST, Json(json!({ "error": "invalid job_id" }))),
+        Err(_) => {
+            return (
+                StatusCode::BAD_REQUEST,
+                Json(json!({ "error": "invalid job_id" })),
+            )
+        }
     };
     match state.broker.receipt(job_id, &provider_id) {
         Ok(receipt) => {
             let hash = receipt.hash();
-            (StatusCode::OK, Json(json!({
-                "job_id":       receipt.job_id,
-                "provider_id":  receipt.provider_id,
-                "completed_at": receipt.completed_at.to_rfc3339(),
-                "resources":    receipt.resources,
-                "billing":      receipt.billing,
-                "verification": receipt.verification,
-                "receipt_hash": hash,
-            })))
+            (
+                StatusCode::OK,
+                Json(json!({
+                    "job_id":       receipt.job_id,
+                    "provider_id":  receipt.provider_id,
+                    "completed_at": receipt.completed_at.to_rfc3339(),
+                    "resources":    receipt.resources,
+                    "billing":      receipt.billing,
+                    "verification": receipt.verification,
+                    "receipt_hash": hash,
+                })),
+            )
         }
-        Err(e) => (StatusCode::NOT_FOUND, Json(json!({ "error": e.to_string() }))),
+        Err(e) => (
+            StatusCode::NOT_FOUND,
+            Json(json!({ "error": e.to_string() })),
+        ),
     }
 }
 
@@ -166,11 +198,19 @@ async fn cancel_job(
 ) -> impl IntoResponse {
     let job_id = match Uuid::parse_str(&job_id_str) {
         Ok(id) => id,
-        Err(_) => return (StatusCode::BAD_REQUEST, Json(json!({ "error": "invalid job_id" }))),
+        Err(_) => {
+            return (
+                StatusCode::BAD_REQUEST,
+                Json(json!({ "error": "invalid job_id" })),
+            )
+        }
     };
     match state.broker.cancel(job_id, &provider_id) {
-        Ok(())  => (StatusCode::OK,        Json(json!({ "cancelled": true }))),
-        Err(e)  => (StatusCode::NOT_FOUND, Json(json!({ "error": e.to_string() }))),
+        Ok(()) => (StatusCode::OK, Json(json!({ "cancelled": true }))),
+        Err(e) => (
+            StatusCode::NOT_FOUND,
+            Json(json!({ "error": e.to_string() })),
+        ),
     }
 }
 
@@ -241,10 +281,13 @@ async fn main() {
     let state = AppState { broker, discovery };
 
     let app = Router::new()
-        .route("/api/jobs",                               post(submit_job))
-        .route("/api/jobs/:job_id/:provider_id",          get(get_job_status).delete(cancel_job))
-        .route("/api/jobs/:job_id/:provider_id/receipt",  get(get_receipt))
-        .route("/health",                                  get(health))
+        .route("/api/jobs", post(submit_job))
+        .route(
+            "/api/jobs/:job_id/:provider_id",
+            get(get_job_status).delete(cancel_job),
+        )
+        .route("/api/jobs/:job_id/:provider_id/receipt", get(get_receipt))
+        .route("/health", get(health))
         .with_state(state);
 
     let addr = format!("0.0.0.0:{port}");

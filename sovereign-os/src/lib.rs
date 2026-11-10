@@ -14,19 +14,19 @@
 //!   sovereign-runtime (Layer 2) — Principal, CapabilityKernel, ActionReceipt
 //!   sovereign-types             — Identity, SafetyLevel, Timestamp
 
-pub mod identity;
-pub mod tool;
 pub mod act_receipt;
-pub mod memory;
 pub mod hooks;
+pub mod identity;
+pub mod memory;
+pub mod tool;
 
+pub use act_receipt::{ActReceiptChain, AgentActReceipt, EpistemicSeverity, PoCWProof};
 pub use identity::{AgentIdentity, AgentLifecycle, LifecyclePhase, BIPON39};
-pub use tool::{ToolRegistry, ToolDef, ToolResult, ToolError};
-pub use act_receipt::{AgentActReceipt, PoCWProof, ActReceiptChain, EpistemicSeverity};
+pub use tool::{ToolDef, ToolError, ToolRegistry, ToolResult};
 // Canonical name for what this crate always called EpistemicSeverity.
-pub use sovereign_types::proof::{Confidence, EnsembleDisagreement, SimPlane};
-pub use memory::{MemoryStore, MemoryEntry, MemoryNamespace};
 pub use hooks::{HookChain, HookFn, HookResult};
+pub use memory::{MemoryEntry, MemoryNamespace, MemoryStore};
+pub use sovereign_types::proof::{Confidence, EnsembleDisagreement, SimPlane};
 
 use thiserror::Error;
 
@@ -46,12 +46,14 @@ pub enum OsError {
 
 #[cfg(test)]
 mod tests {
-    use crate::act_receipt::{AgentActReceipt, ActReceiptChain, PoCWProof, EpistemicSeverity};
-    use crate::memory::{MemoryStore, MemoryEntry, MemoryNamespace};
+    use crate::act_receipt::{ActReceiptChain, AgentActReceipt, EpistemicSeverity, PoCWProof};
     use crate::identity::{AgentIdentity, AgentLifecycle, LifecyclePhase};
+    use crate::memory::{MemoryEntry, MemoryNamespace, MemoryStore};
     use serde_json::json;
 
-    fn now() -> u64 { 1_700_000_000_000_u64 }
+    fn now() -> u64 {
+        1_700_000_000_000_u64
+    }
 
     fn make_receipt(did: &str) -> AgentActReceipt {
         AgentActReceipt::new(did, "test", "resource://x", json!({}), json!("ok"), now())
@@ -66,8 +68,11 @@ mod tests {
 
     #[test]
     fn receipt_with_pocw() {
-        let r = make_receipt("did:key:a")
-            .with_pocw(PoCWProof { steps: 21, bb_bound: 21, tape_hash: "t".into() });
+        let r = make_receipt("did:key:a").with_pocw(PoCWProof {
+            steps: 21,
+            bb_bound: 21,
+            tape_hash: "t".into(),
+        });
         let p = r.proof_of_work.unwrap();
         assert!(p.is_valid());
         assert_eq!(p.tier(), 1);
@@ -82,15 +87,51 @@ mod tests {
     #[test]
     fn receipt_with_previous_sets_hash() {
         let r = make_receipt("did:key:a").with_previous("prev_id".to_string());
-        assert!(r.previous_hash.as_deref().unwrap_or("").starts_with("blake3:"));
+        assert!(r
+            .previous_hash
+            .as_deref()
+            .unwrap_or("")
+            .starts_with("blake3:"));
     }
 
     #[test]
     fn pocw_tier_levels() {
-        assert_eq!(PoCWProof { steps: 0,          bb_bound: 0, tape_hash: "t".into() }.tier(), 0);
-        assert_eq!(PoCWProof { steps: 21,         bb_bound: 21, tape_hash: "t".into() }.tier(), 1);
-        assert_eq!(PoCWProof { steps: 107,        bb_bound: 107, tape_hash: "t".into() }.tier(), 2);
-        assert_eq!(PoCWProof { steps: 47_176_870, bb_bound: 47_176_870, tape_hash: "t".into() }.tier(), 3);
+        assert_eq!(
+            PoCWProof {
+                steps: 0,
+                bb_bound: 0,
+                tape_hash: "t".into()
+            }
+            .tier(),
+            0
+        );
+        assert_eq!(
+            PoCWProof {
+                steps: 21,
+                bb_bound: 21,
+                tape_hash: "t".into()
+            }
+            .tier(),
+            1
+        );
+        assert_eq!(
+            PoCWProof {
+                steps: 107,
+                bb_bound: 107,
+                tape_hash: "t".into()
+            }
+            .tier(),
+            2
+        );
+        assert_eq!(
+            PoCWProof {
+                steps: 47_176_870,
+                bb_bound: 47_176_870,
+                tape_hash: "t".into()
+            }
+            .tier(),
+            3
+        );
     }
 
     // ── ActReceiptChain ──────────────────────────────────────────────────────
@@ -109,7 +150,11 @@ mod tests {
         c.push(make_receipt("did:key:b"));
         assert_eq!(c.len(), 2);
         let second = &c.all()[1];
-        assert!(second.previous_hash.as_deref().unwrap_or("").starts_with("blake3:"));
+        assert!(second
+            .previous_hash
+            .as_deref()
+            .unwrap_or("")
+            .starts_with("blake3:"));
     }
 
     #[test]
@@ -134,7 +179,10 @@ mod tests {
     #[test]
     fn identity_new_nascent() {
         let id = AgentIdentity::new(
-            "did:key:a".into(), "did:key:node".into(), "test phrase".into(), now()
+            "did:key:a".into(),
+            "did:key:node".into(),
+            "test phrase".into(),
+            now(),
         );
         assert_eq!(id.lifecycle, LifecyclePhase::Nascent);
         assert!(!id.is_active());
@@ -143,7 +191,10 @@ mod tests {
     #[test]
     fn lifecycle_nascent_to_active() {
         let mut id = AgentIdentity::new(
-            "did:key:a".into(), "did:key:node".into(), "phrase".into(), now()
+            "did:key:a".into(),
+            "did:key:node".into(),
+            "phrase".into(),
+            now(),
         );
         assert!(AgentLifecycle::transition(&mut id, LifecyclePhase::Active).is_ok());
         assert!(id.is_active());
@@ -152,7 +203,10 @@ mod tests {
     #[test]
     fn lifecycle_active_to_suspended() {
         let mut id = AgentIdentity::new(
-            "did:key:a".into(), "did:key:node".into(), "phrase".into(), now()
+            "did:key:a".into(),
+            "did:key:node".into(),
+            "phrase".into(),
+            now(),
         );
         AgentLifecycle::transition(&mut id, LifecyclePhase::Active).unwrap();
         assert!(AgentLifecycle::transition(&mut id, LifecyclePhase::Suspended).is_ok());
@@ -162,7 +216,10 @@ mod tests {
     #[test]
     fn lifecycle_nascent_to_suspended_fails() {
         let mut id = AgentIdentity::new(
-            "did:key:a".into(), "did:key:node".into(), "phrase".into(), now()
+            "did:key:a".into(),
+            "did:key:node".into(),
+            "phrase".into(),
+            now(),
         );
         assert!(AgentLifecycle::transition(&mut id, LifecyclePhase::Suspended).is_err());
         assert_eq!(id.lifecycle, LifecyclePhase::Nascent);
@@ -173,7 +230,12 @@ mod tests {
     #[tokio::test]
     async fn memory_set_get_roundtrip() {
         let store = MemoryStore::new();
-        let entry = MemoryEntry::new(MemoryNamespace::Working, "key1".into(), json!("value1"), now());
+        let entry = MemoryEntry::new(
+            MemoryNamespace::Working,
+            "key1".into(),
+            json!("value1"),
+            now(),
+        );
         store.set(entry).await;
         let got = store.get(&MemoryNamespace::Working, "key1").await;
         assert!(got.is_some());
@@ -183,9 +245,30 @@ mod tests {
     #[tokio::test]
     async fn memory_get_namespace_filters() {
         let store = MemoryStore::new();
-        store.set(MemoryEntry::new(MemoryNamespace::Working, "w1".into(), json!(1), now())).await;
-        store.set(MemoryEntry::new(MemoryNamespace::Working, "w2".into(), json!(2), now())).await;
-        store.set(MemoryEntry::new(MemoryNamespace::Semantic, "s1".into(), json!(3), now())).await;
+        store
+            .set(MemoryEntry::new(
+                MemoryNamespace::Working,
+                "w1".into(),
+                json!(1),
+                now(),
+            ))
+            .await;
+        store
+            .set(MemoryEntry::new(
+                MemoryNamespace::Working,
+                "w2".into(),
+                json!(2),
+                now(),
+            ))
+            .await;
+        store
+            .set(MemoryEntry::new(
+                MemoryNamespace::Semantic,
+                "s1".into(),
+                json!(3),
+                now(),
+            ))
+            .await;
         let ns = store.get_namespace(&MemoryNamespace::Working).await;
         assert_eq!(ns.len(), 2);
     }
@@ -193,7 +276,14 @@ mod tests {
     #[tokio::test]
     async fn memory_delete() {
         let store = MemoryStore::new();
-        store.set(MemoryEntry::new(MemoryNamespace::Episodic, "e1".into(), json!("x"), now())).await;
+        store
+            .set(MemoryEntry::new(
+                MemoryNamespace::Episodic,
+                "e1".into(),
+                json!("x"),
+                now(),
+            ))
+            .await;
         assert!(store.delete(&MemoryNamespace::Episodic, "e1").await);
         assert!(!store.delete(&MemoryNamespace::Episodic, "e1").await);
     }
@@ -215,10 +305,18 @@ mod tests {
     #[tokio::test]
     async fn memory_prune_expired() {
         let store = MemoryStore::new();
-        let mut expiring = MemoryEntry::new(MemoryNamespace::Working, "exp".into(), json!("x"), now());
+        let mut expiring =
+            MemoryEntry::new(MemoryNamespace::Working, "exp".into(), json!("x"), now());
         expiring.ttl_secs = Some(1);
         store.set(expiring).await;
-        store.set(MemoryEntry::new(MemoryNamespace::Working, "keep".into(), json!("y"), now())).await;
+        store
+            .set(MemoryEntry::new(
+                MemoryNamespace::Working,
+                "keep".into(),
+                json!("y"),
+                now(),
+            ))
+            .await;
         let removed = store.prune_expired(now() + 2000).await;
         assert_eq!(removed, 1);
         assert_eq!(store.len().await, 1);

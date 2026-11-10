@@ -79,7 +79,11 @@ pub struct PoCWProof {
 
 impl PoCWProof {
     pub fn new(steps: u64, bb_bound: u64, tape_hash: impl Into<String>) -> Self {
-        Self { steps, bb_bound, tape_hash: tape_hash.into() }
+        Self {
+            steps,
+            bb_bound,
+            tape_hash: tape_hash.into(),
+        }
     }
 
     /// A proof is valid iff the executed steps meet the claimed bound and the
@@ -92,9 +96,9 @@ impl PoCWProof {
     pub fn min_for_tier(tier: u8) -> u64 {
         match tier {
             0 => 0,
-            1 => 21,           // BB(3)
-            2 => 107,          // BB(4)
-            _ => 47_176_870,   // BB(5)
+            1 => 21,         // BB(3)
+            2 => 107,        // BB(4)
+            _ => 47_176_870, // BB(5)
         }
     }
 

@@ -19,7 +19,7 @@ pub enum ToolError {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ToolDef {
-    pub name:        String,
+    pub name: String,
     pub description: String,
     pub input_schema: Value,
     pub required_capability: Option<String>,
@@ -27,18 +27,28 @@ pub struct ToolDef {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ToolResult {
-    pub tool:    String,
+    pub tool: String,
     pub success: bool,
-    pub output:  Value,
-    pub error:   Option<String>,
+    pub output: Value,
+    pub error: Option<String>,
 }
 
 impl ToolResult {
     pub fn ok(tool: &str, output: Value) -> Self {
-        Self { tool: tool.into(), success: true, output, error: None }
+        Self {
+            tool: tool.into(),
+            success: true,
+            output,
+            error: None,
+        }
     }
     pub fn err(tool: &str, e: impl Into<String>) -> Self {
-        Self { tool: tool.into(), success: false, output: Value::Null, error: Some(e.into()) }
+        Self {
+            tool: tool.into(),
+            success: false,
+            output: Value::Null,
+            error: Some(e.into()),
+        }
     }
 }
 
@@ -51,7 +61,9 @@ pub struct ToolRegistry {
 }
 
 impl ToolRegistry {
-    pub fn new() -> Self { Self::default() }
+    pub fn new() -> Self {
+        Self::default()
+    }
 
     pub fn register(&self, def: ToolDef) {
         self.tools.write().unwrap().insert(def.name.clone(), def);
@@ -69,5 +81,7 @@ impl ToolRegistry {
         self.tools.read().unwrap().len()
     }
 
-    pub fn is_empty(&self) -> bool { self.len() == 0 }
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
 }

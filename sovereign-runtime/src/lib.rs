@@ -1,3 +1,7 @@
+pub mod capability;
+pub mod chain;
+pub mod evidence;
+pub mod execution;
 /// sovereign-runtime — the spine between the Linux kernel and the sovereign ecosystem.
 ///
 /// Enforces the universal execution model:
@@ -5,19 +9,14 @@
 ///
 /// Every consequential operation in every repo must emit an ActionReceipt.
 /// This crate is the single source of truth for that contract.
-
 pub mod principal;
-pub mod capability;
-pub mod evidence;
 pub mod receipt;
-pub mod execution;
-pub mod chain;
 
 // Machine-facing interfaces (Layer 2 machine substrate)
 pub mod device;
-pub mod safety;
-pub mod power;
 pub mod embodiment;
+pub mod power;
+pub mod safety;
 
 pub use chain::run_sovereign;
 
@@ -52,17 +51,25 @@ pub enum RuntimeError {
 
 #[cfg(test)]
 mod tests {
-    use crate::principal::Principal;
-    use crate::receipt::{ActionReceipt, ActionOutcome, PoCWProof};
-    use crate::execution::ExecutionEngine;
     use crate::capability::CapabilityAction;
     use crate::chain::run_sovereign;
+    use crate::execution::ExecutionEngine;
+    use crate::principal::Principal;
+    use crate::receipt::{ActionOutcome, ActionReceipt, PoCWProof};
     use serde_json::{json, Value};
 
-    fn did() -> String { "did:key:test-principal".into() }
-    fn agent() -> String { "did:key:test-agent".into() }
-    fn now() -> u64 { 1_700_000_000_000_u64 }
-    fn vp() -> Principal { Principal::from_did(did(), agent()) }
+    fn did() -> String {
+        "did:key:test-principal".into()
+    }
+    fn agent() -> String {
+        "did:key:test-agent".into()
+    }
+    fn now() -> u64 {
+        1_700_000_000_000_u64
+    }
+    fn vp() -> Principal {
+        Principal::from_did(did(), agent())
+    }
 
     #[test]
     fn principal_from_did_valid() {
@@ -91,13 +98,21 @@ mod tests {
 
     #[test]
     fn pocw_valid_when_steps_meet_bound() {
-        let p = PoCWProof { steps: 21, bb_bound: 21, tape_hash: "abc".into() };
+        let p = PoCWProof {
+            steps: 21,
+            bb_bound: 21,
+            tape_hash: "abc".into(),
+        };
         assert!(p.is_valid());
     }
 
     #[test]
     fn pocw_invalid_when_steps_below_bound() {
-        let p = PoCWProof { steps: 20, bb_bound: 21, tape_hash: "abc".into() };
+        let p = PoCWProof {
+            steps: 20,
+            bb_bound: 21,
+            tape_hash: "abc".into(),
+        };
         assert!(!p.is_valid());
     }
 
@@ -111,15 +126,28 @@ mod tests {
 
     #[test]
     fn engine_begin_valid_principal_no_cap() {
-        let r = ExecutionEngine::begin(vp(), None, CapabilityAction::Execute,
-            "res://test", json!({}), now());
+        let r = ExecutionEngine::begin(
+            vp(),
+            None,
+            CapabilityAction::Execute,
+            "res://test",
+            json!({}),
+            now(),
+        );
         assert!(r.is_ok());
     }
 
     #[test]
     fn ctx_complete_success() {
-        let ctx = ExecutionEngine::begin(vp(), None, CapabilityAction::Execute,
-            "res://test", json!({}), now()).unwrap();
+        let ctx = ExecutionEngine::begin(
+            vp(),
+            None,
+            CapabilityAction::Execute,
+            "res://test",
+            json!({}),
+            now(),
+        )
+        .unwrap();
         let r = ctx.complete(json!("done"), now());
         assert_eq!(r.outcome, ActionOutcome::Success);
         assert_eq!(r.result, json!("done"));
@@ -127,8 +155,15 @@ mod tests {
 
     #[test]
     fn ctx_fail_failure() {
-        let ctx = ExecutionEngine::begin(vp(), None, CapabilityAction::Execute,
-            "res://test", json!({}), now()).unwrap();
+        let ctx = ExecutionEngine::begin(
+            vp(),
+            None,
+            CapabilityAction::Execute,
+            "res://test",
+            json!({}),
+            now(),
+        )
+        .unwrap();
         let r = ctx.fail("boom", now());
         assert_eq!(r.outcome, ActionOutcome::Failure);
         assert_eq!(r.error.as_deref(), Some("boom"));
@@ -137,32 +172,54 @@ mod tests {
     #[test]
     fn engine_begin_invalid_principal_denied() {
         let bad = vp().with_nostr("short");
-        match ExecutionEngine::begin(bad, None, CapabilityAction::Execute,
-            "res://test", json!({}), now()) {
+        match ExecutionEngine::begin(
+            bad,
+            None,
+            CapabilityAction::Execute,
+            "res://test",
+            json!({}),
+            now(),
+        ) {
             Err(r) => assert_eq!(r.outcome, ActionOutcome::Denied),
-            Ok(_)  => panic!("expected Err"),
+            Ok(_) => panic!("expected Err"),
         }
     }
 
     #[test]
     fn action_receipt_denied_no_evidence() {
-        let r = ActionReceipt::denied(&vp(), CapabilityAction::Execute,
-            "res://test", "reason", now());
+        let r = ActionReceipt::denied(
+            &vp(),
+            CapabilityAction::Execute,
+            "res://test",
+            "reason",
+            now(),
+        );
         assert_eq!(r.outcome, ActionOutcome::Denied);
         assert_eq!(r.evidence_count, 0);
     }
 
     #[test]
     fn receipt_with_previous_sets_blake3_hash() {
-        let r = ActionReceipt::denied(&vp(), CapabilityAction::Execute,
-            "res://test", "reason", now()).with_previous("prev_id");
+        let r = ActionReceipt::denied(
+            &vp(),
+            CapabilityAction::Execute,
+            "res://test",
+            "reason",
+            now(),
+        )
+        .with_previous("prev_id");
         assert!(r.previous_hash.unwrap().starts_with("blake3:"));
     }
 
     #[test]
     fn receipt_meets_pocw_floor_tier0_always() {
-        let r = ActionReceipt::denied(&vp(), CapabilityAction::Execute,
-            "res://test", "reason", now());
+        let r = ActionReceipt::denied(
+            &vp(),
+            CapabilityAction::Execute,
+            "res://test",
+            "reason",
+            now(),
+        );
         assert!(r.meets_pocw_floor(0));
         assert!(!r.meets_pocw_floor(1));
     }
@@ -170,17 +227,26 @@ mod tests {
     #[tokio::test]
     async fn run_sovereign_success() {
         let r = run_sovereign(
-            vp(), None, CapabilityAction::Execute,
-            "res://test", json!({}), now(),
+            vp(),
+            None,
+            CapabilityAction::Execute,
+            "res://test",
+            json!({}),
+            now(),
             |ctx| async move { (ctx, Ok::<Value, String>(json!("all good"))) },
-        ).await;
+        )
+        .await;
         assert_eq!(r.outcome, ActionOutcome::Success);
     }
 
     #[test]
     fn action_outcome_serde_roundtrip() {
-        for v in &[ActionOutcome::Success, ActionOutcome::Partial,
-                   ActionOutcome::Failure, ActionOutcome::Denied] {
+        for v in &[
+            ActionOutcome::Success,
+            ActionOutcome::Partial,
+            ActionOutcome::Failure,
+            ActionOutcome::Denied,
+        ] {
             let s = serde_json::to_string(v).unwrap();
             let d: ActionOutcome = serde_json::from_str(&s).unwrap();
             assert_eq!(*v, d);

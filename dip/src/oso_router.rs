@@ -4,20 +4,20 @@
 //! Each leg is tried in order; first successful send wins.
 //! Failure logging and per-leg metrics are recorded in the OsoRouteTrace.
 
-use serde::{Deserialize, Serialize};
-use crate::envelope::DipEnvelope;
-use crate::address::DipNetwork;
-use crate::error::{DipError, DipResult};
 use crate::adapter::DipAdapter;
+use crate::address::DipNetwork;
+use crate::envelope::DipEnvelope;
+use crate::error::{DipError, DipResult};
+use serde::{Deserialize, Serialize};
 
 /// Ordered transport legs in the OSO fallback cascade.
 /// Order = try first → try last.
 pub const OSO_CASCADE: &[DipNetwork] = &[
-    DipNetwork::Vantage,    // L0: direct IP / local Vantage node (fastest)
-    DipNetwork::Nostr,      // L1: Nostr relay network (global, always-on)
-    DipNetwork::Freenet,    // L2: Freenet mutable state (higher latency, offline-tolerant)
+    DipNetwork::Vantage, // L0: direct IP / local Vantage node (fastest)
+    DipNetwork::Nostr,   // L1: Nostr relay network (global, always-on)
+    DipNetwork::Freenet, // L2: Freenet mutable state (higher latency, offline-tolerant)
     DipNetwork::Meshtastic, // L3: LoRa mesh (offline, very low bandwidth)
-    // Bluetooth is hardware-gated — included in the spec but no adapter yet.
+                         // Bluetooth is hardware-gated — included in the spec but no adapter yet.
 ];
 
 /// One attempt in the cascade.
@@ -81,7 +81,10 @@ impl OsoRouter {
     }
 
     fn find_adapter(&self, network: &DipNetwork) -> Option<&dyn DipAdapter> {
-        self.slots.iter().find(|s| &s.network == network).map(|s| s.adapter.as_ref())
+        self.slots
+            .iter()
+            .find(|s| &s.network == network)
+            .map(|s| s.adapter.as_ref())
     }
 
     /// Send `envelope` via the cascade, returning a full route trace.
@@ -150,16 +153,18 @@ impl OsoRouter {
 }
 
 impl Default for OsoRouter {
-    fn default() -> Self { Self::new() }
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::adapter::StubAdapter;
-    use crate::envelope::{DipEnvelope, DipKind};
     use crate::address::DipAddress;
-    use sovereign_types::{IdentityChain, crypto::generate_keypair};
+    use crate::envelope::{DipEnvelope, DipKind};
+    use sovereign_types::{crypto::generate_keypair, IdentityChain};
 
     fn make_envelope() -> DipEnvelope {
         let (priv_key, _) = generate_keypair();
@@ -171,7 +176,8 @@ mod tests {
             serde_json::json!({"op": "heartbeat"}),
             300,
             &priv_key,
-        ).unwrap()
+        )
+        .unwrap()
     }
 
     #[tokio::test]

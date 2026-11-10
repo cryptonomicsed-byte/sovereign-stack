@@ -1,13 +1,17 @@
 use clap::Parser;
 use std::path::PathBuf;
-use tracing_subscriber::{EnvFilter, fmt};
+use tracing_subscriber::{fmt, EnvFilter};
 
 use sovereign_node::config::NodeConfig;
 use sovereign_node::identity::NodeIdentity;
 use sovereign_node::node::SovereignNode;
 
 #[derive(Parser, Debug)]
-#[command(name = "sovereign-node", version, about = "Sovereign Node — DIP + VCP + TSP daemon")]
+#[command(
+    name = "sovereign-node",
+    version,
+    about = "Sovereign Node — DIP + VCP + TSP daemon"
+)]
 struct Cli {
     /// Path to config TOML (overrides search path)
     #[arg(short, long, value_name = "FILE")]
@@ -38,15 +42,15 @@ async fn main() {
         None => NodeConfig::load_default(),
     };
 
-    let log_level = cli.log_level
+    let log_level = cli
+        .log_level
         .as_deref()
         .unwrap_or(&config.node.log_level)
         .to_string();
 
     fmt()
         .with_env_filter(
-            EnvFilter::try_from_default_env()
-                .unwrap_or_else(|_| EnvFilter::new(&log_level))
+            EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new(&log_level)),
         )
         .with_target(false)
         .with_thread_ids(false)
@@ -59,14 +63,15 @@ async fn main() {
     }
 
     if let Err(e) = std::fs::create_dir_all(&config.node.data_dir) {
-        eprintln!("fatal: cannot create data_dir {}: {e}", config.node.data_dir.display());
+        eprintln!(
+            "fatal: cannot create data_dir {}: {e}",
+            config.node.data_dir.display()
+        );
         std::process::exit(1);
     }
 
-    let identity = NodeIdentity::load_or_generate(
-        &config.identity.key_file,
-        &config.identity.did_file,
-    );
+    let identity =
+        NodeIdentity::load_or_generate(&config.identity.key_file, &config.identity.did_file);
 
     if cli.init_identity {
         println!("{}", identity.did);

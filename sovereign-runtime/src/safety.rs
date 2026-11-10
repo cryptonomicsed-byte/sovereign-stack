@@ -16,18 +16,22 @@ pub enum SafetyVerdict {
 }
 
 impl SafetyVerdict {
-    pub fn is_clear(&self)   -> bool { matches!(self, Self::Clear | Self::Conditional { .. }) }
-    pub fn is_blocked(&self) -> bool { matches!(self, Self::Blocked { .. } | Self::Halt { .. }) }
+    pub fn is_clear(&self) -> bool {
+        matches!(self, Self::Clear | Self::Conditional { .. })
+    }
+    pub fn is_blocked(&self) -> bool {
+        matches!(self, Self::Blocked { .. } | Self::Halt { .. })
+    }
 }
 
 /// A command submitted to the safety hierarchy for evaluation.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SafetyCommand {
-    pub command_type:  SafetyCommandType,
-    pub target:        String,
-    pub magnitude:     f32,    // 0.0–1.0: intensity of action (0 = idle, 1 = max)
+    pub command_type: SafetyCommandType,
+    pub target: String,
+    pub magnitude: f32, // 0.0–1.0: intensity of action (0 = idle, 1 = max)
     pub requester_did: String,
-    pub safety_level:  SafetyLevel,
+    pub safety_level: SafetyLevel,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -39,8 +43,8 @@ pub enum SafetyCommandType {
     Rotate,
     Thrust,
     Actuate,
-    Capture,        // camera/sensor — lower risk
-    Broadcast,      // network — lowest risk
+    Capture,   // camera/sensor — lower risk
+    Broadcast, // network — lowest risk
     Custom(String),
 }
 
@@ -71,7 +75,10 @@ pub enum SafetyTier {
 
 impl SafetySupervisor {
     pub fn new(tier: SafetyTier) -> Self {
-        Self { tier, emergency_stop_active: false }
+        Self {
+            tier,
+            emergency_stop_active: false,
+        }
     }
 
     pub fn emergency_stop(&mut self) {
@@ -92,33 +99,28 @@ impl SafetySupervisor {
         }
 
         match self.tier {
-            SafetyTier::Development => {
-                SafetyVerdict::Conditional {
-                    reason: "development tier — logged".into(),
-                }
-            }
+            SafetyTier::Development => SafetyVerdict::Conditional {
+                reason: "development tier — logged".into(),
+            },
 
-            SafetyTier::Production => {
-                self.check_production(cmd)
-            }
+            SafetyTier::Production => self.check_production(cmd),
 
             SafetyTier::CriticalZone => {
                 // In critical zone, only low-magnitude commands allowed
                 if cmd.magnitude > 0.25 {
                     return SafetyVerdict::Blocked {
                         reason: format!(
-                            "magnitude {:.2} exceeds critical-zone limit 0.25", cmd.magnitude
+                            "magnitude {:.2} exceeds critical-zone limit 0.25",
+                            cmd.magnitude
                         ),
                     };
                 }
                 self.check_production(cmd)
             }
 
-            SafetyTier::EmergencyStop => {
-                SafetyVerdict::Halt {
-                    reason: "emergency stop tier — all commands halted".into(),
-                }
-            }
+            SafetyTier::EmergencyStop => SafetyVerdict::Halt {
+                reason: "emergency stop tier — all commands halted".into(),
+            },
         }
     }
 
@@ -126,7 +128,10 @@ impl SafetySupervisor {
         // Safety level gate
         if cmd.safety_level > sovereign_types::identity::SafetyLevel::Elevated {
             return SafetyVerdict::Blocked {
-                reason: format!("safety level {:?} exceeds production ceiling", cmd.safety_level),
+                reason: format!(
+                    "safety level {:?} exceeds production ceiling",
+                    cmd.safety_level
+                ),
             };
         }
 
@@ -134,16 +139,19 @@ impl SafetySupervisor {
         let is_physical = matches!(
             cmd.command_type,
             SafetyCommandType::Move
-            | SafetyCommandType::Grasp
-            | SafetyCommandType::Release
-            | SafetyCommandType::Rotate
-            | SafetyCommandType::Thrust
-            | SafetyCommandType::Actuate
+                | SafetyCommandType::Grasp
+                | SafetyCommandType::Release
+                | SafetyCommandType::Rotate
+                | SafetyCommandType::Thrust
+                | SafetyCommandType::Actuate
         );
 
         if is_physical && cmd.magnitude > 0.85 {
             return SafetyVerdict::Blocked {
-                reason: format!("magnitude {:.2} exceeds production physical limit 0.85", cmd.magnitude),
+                reason: format!(
+                    "magnitude {:.2} exceeds production physical limit 0.85",
+                    cmd.magnitude
+                ),
             };
         }
 

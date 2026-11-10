@@ -8,22 +8,27 @@
 //!   MCP tool call response → DipKind::Capability, direction=Grant
 //!   tool name stored in DipCapability.id, arguments in DipCapability.params
 
+use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-use async_trait::async_trait;
 
-use sovereign_types::{IdentityChain, crypto::{generate_keypair, did_from_pubkey}};
-use crate::envelope::{DipEnvelope, DipKind, CapabilityPayload, CapabilityDirection, DipCapability};
-use crate::address::{DipAddress, DipNetwork};
 use crate::adapter::DipAdapter;
+use crate::address::{DipAddress, DipNetwork};
+use crate::envelope::{
+    CapabilityDirection, CapabilityPayload, DipCapability, DipEnvelope, DipKind,
+};
 use crate::error::{DipError, DipResult};
+use sovereign_types::{
+    crypto::{did_from_pubkey, generate_keypair},
+    IdentityChain,
+};
 
 /// A minimal MCP JSON-RPC tool call (request side).
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct McpToolCall {
     pub jsonrpc: String,
     pub id: String,
-    pub method: String,   // "tools/call"
+    pub method: String, // "tools/call"
     pub params: McpToolCallParams,
 }
 
@@ -124,12 +129,16 @@ impl McpAdapter {
         if !matches!(cap.direction, CapabilityDirection::Request) {
             return Err(DipError::RoutingFailed("expected Request direction".into()));
         }
-        let first = cap.capabilities.into_iter().next()
+        let first = cap
+            .capabilities
+            .into_iter()
+            .next()
             .ok_or_else(|| DipError::RoutingFailed("no capabilities in payload".into()))?;
         Ok(McpToolCall {
             jsonrpc: "2.0".into(),
             id: cap.context.unwrap_or_else(|| envelope.message_id.clone()),
-            method: first.description
+            method: first
+                .description
                 .and_then(|d| d.strip_prefix("mcp:").map(String::from))
                 .unwrap_or_else(|| "tools/call".into()),
             params: McpToolCallParams {
@@ -146,7 +155,10 @@ impl McpAdapter {
         if !matches!(cap.direction, CapabilityDirection::Grant) {
             return Err(DipError::RoutingFailed("expected Grant direction".into()));
         }
-        let first = cap.capabilities.into_iter().next()
+        let first = cap
+            .capabilities
+            .into_iter()
+            .next()
             .ok_or_else(|| DipError::RoutingFailed("no capabilities in payload".into()))?;
         Ok(McpToolResult {
             jsonrpc: "2.0".into(),
@@ -158,15 +170,14 @@ impl McpAdapter {
 
 #[async_trait]
 impl DipAdapter for McpAdapter {
-    fn name(&self) -> &'static str { "mcp" }
+    fn name(&self) -> &'static str {
+        "mcp"
+    }
 
     async fn to_dip(&self, native: &[u8]) -> DipResult<DipEnvelope> {
-        let call: McpToolCall = serde_json::from_slice(native)
-            .map_err(|e| DipError::Serialization(e))?;
-        let chain = IdentityChain::new(
-            self.local_address.address.clone(),
-            "anon-agent".into(),
-        );
+        let call: McpToolCall =
+            serde_json::from_slice(native).map_err(|e| DipError::Serialization(e))?;
+        let chain = IdentityChain::new(self.local_address.address.clone(), "anon-agent".into());
         self.wrap_tool_call(&call, self.local_address.address.clone(), chain)
     }
 
@@ -183,7 +194,7 @@ impl DipAdapter for McpAdapter {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use sovereign_types::crypto::{generate_keypair, did_from_pubkey};
+    use sovereign_types::crypto::{did_from_pubkey, generate_keypair};
 
     fn make_adapter() -> (McpAdapter, String) {
         let (priv_key, pub_key) = generate_keypair();
@@ -207,7 +218,9 @@ mod tests {
                 arguments: serde_json::json!({"radius_m": 50}),
             },
         };
-        let envelope = adapter.wrap_tool_call(&call, did.clone(), make_chain(&did)).unwrap();
+        let envelope = adapter
+            .wrap_tool_call(&call, did.clone(), make_chain(&did))
+            .unwrap();
         assert_eq!(envelope.kind, DipKind::Capability);
 
         let recovered = McpAdapter::unwrap_tool_call(&envelope).unwrap();
@@ -224,7 +237,9 @@ mod tests {
             id: "req-1".into(),
             result: serde_json::json!([{"id": "device-abc", "capabilities": ["camera"]}]),
         };
-        let envelope = adapter.wrap_tool_result(&result, "vcp_nearby_devices", did.clone(), make_chain(&did)).unwrap();
+        let envelope = adapter
+            .wrap_tool_result(&result, "vcp_nearby_devices", did.clone(), make_chain(&did))
+            .unwrap();
         let recovered = McpAdapter::unwrap_tool_result(&envelope).unwrap();
         assert_eq!(recovered.result[0]["id"], "device-abc");
         assert_eq!(recovered.id, "req-1");
@@ -238,7 +253,9 @@ mod tests {
             id: "req-1".into(),
             result: serde_json::json!({}),
         };
-        let envelope = adapter.wrap_tool_result(&result, "some_tool", did.clone(), make_chain(&did)).unwrap();
+        let envelope = adapter
+            .wrap_tool_result(&result, "some_tool", did.clone(), make_chain(&did))
+            .unwrap();
         // Grant direction should be rejected when unwrapping as a call
         let err = McpAdapter::unwrap_tool_call(&envelope);
         assert!(err.is_err());

@@ -17,7 +17,7 @@
 //! debugging and JSON logging only.
 
 use serde::{Deserialize, Serialize};
-use sha2::{Sha256, Digest};
+use sha2::{Digest, Sha256};
 
 pub const OSO_MESH_VERSION: u8 = 1;
 /// Maximum total wire bytes (LoRa budget).
@@ -30,15 +30,15 @@ pub const OSO_MESH_BODY_BUDGET: usize = OSO_MESH_MAX_BYTES - OSO_MESH_HEADER_BYT
 #[repr(u8)]
 pub enum OsoMeshKind {
     /// Agent is alive — beacon every N seconds.
-    Heartbeat   = 0x01,
+    Heartbeat = 0x01,
     /// Request a lifecycle transition (hibernate / wake / terminate).
     LifecycleCmd = 0x02,
     /// Announce presence on the mesh after boot or migration.
-    MeshJoin    = 0x03,
+    MeshJoin = 0x03,
     /// Graceful departure — peers should stop expecting heartbeats.
-    MeshLeave   = 0x04,
+    MeshLeave = 0x04,
     /// Relay a small OSO-encapsulated upstream message (gateway bridge).
-    OrcaRelay   = 0x05,
+    OrcaRelay = 0x05,
 }
 
 impl OsoMeshKind {
@@ -49,7 +49,7 @@ impl OsoMeshKind {
             0x03 => Some(Self::MeshJoin),
             0x04 => Some(Self::MeshLeave),
             0x05 => Some(Self::OrcaRelay),
-            _    => None,
+            _ => None,
         }
     }
 }
@@ -88,11 +88,11 @@ pub enum OsoMeshBody {
 impl OsoMeshBody {
     pub fn kind(&self) -> OsoMeshKind {
         match self {
-            Self::Heartbeat { .. }    => OsoMeshKind::Heartbeat,
+            Self::Heartbeat { .. } => OsoMeshKind::Heartbeat,
             Self::LifecycleCmd { .. } => OsoMeshKind::LifecycleCmd,
-            Self::MeshJoin { .. }     => OsoMeshKind::MeshJoin,
-            Self::MeshLeave { .. }    => OsoMeshKind::MeshLeave,
-            Self::OrcaRelay { .. }    => OsoMeshKind::OrcaRelay,
+            Self::MeshJoin { .. } => OsoMeshKind::MeshJoin,
+            Self::MeshLeave { .. } => OsoMeshKind::MeshLeave,
+            Self::OrcaRelay { .. } => OsoMeshKind::OrcaRelay,
         }
     }
 
@@ -100,8 +100,14 @@ impl OsoMeshBody {
     pub fn encode(&self) -> Vec<u8> {
         match self {
             Self::Heartbeat { stage, battery } => vec![*stage, *battery],
-            Self::LifecycleCmd { transition, reason_code } => vec![*transition, *reason_code],
-            Self::MeshJoin { agent_id_hint, tier } => {
+            Self::LifecycleCmd {
+                transition,
+                reason_code,
+            } => vec![*transition, *reason_code],
+            Self::MeshJoin {
+                agent_id_hint,
+                tier,
+            } => {
                 let mut v = agent_id_hint.to_vec();
                 v.push(*tier);
                 v
@@ -118,26 +124,43 @@ impl OsoMeshBody {
     pub fn decode(kind: OsoMeshKind, data: &[u8]) -> Result<Self, MeshError> {
         match kind {
             OsoMeshKind::Heartbeat => {
-                if data.len() < 2 { return Err(MeshError::BodyTooShort); }
-                Ok(Self::Heartbeat { stage: data[0], battery: data[1] })
+                if data.len() < 2 {
+                    return Err(MeshError::BodyTooShort);
+                }
+                Ok(Self::Heartbeat {
+                    stage: data[0],
+                    battery: data[1],
+                })
             }
             OsoMeshKind::LifecycleCmd => {
-                if data.len() < 2 { return Err(MeshError::BodyTooShort); }
-                Ok(Self::LifecycleCmd { transition: data[0], reason_code: data[1] })
+                if data.len() < 2 {
+                    return Err(MeshError::BodyTooShort);
+                }
+                Ok(Self::LifecycleCmd {
+                    transition: data[0],
+                    reason_code: data[1],
+                })
             }
             OsoMeshKind::MeshJoin => {
-                if data.len() < 5 { return Err(MeshError::BodyTooShort); }
+                if data.len() < 5 {
+                    return Err(MeshError::BodyTooShort);
+                }
                 let mut hint = [0u8; 4];
                 hint.copy_from_slice(&data[..4]);
-                Ok(Self::MeshJoin { agent_id_hint: hint, tier: data[4] })
+                Ok(Self::MeshJoin {
+                    agent_id_hint: hint,
+                    tier: data[4],
+                })
             }
             OsoMeshKind::MeshLeave => {
-                if data.is_empty() { return Err(MeshError::BodyTooShort); }
+                if data.is_empty() {
+                    return Err(MeshError::BodyTooShort);
+                }
                 Ok(Self::MeshLeave { reason: data[0] })
             }
-            OsoMeshKind::OrcaRelay => {
-                Ok(Self::OrcaRelay { payload: data.to_vec() })
-            }
+            OsoMeshKind::OrcaRelay => Ok(Self::OrcaRelay {
+                payload: data.to_vec(),
+            }),
         }
     }
 }
@@ -145,15 +168,15 @@ impl OsoMeshBody {
 /// The complete signed mesh envelope.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct OsoMeshEnvelope {
-    pub version:    u8,
-    pub kind:       OsoMeshKind,
+    pub version: u8,
+    pub kind: OsoMeshKind,
     /// Unix seconds (u32 — valid until 2106).
-    pub ts_secs:    u32,
+    pub ts_secs: u32,
     /// Sender's Ed25519 public key (32 bytes).
-    pub pubkey:     [u8; 32],
+    pub pubkey: [u8; 32],
     /// Ed25519 signature over `signing_bytes()` (64 bytes, stored as Vec for serde compat).
-    pub signature:  Vec<u8>,
-    pub body:       OsoMeshBody,
+    pub signature: Vec<u8>,
+    pub body: OsoMeshBody,
 }
 
 impl OsoMeshEnvelope {
@@ -187,7 +210,11 @@ impl OsoMeshEnvelope {
     pub fn fingerprint(&self) -> String {
         let body_bytes = self.body.encode();
         let payload = Self::signing_bytes(
-            self.version, self.kind, self.ts_secs, &self.pubkey, &body_bytes,
+            self.version,
+            self.kind,
+            self.ts_secs,
+            &self.pubkey,
+            &body_bytes,
         );
         let mut h = Sha256::new();
         h.update(&payload);
@@ -200,7 +227,10 @@ impl OsoMeshEnvelope {
         let body_bytes = self.body.encode();
         let total = OSO_MESH_HEADER_BYTES + body_bytes.len();
         if total > OSO_MESH_MAX_BYTES {
-            return Err(MeshError::PayloadOverflow { total, max: OSO_MESH_MAX_BYTES });
+            return Err(MeshError::PayloadOverflow {
+                total,
+                max: OSO_MESH_MAX_BYTES,
+            });
         }
         let mut buf = Vec::with_capacity(total);
         buf.push(self.version);
@@ -228,7 +258,14 @@ impl OsoMeshEnvelope {
         pubkey.copy_from_slice(&buf[6..38]);
         let signature = buf[38..102].to_vec();
         let body = OsoMeshBody::decode(kind, &buf[102..])?;
-        Ok(Self { version, kind, ts_secs, pubkey, signature, body })
+        Ok(Self {
+            version,
+            kind,
+            ts_secs,
+            pubkey,
+            signature,
+            body,
+        })
     }
 }
 
@@ -258,17 +295,24 @@ pub fn agent_id_hint(agent_id: &str) -> [u8; 4] {
 mod tests {
     use super::*;
 
-    fn fake_pubkey() -> [u8; 32] { [0xAB; 32] }
-    fn fake_sig() -> Vec<u8>     { vec![0xCD; 64] }
+    fn fake_pubkey() -> [u8; 32] {
+        [0xAB; 32]
+    }
+    fn fake_sig() -> Vec<u8> {
+        vec![0xCD; 64]
+    }
 
     fn heartbeat_envelope() -> OsoMeshEnvelope {
         OsoMeshEnvelope {
-            version:   OSO_MESH_VERSION,
-            kind:      OsoMeshKind::Heartbeat,
-            ts_secs:   1_000_000,
-            pubkey:    fake_pubkey(),
+            version: OSO_MESH_VERSION,
+            kind: OsoMeshKind::Heartbeat,
+            ts_secs: 1_000_000,
+            pubkey: fake_pubkey(),
             signature: fake_sig(),
-            body:      OsoMeshBody::Heartbeat { stage: 1, battery: 80 },
+            body: OsoMeshBody::Heartbeat {
+                stage: 1,
+                battery: 80,
+            },
         }
     }
 
@@ -276,7 +320,11 @@ mod tests {
     fn roundtrip_heartbeat() {
         let env = heartbeat_envelope();
         let buf = env.encode().unwrap();
-        assert!(buf.len() <= OSO_MESH_MAX_BYTES, "exceeds LoRa budget: {} bytes", buf.len());
+        assert!(
+            buf.len() <= OSO_MESH_MAX_BYTES,
+            "exceeds LoRa budget: {} bytes",
+            buf.len()
+        );
         let decoded = OsoMeshEnvelope::decode(&buf).unwrap();
         assert_eq!(decoded.kind, OsoMeshKind::Heartbeat);
         assert_eq!(decoded.ts_secs, 1_000_000);
@@ -293,17 +341,24 @@ mod tests {
     fn roundtrip_mesh_join() {
         let hint = agent_id_hint("agent-xyz-123");
         let env = OsoMeshEnvelope {
-            version:   OSO_MESH_VERSION,
-            kind:      OsoMeshKind::MeshJoin,
-            ts_secs:   2_000_000,
-            pubkey:    fake_pubkey(),
+            version: OSO_MESH_VERSION,
+            kind: OsoMeshKind::MeshJoin,
+            ts_secs: 2_000_000,
+            pubkey: fake_pubkey(),
             signature: fake_sig(),
-            body:      OsoMeshBody::MeshJoin { agent_id_hint: hint, tier: 3 },
+            body: OsoMeshBody::MeshJoin {
+                agent_id_hint: hint,
+                tier: 3,
+            },
         };
         let buf = env.encode().unwrap();
         assert!(buf.len() <= OSO_MESH_MAX_BYTES);
         let decoded = OsoMeshEnvelope::decode(&buf).unwrap();
-        if let OsoMeshBody::MeshJoin { agent_id_hint, tier } = decoded.body {
+        if let OsoMeshBody::MeshJoin {
+            agent_id_hint,
+            tier,
+        } = decoded.body
+        {
             assert_eq!(agent_id_hint, hint);
             assert_eq!(tier, 3);
         } else {
@@ -314,12 +369,15 @@ mod tests {
     #[test]
     fn roundtrip_lifecycle_cmd() {
         let env = OsoMeshEnvelope {
-            version:   OSO_MESH_VERSION,
-            kind:      OsoMeshKind::LifecycleCmd,
-            ts_secs:   3_000_000,
-            pubkey:    fake_pubkey(),
+            version: OSO_MESH_VERSION,
+            kind: OsoMeshKind::LifecycleCmd,
+            ts_secs: 3_000_000,
+            pubkey: fake_pubkey(),
             signature: fake_sig(),
-            body:      OsoMeshBody::LifecycleCmd { transition: 2, reason_code: 0 },
+            body: OsoMeshBody::LifecycleCmd {
+                transition: 2,
+                reason_code: 0,
+            },
         };
         let buf = env.encode().unwrap();
         assert!(buf.len() <= OSO_MESH_MAX_BYTES);
@@ -331,7 +389,9 @@ mod tests {
     fn orca_relay_truncates_at_budget() {
         // 40 bytes > OSO_MESH_BODY_BUDGET (34) but body.encode() truncates
         let big_payload = vec![0u8; 40];
-        let body = OsoMeshBody::OrcaRelay { payload: big_payload };
+        let body = OsoMeshBody::OrcaRelay {
+            payload: big_payload,
+        };
         let encoded = body.encode();
         assert_eq!(encoded.len(), OSO_MESH_BODY_BUDGET);
     }
@@ -339,18 +399,29 @@ mod tests {
     #[test]
     fn all_kinds_wire_within_budget() {
         let bodies = vec![
-            OsoMeshBody::Heartbeat    { stage: 2, battery: 50 },
-            OsoMeshBody::LifecycleCmd { transition: 1, reason_code: 0 },
-            OsoMeshBody::MeshJoin     { agent_id_hint: [1,2,3,4], tier: 1 },
-            OsoMeshBody::MeshLeave    { reason: 0 },
-            OsoMeshBody::OrcaRelay    { payload: vec![0xFE; 10] },
+            OsoMeshBody::Heartbeat {
+                stage: 2,
+                battery: 50,
+            },
+            OsoMeshBody::LifecycleCmd {
+                transition: 1,
+                reason_code: 0,
+            },
+            OsoMeshBody::MeshJoin {
+                agent_id_hint: [1, 2, 3, 4],
+                tier: 1,
+            },
+            OsoMeshBody::MeshLeave { reason: 0 },
+            OsoMeshBody::OrcaRelay {
+                payload: vec![0xFE; 10],
+            },
         ];
         for body in bodies {
             let env = OsoMeshEnvelope {
-                version:   OSO_MESH_VERSION,
-                kind:      body.kind(),
-                ts_secs:   0,
-                pubkey:    fake_pubkey(),
+                version: OSO_MESH_VERSION,
+                kind: body.kind(),
+                ts_secs: 0,
+                pubkey: fake_pubkey(),
                 signature: fake_sig(),
                 body,
             };
@@ -358,7 +429,9 @@ mod tests {
             assert!(
                 buf.len() <= OSO_MESH_MAX_BYTES,
                 "{:?} encoded to {} bytes (budget {})",
-                env.kind, buf.len(), OSO_MESH_MAX_BYTES
+                env.kind,
+                buf.len(),
+                OSO_MESH_MAX_BYTES
             );
         }
     }

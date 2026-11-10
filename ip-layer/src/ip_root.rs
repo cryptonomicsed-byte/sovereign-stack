@@ -1,13 +1,12 @@
+use crate::nostr::{sign_event, IpLayerError, NostrEvent, NostrSecretKey};
 /// IP Root — kind:31900 (NIP-33 parameterized replaceable).
 ///
 /// One per creator/agent. Published at birth; updateable (same `d` tag = same address).
 /// Owns all Creation Receipts (1901), Attestations (1902), Twin Bindings (1903) under it.
 ///
 /// Schema: schemas/ip_root.md in the ip-layer repo.
-
 use serde::{Deserialize, Serialize};
 use serde_json::json;
-use crate::nostr::{NostrEvent, NostrSecretKey, sign_event, IpLayerError};
 
 pub const KIND_IP_ROOT: u32 = 31900;
 
@@ -15,41 +14,41 @@ pub const KIND_IP_ROOT: u32 = 31900;
 pub struct IpRootMetadata {
     pub display_name: String,
     /// "omo-koda2" | "external" | custom
-    pub framework:    String,
-    pub notes:        Option<String>,
+    pub framework: String,
+    pub notes: Option<String>,
 }
 
 #[derive(Debug, Clone)]
 pub struct IpRootBuilder {
     /// The `d` tag — stable addressable id. For Omo-Koda2 agents, this is the pubkey.
-    pub ip_root_id:   String,
+    pub ip_root_id: String,
     /// Optional: distinct human owner if agent acts on behalf of one
-    pub owner_npub:   Option<String>,
+    pub owner_npub: Option<String>,
     /// Optional: BIPON39 soul-binding reference
     pub soul_binding: Option<String>,
     /// Default license stance (SPDX id or URI)
-    pub license:      String,
+    pub license: String,
     /// Optional Wyoming DAO LLC membership
-    pub dao_id:       Option<String>,
+    pub dao_id: Option<String>,
     /// Optional: link to genesis/birth receipt event id
-    pub genesis_id:   Option<String>,
-    pub metadata:     IpRootMetadata,
+    pub genesis_id: Option<String>,
+    pub metadata: IpRootMetadata,
 }
 
 impl IpRootBuilder {
     /// Minimal IP Root — just the agent's own pubkey as the root id.
     pub fn for_agent(pubkey_hex: &str) -> Self {
         Self {
-            ip_root_id:   pubkey_hex.to_string(),
-            owner_npub:   None,
+            ip_root_id: pubkey_hex.to_string(),
+            owner_npub: None,
             soul_binding: None,
-            license:      "cc-by-4.0".into(),
-            dao_id:       None,
-            genesis_id:   None,
-            metadata:     IpRootMetadata {
+            license: "cc-by-4.0".into(),
+            dao_id: None,
+            genesis_id: None,
+            metadata: IpRootMetadata {
                 display_name: pubkey_hex[..8].to_string(),
-                framework:    "omo-koda2".into(),
-                notes:        None,
+                framework: "omo-koda2".into(),
+                notes: None,
             },
         }
     }
@@ -85,7 +84,11 @@ impl IpRootBuilder {
     }
 
     /// Build and sign the kind:31900 Nostr event.
-    pub fn sign(self, seckey: &NostrSecretKey, created_at: u64) -> Result<NostrEvent, IpLayerError> {
+    pub fn sign(
+        self,
+        seckey: &NostrSecretKey,
+        created_at: u64,
+    ) -> Result<NostrEvent, IpLayerError> {
         let mut tags = vec![
             vec!["d".into(), self.ip_root_id.clone()],
             vec!["license".into(), self.license.clone()],
@@ -113,49 +116,51 @@ impl IpRootBuilder {
 /// Parsed IP Root event — deserialized from a kind:31900 Nostr event.
 #[derive(Debug, Clone)]
 pub struct IpRoot {
-    pub event_id:     String,
-    pub pubkey:       String,
-    pub ip_root_id:   String,   // d tag
-    pub owner_npub:   Option<String>,
+    pub event_id: String,
+    pub pubkey: String,
+    pub ip_root_id: String, // d tag
+    pub owner_npub: Option<String>,
     pub soul_binding: Option<String>,
-    pub license:      String,
-    pub dao_id:       Option<String>,
-    pub genesis_id:   Option<String>,
-    pub metadata:     IpRootMetadata,
-    pub created_at:   u64,
+    pub license: String,
+    pub dao_id: Option<String>,
+    pub genesis_id: Option<String>,
+    pub metadata: IpRootMetadata,
+    pub created_at: u64,
 }
 
 impl IpRoot {
     /// Parse from a raw NostrEvent.
     pub fn from_event(ev: &NostrEvent) -> Result<Self, IpLayerError> {
         if ev.kind != KIND_IP_ROOT {
-            return Err(IpLayerError::Validation(
-                format!("expected kind {KIND_IP_ROOT}, got {}", ev.kind)
-            ));
+            return Err(IpLayerError::Validation(format!(
+                "expected kind {KIND_IP_ROOT}, got {}",
+                ev.kind
+            )));
         }
 
         let tag_val = |name: &str| -> Option<String> {
-            ev.tags.iter()
+            ev.tags
+                .iter()
                 .find(|t| t.first().map(|s| s == name).unwrap_or(false))
                 .and_then(|t| t.get(1).cloned())
         };
 
-        let ip_root_id = tag_val("d")
-            .ok_or_else(|| IpLayerError::Validation("missing d tag".into()))?;
+        let ip_root_id =
+            tag_val("d").ok_or_else(|| IpLayerError::Validation("missing d tag".into()))?;
 
         let metadata: IpRootMetadata = serde_json::from_str(&ev.content)?;
 
         Ok(Self {
-            event_id:     ev.id.clone(),
-            pubkey:       ev.pubkey.clone(),
+            event_id: ev.id.clone(),
+            pubkey: ev.pubkey.clone(),
             ip_root_id,
-            owner_npub:   tag_val("owner"),
+            owner_npub: tag_val("owner"),
             soul_binding: tag_val("soul"),
-            license:      tag_val("license").unwrap_or_else(|| "cc-by-4.0".into()),
-            dao_id:       tag_val("dao"),
-            genesis_id:   tag_val("genesis"),
+            license: tag_val("license").unwrap_or_else(|| "cc-by-4.0".into()),
+            dao_id: tag_val("dao"),
+            genesis_id: tag_val("genesis"),
             metadata,
-            created_at:   ev.created_at,
+            created_at: ev.created_at,
         })
     }
 }

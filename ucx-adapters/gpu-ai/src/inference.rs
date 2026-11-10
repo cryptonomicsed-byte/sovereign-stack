@@ -6,28 +6,27 @@ use std::sync::Mutex;
 use chrono::Utc;
 use serde_json::{json, Value};
 use ucx_protocol::{
-    Allocation, BillingCurrency, BillingRecord, ComputeProvider, ComputeReceipt,
-    ExternalProviderAdapter, GpuCapability, GpuVendor, CpuArch, CpuCapability,
-    Job, JobId, JobStatus, LineItem, Offer, ProviderCapability, ProviderTier,
-    ResourceUsage, TrustLevel, UcxError, VerificationProof,
-    WorkloadType,
+    Allocation, BillingCurrency, BillingRecord, ComputeProvider, ComputeReceipt, CpuArch,
+    CpuCapability, ExternalProviderAdapter, GpuCapability, GpuVendor, Job, JobId, JobStatus,
+    LineItem, Offer, ProviderCapability, ProviderTier, ResourceUsage, TrustLevel, UcxError,
+    VerificationProof, WorkloadType,
 };
 use uuid::Uuid;
 
 const BASE: &str = "https://api.gpu.ai/v1";
 
 pub struct GpuAiInferenceAdapter {
-    api_key:    String,
+    api_key: String,
     capability: ProviderCapability,
-    results:    Mutex<HashMap<JobId, Value>>,
+    results: Mutex<HashMap<JobId, Value>>,
 }
 
 impl GpuAiInferenceAdapter {
     pub fn new(api_key: impl Into<String>) -> Self {
         Self {
-            api_key:    api_key.into(),
+            api_key: api_key.into(),
             capability: build_inference_capability(),
-            results:    Mutex::new(HashMap::new()),
+            results: Mutex::new(HashMap::new()),
         }
     }
 
@@ -36,12 +35,18 @@ impl GpuAiInferenceAdapter {
         Some(Self::new(key))
     }
 
-    fn auth_header(&self) -> String { format!("Bearer {}", self.api_key) }
+    fn auth_header(&self) -> String {
+        format!("Bearer {}", self.api_key)
+    }
 }
 
 impl ComputeProvider for GpuAiInferenceAdapter {
-    fn id(&self)         -> &str              { "gpu-ai-inference" }
-    fn capability(&self) -> &ProviderCapability { &self.capability }
+    fn id(&self) -> &str {
+        "gpu-ai-inference"
+    }
+    fn capability(&self) -> &ProviderCapability {
+        &self.capability
+    }
 
     fn can_accept(&self, job: &Job) -> bool {
         job.workload == WorkloadType::Inference && job.constraints.allow_external
@@ -56,7 +61,10 @@ impl ComputeProvider for GpuAiInferenceAdapter {
             .header("Authorization", self.auth_header())
             .json(&body)
             .send()
-            .map_err(|e| UcxError::Adapter { adapter: "gpu.ai".into(), reason: e.to_string() })?;
+            .map_err(|e| UcxError::Adapter {
+                adapter: "gpu.ai".into(),
+                reason: e.to_string(),
+            })?;
 
         let status = resp.status();
         let val: Value = resp.json().unwrap_or(Value::Null);
@@ -70,18 +78,18 @@ impl ComputeProvider for GpuAiInferenceAdapter {
         self.results.lock().unwrap().insert(job.id, val);
 
         Ok(Allocation {
-            job_id:       job.id,
-            provider_id:  self.id().to_string(),
+            job_id: job.id,
+            provider_id: self.id().to_string(),
             offer: Offer {
-                job_id:      job.id,
+                job_id: job.id,
                 provider_id: self.id().to_string(),
                 price_cents: 0,
-                eta_secs:    0,
-                expires_at:  Utc::now(),
+                eta_secs: 0,
+                expires_at: Utc::now(),
                 is_external: true,
             },
             allocated_at: Utc::now(),
-            status:       JobStatus::Completed,
+            status: JobStatus::Completed,
         })
     }
 
@@ -89,14 +97,19 @@ impl ComputeProvider for GpuAiInferenceAdapter {
         if self.results.lock().unwrap().contains_key(&job_id) {
             Ok(JobStatus::Completed)
         } else {
-            Err(UcxError::JobNotFound { job_id: job_id.to_string() })
+            Err(UcxError::JobNotFound {
+                job_id: job_id.to_string(),
+            })
         }
     }
 
     fn receipt(&self, job_id: JobId) -> Result<ComputeReceipt, UcxError> {
         let results = self.results.lock().unwrap();
-        let raw = results.get(&job_id)
-            .ok_or(UcxError::JobNotFound { job_id: job_id.to_string() })?
+        let raw = results
+            .get(&job_id)
+            .ok_or(UcxError::JobNotFound {
+                job_id: job_id.to_string(),
+            })?
             .clone();
         drop(results);
         self.translate_receipt(raw)
@@ -109,7 +122,9 @@ impl ComputeProvider for GpuAiInferenceAdapter {
 }
 
 impl ExternalProviderAdapter for GpuAiInferenceAdapter {
-    fn network_name(&self) -> &str { "gpu.ai" }
+    fn network_name(&self) -> &str {
+        "gpu.ai"
+    }
 
     fn is_available(&self) -> bool {
         reqwest::blocking::Client::new()
@@ -134,25 +149,28 @@ impl ExternalProviderAdapter for GpuAiInferenceAdapter {
         let cents = (total_tokens as f64 / 1000.0 * 0.1).ceil() as u64;
 
         Ok(ComputeReceipt {
-            job_id:       Uuid::new_v4(),
-            provider_id:  self.id().to_string(),
+            job_id: Uuid::new_v4(),
+            provider_id: self.id().to_string(),
             completed_at: Utc::now(),
             resources: ResourceUsage {
-                gpu_seconds:    0.0,
-                cpu_seconds:    total_tokens as f64 * 0.001,
+                gpu_seconds: 0.0,
+                cpu_seconds: total_tokens as f64 * 0.001,
                 ram_gb_seconds: 0.0,
-                storage_gb:     0.0,
-                egress_gb:      0.0,
+                storage_gb: 0.0,
+                egress_gb: 0.0,
             },
             billing: BillingRecord {
                 amount_cents: cents,
-                currency:     BillingCurrency::Usd,
-                line_items:   vec![LineItem { label: format!("{total_tokens} tokens"), cents }],
+                currency: BillingCurrency::Usd,
+                line_items: vec![LineItem {
+                    label: format!("{total_tokens} tokens"),
+                    cents,
+                }],
             },
             verification: VerificationProof {
-                artifact_hash:       raw["id"].as_str().map(str::to_string),
+                artifact_hash: raw["id"].as_str().map(str::to_string),
                 runtime_attestation: Some("gpu.ai".into()),
-                execution_hash:      None,
+                execution_hash: None,
             },
             zangbeto_anchor: None,
         })
@@ -162,22 +180,29 @@ impl ExternalProviderAdapter for GpuAiInferenceAdapter {
 fn build_inference_capability() -> ProviderCapability {
     ProviderCapability {
         provider_id: "gpu-ai-inference".into(),
-        tier:        ProviderTier::Professional,
-        trust:       TrustLevel::Standard,
+        tier: ProviderTier::Professional,
+        trust: TrustLevel::Standard,
         gpu: Some(GpuCapability {
-            vendor:  GpuVendor::Nvidia,
-            model:   "cloud-assigned".into(),
+            vendor: GpuVendor::Nvidia,
+            model: "cloud-assigned".into(),
             vram_gb: 80.0,
-            fp16: true, bf16: true, cuda: true, rocm: false,
+            fp16: true,
+            bf16: true,
+            cuda: true,
+            rocm: false,
             count: 1,
         }),
-        cpu: CpuCapability { cores: 8, arch: CpuArch::X86_64, frequency_mhz: None },
-        ram_gb:               64.0,
-        disk_gb:              0.0,
-        runtimes:             vec![],
+        cpu: CpuCapability {
+            cores: 8,
+            arch: CpuArch::X86_64,
+            frequency_mhz: None,
+        },
+        ram_gb: 64.0,
+        disk_gb: 0.0,
+        runtimes: vec![],
         price_gpu_hour_cents: None,
         price_cpu_hour_cents: 0,
-        policy_deny:          vec![],
-        regions:              vec!["US".into()],
+        policy_deny: vec![],
+        regions: vec!["US".into()],
     }
 }

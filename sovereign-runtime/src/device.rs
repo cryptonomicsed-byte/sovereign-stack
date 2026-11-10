@@ -4,10 +4,10 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
 pub enum HardwareTier {
-    Micro,      // MCU: Zephyr/FreeRTOS, ~100KB, MIDI/GPIO/BLE
-    Portable,   // ARM64 Linux: phone, SBC, Termux
-    Spatial,    // ARM64 + GPU/NPU: Gaussian splatting device
-    Robotics,   // ARM64 + RTOS + PX4: quadruped, drone, arm
+    Micro,    // MCU: Zephyr/FreeRTOS, ~100KB, MIDI/GPIO/BLE
+    Portable, // ARM64 Linux: phone, SBC, Termux
+    Spatial,  // ARM64 + GPU/NPU: Gaussian splatting device
+    Robotics, // ARM64 + RTOS + PX4: quadruped, drone, arm
 }
 
 /// The provider that backs hardware key operations.
@@ -18,7 +18,7 @@ pub enum KeyProviderKind {
     Atecc608b,
     Tpm2,
     Se050,
-    Software,   // dev/testing only — no hardware binding guarantee
+    Software, // dev/testing only — no hardware binding guarantee
 }
 
 /// Abstract interface for hardware key operations.
@@ -50,27 +50,33 @@ pub struct SoftwareKeyProvider {
 }
 
 impl SoftwareKeyProvider {
-    pub fn new(seed: [u8; 32]) -> Self { Self { keypair_seed: seed } }
+    pub fn new(seed: [u8; 32]) -> Self {
+        Self { keypair_seed: seed }
+    }
 
     pub fn ephemeral() -> Self {
-        use sha2::{Sha256, Digest};
+        use sha2::{Digest, Sha256};
         let mut h = Sha256::new();
         h.update(b"sovereign-runtime:ephemeral-key");
-        h.update(&std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .unwrap_or_default()
-            .as_nanos()
-            .to_le_bytes());
+        h.update(
+            &std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap_or_default()
+                .as_nanos()
+                .to_le_bytes(),
+        );
         let seed: [u8; 32] = h.finalize().into();
         Self { keypair_seed: seed }
     }
 }
 
 impl HardwareKeyProvider for SoftwareKeyProvider {
-    fn provider_kind(&self) -> KeyProviderKind { KeyProviderKind::Software }
+    fn provider_kind(&self) -> KeyProviderKind {
+        KeyProviderKind::Software
+    }
 
     fn sign(&self, message: &[u8]) -> Result<Vec<u8>, DeviceError> {
-        use sha2::{Sha256, Digest};
+        use sha2::{Digest, Sha256};
         let mut h = Sha256::new();
         h.update(&self.keypair_seed);
         h.update(message);
@@ -83,7 +89,7 @@ impl HardwareKeyProvider for SoftwareKeyProvider {
     }
 
     fn derive(&self, path: &str) -> Result<Vec<u8>, DeviceError> {
-        use sha2::{Sha256, Digest};
+        use sha2::{Digest, Sha256};
         let mut h = Sha256::new();
         h.update(&self.keypair_seed);
         h.update(path.as_bytes());
@@ -97,7 +103,7 @@ impl HardwareKeyProvider for SoftwareKeyProvider {
     }
 
     fn public_key_bytes(&self) -> Result<Vec<u8>, DeviceError> {
-        use sha2::{Sha256, Digest};
+        use sha2::{Digest, Sha256};
         let mut h = Sha256::new();
         h.update(b"pubkey:");
         h.update(&self.keypair_seed);

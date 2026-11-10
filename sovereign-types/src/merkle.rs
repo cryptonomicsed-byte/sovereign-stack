@@ -1,6 +1,6 @@
-use sha2::{Sha256, Digest};
-use std::collections::BTreeMap;
 use serde_json::Value;
+use sha2::{Digest, Sha256};
+use std::collections::BTreeMap;
 
 /// Compute a merkle root over a set of named fields.
 /// Field order is alphabetical (BTreeMap). Each leaf = sha256("key:value").
@@ -10,11 +10,14 @@ pub fn merkle_root(fields: &BTreeMap<&str, Value>) -> String {
         return format!("sha256:{}", hex::encode(Sha256::digest(b"")));
     }
 
-    let leaves: Vec<[u8; 32]> = fields.iter().map(|(k, v)| {
-        let leaf = format!("{}:{}", k, v);
-        let hash = Sha256::digest(leaf.as_bytes());
-        hash.into()
-    }).collect();
+    let leaves: Vec<[u8; 32]> = fields
+        .iter()
+        .map(|(k, v)| {
+            let leaf = format!("{}:{}", k, v);
+            let hash = Sha256::digest(leaf.as_bytes());
+            hash.into()
+        })
+        .collect();
 
     let root = combine_leaves(&leaves);
     format!("sha256:{}", hex::encode(root))
@@ -25,7 +28,7 @@ fn combine_leaves(leaves: &[[u8; 32]]) -> [u8; 32] {
         return leaves[0];
     }
     let mid = leaves.len().next_power_of_two() / 2;
-    let left  = combine_leaves(&leaves[..mid.min(leaves.len())]);
+    let left = combine_leaves(&leaves[..mid.min(leaves.len())]);
     let right = if mid < leaves.len() {
         combine_leaves(&leaves[mid..])
     } else {

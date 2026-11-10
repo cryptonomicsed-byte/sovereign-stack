@@ -1,16 +1,19 @@
+use serde_json::json;
+use sovereign_runtime::chain::{CapabilityAction, ExecutionEngine, Principal};
+use sovereign_runtime::device::{HardwareKeyProvider, KeyProviderKind, SoftwareKeyProvider};
+use sovereign_runtime::embodiment::{EmbodimentManager, SensorKind, StubEmbodiment};
+use sovereign_runtime::power::{PowerPolicy, PowerSnapshot, PowerSource, PowerState};
 /// Tests for machine-facing sovereign-runtime modules:
 /// device, safety, power, embodiment, and unified ActionReceipt.
-
 use sovereign_runtime::receipt::{Confidence, EnsembleDisagreement, PoCWProof, SimPlane};
-use sovereign_runtime::chain::{Principal, CapabilityAction, ExecutionEngine};
-use sovereign_runtime::safety::{SafetySupervisor, SafetyTier, SafetyCommand, SafetyCommandType, SafetyVerdict};
-use sovereign_runtime::power::{PowerSnapshot, PowerState, PowerSource, PowerPolicy};
-use sovereign_runtime::embodiment::{StubEmbodiment, EmbodimentManager, SensorKind};
-use sovereign_runtime::device::{SoftwareKeyProvider, HardwareKeyProvider, KeyProviderKind};
+use sovereign_runtime::safety::{
+    SafetyCommand, SafetyCommandType, SafetySupervisor, SafetyTier, SafetyVerdict,
+};
 use sovereign_types::identity::SafetyLevel;
-use serde_json::json;
 
-fn now() -> u64 { 1_700_000_000_000 }
+fn now() -> u64 {
+    1_700_000_000_000
+}
 
 fn make_principal() -> Principal {
     Principal::from_did(
@@ -23,19 +26,31 @@ fn make_principal() -> Principal {
 
 #[test]
 fn pocw_valid_when_steps_meet_bb_bound() {
-    let p = PoCWProof { steps: 21, bb_bound: 21, tape_hash: "abc".into() };
+    let p = PoCWProof {
+        steps: 21,
+        bb_bound: 21,
+        tape_hash: "abc".into(),
+    };
     assert!(p.is_valid());
 }
 
 #[test]
 fn pocw_invalid_when_steps_below_bound() {
-    let p = PoCWProof { steps: 20, bb_bound: 21, tape_hash: "abc".into() };
+    let p = PoCWProof {
+        steps: 20,
+        bb_bound: 21,
+        tape_hash: "abc".into(),
+    };
     assert!(!p.is_valid());
 }
 
 #[test]
 fn pocw_invalid_with_empty_tape_hash() {
-    let p = PoCWProof { steps: 21, bb_bound: 21, tape_hash: String::new() };
+    let p = PoCWProof {
+        steps: 21,
+        bb_bound: 21,
+        tape_hash: String::new(),
+    };
     assert!(!p.is_valid());
 }
 
@@ -58,10 +73,16 @@ fn pocw_min_for_tier_3_is_bb5() {
 
 #[test]
 fn action_receipt_defaults_to_physical_plane_and_no_pocw() {
-    let p   = make_principal();
+    let p = make_principal();
     let ctx = ExecutionEngine::begin(
-        p, None, CapabilityAction::Capture, "twin:001", json!({}), now()
-    ).unwrap();
+        p,
+        None,
+        CapabilityAction::Capture,
+        "twin:001",
+        json!({}),
+        now(),
+    )
+    .unwrap();
     let r = ctx.complete(json!({}), now() + 100);
     assert_eq!(r.plane, SimPlane::Physical);
     assert!(r.proof_of_work.is_none());
@@ -71,48 +92,82 @@ fn action_receipt_defaults_to_physical_plane_and_no_pocw() {
 
 #[test]
 fn action_receipt_meets_pocw_floor_tier_0_always() {
-    let p   = make_principal();
+    let p = make_principal();
     let ctx = ExecutionEngine::begin(
-        p, None, CapabilityAction::Execute, "sim:001", json!({}), now()
-    ).unwrap();
+        p,
+        None,
+        CapabilityAction::Execute,
+        "sim:001",
+        json!({}),
+        now(),
+    )
+    .unwrap();
     let r = ctx.complete(json!({}), now());
     assert!(r.meets_pocw_floor(0));
 }
 
 #[test]
 fn action_receipt_fails_pocw_floor_tier_1_without_proof() {
-    let p   = make_principal();
+    let p = make_principal();
     let ctx = ExecutionEngine::begin(
-        p, None, CapabilityAction::Execute, "sim:001", json!({}), now()
-    ).unwrap();
+        p,
+        None,
+        CapabilityAction::Execute,
+        "sim:001",
+        json!({}),
+        now(),
+    )
+    .unwrap();
     let r = ctx.complete(json!({}), now());
     assert!(!r.meets_pocw_floor(1));
 }
 
 #[test]
 fn action_receipt_meets_pocw_floor_with_valid_proof() {
-    let p   = make_principal();
+    let p = make_principal();
     let ctx = ExecutionEngine::begin(
-        p, None, CapabilityAction::Execute, "sim:001", json!({}), now()
-    ).unwrap();
-    let proof = PoCWProof { steps: 107, bb_bound: 107, tape_hash: "abc".into() };
+        p,
+        None,
+        CapabilityAction::Execute,
+        "sim:001",
+        json!({}),
+        now(),
+    )
+    .unwrap();
+    let proof = PoCWProof {
+        steps: 107,
+        bb_bound: 107,
+        tape_hash: "abc".into(),
+    };
     let r = ctx.complete(json!({}), now()).with_pocw(proof);
     assert!(r.meets_pocw_floor(2));
 }
 
 #[test]
 fn action_receipt_chains_via_previous_hash() {
-    let p1  = make_principal();
+    let p1 = make_principal();
     let ctx = ExecutionEngine::begin(
-        p1, None, CapabilityAction::Read, "tile:odu:0a", json!({}), now()
-    ).unwrap();
+        p1,
+        None,
+        CapabilityAction::Read,
+        "tile:odu:0a",
+        json!({}),
+        now(),
+    )
+    .unwrap();
     let r1 = ctx.complete(json!({}), now());
     let r1_id = r1.receipt_id.clone();
 
-    let p2  = make_principal();
+    let p2 = make_principal();
     let ctx2 = ExecutionEngine::begin(
-        p2, None, CapabilityAction::Write, "tile:odu:0a", json!({}), now()
-    ).unwrap();
+        p2,
+        None,
+        CapabilityAction::Write,
+        "tile:odu:0a",
+        json!({}),
+        now(),
+    )
+    .unwrap();
     let r2 = ctx2.complete(json!({}), now()).with_previous(r1_id.clone());
 
     assert!(r2.previous_hash.is_some());
@@ -123,35 +178,61 @@ fn action_receipt_chains_via_previous_hash() {
 
 #[test]
 fn action_receipt_ensemble_disagreement_attached() {
-    let p   = make_principal();
+    let p = make_principal();
     let ctx = ExecutionEngine::begin(
-        p, None, CapabilityAction::Publish, "event:001", json!({}), now()
-    ).unwrap();
-    let r = ctx.complete(json!({}), now())
+        p,
+        None,
+        CapabilityAction::Publish,
+        "event:001",
+        json!({}),
+        now(),
+    )
+    .unwrap();
+    let r = ctx
+        .complete(json!({}), now())
         .with_ensemble_disagreement(EnsembleDisagreement::Moderate);
-    assert_eq!(r.ensemble_disagreement, Some(EnsembleDisagreement::Moderate));
+    assert_eq!(
+        r.ensemble_disagreement,
+        Some(EnsembleDisagreement::Moderate)
+    );
     // The Omo-Koda confidence field is a DIFFERENT axis and stays unset.
     assert!(r.epistemic_severity.is_none());
 }
 
 #[test]
 fn action_receipt_confidence_attached() {
-    let p   = make_principal();
+    let p = make_principal();
     let ctx = ExecutionEngine::begin(
-        p, None, CapabilityAction::Publish, "event:002", json!({}), now()
-    ).unwrap();
-    let r = ctx.complete(json!({}), now()).with_confidence(Confidence::Observed);
+        p,
+        None,
+        CapabilityAction::Publish,
+        "event:002",
+        json!({}),
+        now(),
+    )
+    .unwrap();
+    let r = ctx
+        .complete(json!({}), now())
+        .with_confidence(Confidence::Observed);
     assert_eq!(r.epistemic_severity, Some(Confidence::Observed));
     assert!(r.ensemble_disagreement.is_none());
 }
 
 #[test]
 fn action_receipt_plane_upgradeable() {
-    let p   = make_principal();
+    let p = make_principal();
     let ctx = ExecutionEngine::begin(
-        p, None, CapabilityAction::Simulate, "sim:orbit", json!({}), now()
-    ).unwrap();
-    let r = ctx.complete(json!({}), now()).with_plane(SimPlane::Verified);
+        p,
+        None,
+        CapabilityAction::Simulate,
+        "sim:orbit",
+        json!({}),
+        now(),
+    )
+    .unwrap();
+    let r = ctx
+        .complete(json!({}), now())
+        .with_plane(SimPlane::Verified);
     assert_eq!(r.plane, SimPlane::Verified);
 }
 
@@ -159,39 +240,39 @@ fn action_receipt_plane_upgradeable() {
 
 fn move_cmd(magnitude: f32) -> SafetyCommand {
     SafetyCommand {
-        command_type:  SafetyCommandType::Move,
-        target:        "robot:arm".into(),
+        command_type: SafetyCommandType::Move,
+        target: "robot:arm".into(),
         magnitude,
         requester_did: "did:vantage:principal:abc123".into(),
-        safety_level:  SafetyLevel::Standard,
+        safety_level: SafetyLevel::Standard,
     }
 }
 
 #[test]
 fn safety_production_clears_normal_magnitude() {
     let sup = SafetySupervisor::new(SafetyTier::Production);
-    let v   = sup.evaluate(&move_cmd(0.5));
+    let v = sup.evaluate(&move_cmd(0.5));
     assert!(v.is_clear());
 }
 
 #[test]
 fn safety_production_blocks_high_magnitude() {
     let sup = SafetySupervisor::new(SafetyTier::Production);
-    let v   = sup.evaluate(&move_cmd(0.9));
+    let v = sup.evaluate(&move_cmd(0.9));
     assert!(v.is_blocked());
 }
 
 #[test]
 fn safety_critical_zone_blocks_above_0_25() {
     let sup = SafetySupervisor::new(SafetyTier::CriticalZone);
-    let v   = sup.evaluate(&move_cmd(0.3));
+    let v = sup.evaluate(&move_cmd(0.3));
     assert!(v.is_blocked());
 }
 
 #[test]
 fn safety_critical_zone_allows_low_magnitude() {
     let sup = SafetySupervisor::new(SafetyTier::CriticalZone);
-    let v   = sup.evaluate(&move_cmd(0.2));
+    let v = sup.evaluate(&move_cmd(0.2));
     assert!(v.is_clear());
 }
 
@@ -207,7 +288,7 @@ fn safety_emergency_stop_blocks_everything() {
 #[test]
 fn safety_development_tier_conditionally_allows_all() {
     let sup = SafetySupervisor::new(SafetyTier::Development);
-    let v   = sup.evaluate(&move_cmd(0.99));
+    let v = sup.evaluate(&move_cmd(0.99));
     assert!(v.is_clear()); // dev tier allows everything (with logging)
 }
 
@@ -215,11 +296,11 @@ fn safety_development_tier_conditionally_allows_all() {
 fn safety_critical_safety_level_blocked_in_production() {
     let sup = SafetySupervisor::new(SafetyTier::Production);
     let cmd = SafetyCommand {
-        command_type:  SafetyCommandType::Actuate,
-        target:        "motor:hip".into(),
-        magnitude:     0.5,
+        command_type: SafetyCommandType::Actuate,
+        target: "motor:hip".into(),
+        magnitude: 0.5,
         requester_did: "did:vantage:principal:abc".into(),
-        safety_level:  SafetyLevel::Critical,
+        safety_level: SafetyLevel::Critical,
     };
     let v = sup.evaluate(&cmd);
     assert!(v.is_blocked());
@@ -229,21 +310,21 @@ fn safety_critical_safety_level_blocked_in_production() {
 
 fn normal_power() -> PowerSnapshot {
     PowerSnapshot {
-        state:          PowerState::Normal,
-        source:         PowerSource::Mains,
-        battery_pct:    Some(80),
+        state: PowerState::Normal,
+        source: PowerSource::Mains,
+        battery_pct: Some(80),
         charge_rate_mw: Some(100),
-        temperature_c:  Some(35.0),
+        temperature_c: Some(35.0),
     }
 }
 
 fn low_battery() -> PowerSnapshot {
     PowerSnapshot {
-        state:          PowerState::LowBattery,
-        source:         PowerSource::Battery,
-        battery_pct:    Some(8),
+        state: PowerState::LowBattery,
+        source: PowerSource::Battery,
+        battery_pct: Some(8),
         charge_rate_mw: Some(-500),
-        temperature_c:  Some(30.0),
+        temperature_c: Some(30.0),
     }
 }
 
@@ -308,9 +389,9 @@ fn stub_embodiment_is_not_in_motion() {
 
 #[test]
 fn stub_embodiment_read_sensor_ok() {
-    let e   = StubEmbodiment::portable("did:vantage:device:stub");
+    let e = StubEmbodiment::portable("did:vantage:device:stub");
     let cam = e.descriptor().sensors.first().unwrap().sensor_id.clone();
-    let v   = e.read_sensor(&cam);
+    let v = e.read_sensor(&cam);
     assert!(v.is_ok());
 }
 
@@ -337,7 +418,7 @@ fn software_key_provider_kind_is_software() {
 
 #[test]
 fn software_key_provider_sign_and_verify_roundtrip() {
-    let kp  = SoftwareKeyProvider::ephemeral();
+    let kp = SoftwareKeyProvider::ephemeral();
     let msg = b"sovereign principal attestation";
     let sig = kp.sign(msg).unwrap();
     assert!(kp.verify(msg, &sig).unwrap());
@@ -345,14 +426,14 @@ fn software_key_provider_sign_and_verify_roundtrip() {
 
 #[test]
 fn software_key_provider_verify_fails_wrong_message() {
-    let kp  = SoftwareKeyProvider::ephemeral();
+    let kp = SoftwareKeyProvider::ephemeral();
     let sig = kp.sign(b"message").unwrap();
     assert!(!kp.verify(b"different", &sig).unwrap());
 }
 
 #[test]
 fn software_key_provider_attest_returns_hex() {
-    let kp  = SoftwareKeyProvider::ephemeral();
+    let kp = SoftwareKeyProvider::ephemeral();
     let att = kp.attest("did:vantage:principal:abc", "nonce123").unwrap();
     assert!(!att.is_empty());
     // must be valid hex

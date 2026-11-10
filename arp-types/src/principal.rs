@@ -7,17 +7,17 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Principal {
     /// Canonical DID or Vantage name of the authorising entity.
-    pub principal_id:   String,
+    pub principal_id: String,
     /// Kind of principal.
-    pub kind:           PrincipalKind,
+    pub kind: PrincipalKind,
     /// The agent that acted on behalf of this principal (may equal principal_id).
-    pub agent_id:       String,
+    pub agent_id: String,
     /// Vantage session or API credential that was active.
-    pub session_id:     Option<String>,
+    pub session_id: Option<String>,
     /// Tier of the acting agent at the time of the action.
-    pub agent_tier:     Option<String>,
+    pub agent_tier: Option<String>,
     /// Capabilities exercised — references into the Capability registry.
-    pub capabilities:   Vec<CapabilityRef>,
+    pub capabilities: Vec<CapabilityRef>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -38,9 +38,9 @@ pub enum PrincipalKind {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CapabilityRef {
     /// E.g. "compute.submit", "mesh.join", "wallet.sign", "vcp.session"
-    pub capability:  String,
+    pub capability: String,
     /// Tier threshold that was required to exercise this capability.
     pub required_tier: Option<String>,
     /// Grant ID if the capability was delegated (VCP grant, OAuth token, etc.)
-    pub grant_id:    Option<String>,
+    pub grant_id: Option<String>,
 }

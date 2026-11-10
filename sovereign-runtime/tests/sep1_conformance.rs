@@ -116,7 +116,10 @@ fn input_and_output_hashes_are_blake3_of_the_payloads() {
 fn receipt_id_changes_when_payload_changes() {
     let a = ctx().complete(json!({ "v": 1 }), now());
     let b = ctx().complete(json!({ "v": 2 }), now());
-    assert_ne!(a.receipt_id, b.receipt_id, "payload is not covered by receipt_id");
+    assert_ne!(
+        a.receipt_id, b.receipt_id,
+        "payload is not covered by receipt_id"
+    );
 }
 
 // ── Signature ─────────────────────────────────────────────────────────────────
@@ -233,7 +236,10 @@ fn to_canonical_carries_the_signature_through() {
     let canonical = r.to_canonical();
 
     // Regression guard: the previous revision emitted String::new() here.
-    assert!(!canonical.signature.is_empty(), "to_canonical dropped the signature");
+    assert!(
+        !canonical.signature.is_empty(),
+        "to_canonical dropped the signature"
+    );
     assert_eq!(canonical.signature, r.signature);
     assert_eq!(canonical.receipt_id, r.receipt_id);
 }
@@ -304,6 +310,8 @@ fn plane_defaults_to_unverified() {
     assert_eq!(r.plane, SimPlane::Physical);
     assert!(!r.plane.is_verified());
 
-    let upgraded = ctx().complete(json!({}), now()).with_plane(SimPlane::Verified);
+    let upgraded = ctx()
+        .complete(json!({}), now())
+        .with_plane(SimPlane::Verified);
     assert!(upgraded.plane.is_verified());
 }

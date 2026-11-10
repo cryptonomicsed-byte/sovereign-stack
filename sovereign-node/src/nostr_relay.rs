@@ -2,8 +2,8 @@
 //! ip-layer crate.  This module provides the minimal NostrRelayHandle type so
 //! that dip_gateway.rs compiles while ip-layer handles actual connectivity.
 
-use tokio::sync::mpsc;
 use dip::DipEnvelope;
+use tokio::sync::mpsc;
 
 /// Handle to a Nostr relay connection.
 /// In production ip-layer manages the relay; this stub satisfies the type system.
@@ -30,8 +30,8 @@ impl NostrRelayHandle {
 /// Spawn a Nostr relay connection and return a handle.
 /// Stub implementation — real relay logic lives in ip-layer.
 pub fn spawn_nostr_relay(
-    _relay_url:  String,
-    _npub:       String,
+    _relay_url: String,
+    _npub: String,
     _private_key: String,
     _inbound_tx: Option<mpsc::Sender<DipEnvelope>>,
 ) -> NostrRelayHandle {

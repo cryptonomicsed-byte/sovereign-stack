@@ -5,24 +5,26 @@ use ucx_protocol::ProviderCapability;
 /// Called by the Broker before each submission to refresh its view of native
 /// providers.  Cached for `cache_secs` to avoid hammering Vantage on every job.
 pub struct VantageDiscovery {
-    base_url:   String,
-    api_key:    String,
+    base_url: String,
+    api_key: String,
     cache_secs: u64,
-    cached_at:  std::sync::Mutex<Option<(std::time::Instant, Vec<ProviderCapability>)>>,
+    cached_at: std::sync::Mutex<Option<(std::time::Instant, Vec<ProviderCapability>)>>,
 }
 
 impl VantageDiscovery {
     pub fn new(base_url: impl Into<String>, api_key: impl Into<String>) -> Self {
         Self {
-            base_url:   base_url.into().trim_end_matches('/').to_string(),
-            api_key:    api_key.into(),
+            base_url: base_url.into().trim_end_matches('/').to_string(),
+            api_key: api_key.into(),
             cache_secs: 30,
-            cached_at:  std::sync::Mutex::new(None),
+            cached_at: std::sync::Mutex::new(None),
         }
     }
 
     pub fn from_env() -> Option<Self> {
-        let url = std::env::var("VANTAGE_URL").ok().filter(|s| !s.is_empty())?;
+        let url = std::env::var("VANTAGE_URL")
+            .ok()
+            .filter(|s| !s.is_empty())?;
         let key = std::env::var("VANTAGE_KEY").unwrap_or_default();
         Some(Self::new(url, key))
     }
@@ -67,7 +69,10 @@ impl VantageDiscovery {
             .filter_map(|v| serde_json::from_value(v).ok())
             .collect();
 
-        tracing::debug!(count = caps.len(), "VantageDiscovery: refreshed provider list");
+        tracing::debug!(
+            count = caps.len(),
+            "VantageDiscovery: refreshed provider list"
+        );
         Ok(caps)
     }
 }

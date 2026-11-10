@@ -1,14 +1,11 @@
 //! Integration tests for sovereign-os (Layer 3 — Omo-Koda Runtime)
 
-use sovereign_os::{
-    AgentActReceipt, ActReceiptChain, EpistemicSeverity, PoCWProof,
-    AgentIdentity, AgentLifecycle, LifecyclePhase, BIPON39,
-    MemoryEntry, MemoryNamespace, MemoryStore,
-    HookChain,
-    ToolDef, ToolRegistry, ToolResult,
-    identity::AgentDna,
-};
 use serde_json::{json, Value};
+use sovereign_os::{
+    identity::AgentDna, ActReceiptChain, AgentActReceipt, AgentIdentity, AgentLifecycle,
+    EpistemicSeverity, HookChain, LifecyclePhase, MemoryEntry, MemoryNamespace, MemoryStore,
+    PoCWProof, ToolDef, ToolRegistry, ToolResult, BIPON39,
+};
 
 // ─── BIPON39 ────────────────────────────────────────────────────────────────
 
@@ -24,7 +21,10 @@ fn bipon39_generates_24_words() {
 fn bipon39_all_words_valid() {
     let seed = [42u8; 32];
     let phrase = BIPON39::from_entropy(&seed);
-    assert!(BIPON39::validate(&phrase), "all generated words should be in the wordlist");
+    assert!(
+        BIPON39::validate(&phrase),
+        "all generated words should be in the wordlist"
+    );
 }
 
 #[test]
@@ -46,7 +46,10 @@ fn bipon39_same_seed_deterministic() {
 
 #[test]
 fn bipon39_validate_wrong_word_count_too_short() {
-    assert!(!BIPON39::validate("agent anchor"), "too few words should fail");
+    assert!(
+        !BIPON39::validate("agent anchor"),
+        "too few words should fail"
+    );
 }
 
 #[test]
@@ -61,7 +64,10 @@ fn bipon39_validate_unknown_word() {
     // 23 valid + 1 invalid
     let mut words = vec!["agent"; 23];
     words.push("notaword");
-    assert!(!BIPON39::validate(&words.join(" ")), "unknown word should fail");
+    assert!(
+        !BIPON39::validate(&words.join(" ")),
+        "unknown word should fail"
+    );
 }
 
 #[test]
@@ -177,37 +183,58 @@ fn agent_identity_dna_embedded() {
 
 #[test]
 fn lifecycle_valid_nascent_to_active() {
-    assert!(AgentLifecycle::can_transition(&LifecyclePhase::Nascent, &LifecyclePhase::Active));
+    assert!(AgentLifecycle::can_transition(
+        &LifecyclePhase::Nascent,
+        &LifecyclePhase::Active
+    ));
 }
 
 #[test]
 fn lifecycle_valid_active_to_suspended() {
-    assert!(AgentLifecycle::can_transition(&LifecyclePhase::Active, &LifecyclePhase::Suspended));
+    assert!(AgentLifecycle::can_transition(
+        &LifecyclePhase::Active,
+        &LifecyclePhase::Suspended
+    ));
 }
 
 #[test]
 fn lifecycle_valid_suspended_to_active() {
-    assert!(AgentLifecycle::can_transition(&LifecyclePhase::Suspended, &LifecyclePhase::Active));
+    assert!(AgentLifecycle::can_transition(
+        &LifecyclePhase::Suspended,
+        &LifecyclePhase::Active
+    ));
 }
 
 #[test]
 fn lifecycle_valid_active_to_terminated() {
-    assert!(AgentLifecycle::can_transition(&LifecyclePhase::Active, &LifecyclePhase::Terminated));
+    assert!(AgentLifecycle::can_transition(
+        &LifecyclePhase::Active,
+        &LifecyclePhase::Terminated
+    ));
 }
 
 #[test]
 fn lifecycle_valid_suspended_to_terminated() {
-    assert!(AgentLifecycle::can_transition(&LifecyclePhase::Suspended, &LifecyclePhase::Terminated));
+    assert!(AgentLifecycle::can_transition(
+        &LifecyclePhase::Suspended,
+        &LifecyclePhase::Terminated
+    ));
 }
 
 #[test]
 fn lifecycle_invalid_nascent_to_terminated() {
-    assert!(!AgentLifecycle::can_transition(&LifecyclePhase::Nascent, &LifecyclePhase::Terminated));
+    assert!(!AgentLifecycle::can_transition(
+        &LifecyclePhase::Nascent,
+        &LifecyclePhase::Terminated
+    ));
 }
 
 #[test]
 fn lifecycle_invalid_terminated_to_active() {
-    assert!(!AgentLifecycle::can_transition(&LifecyclePhase::Terminated, &LifecyclePhase::Active));
+    assert!(!AgentLifecycle::can_transition(
+        &LifecyclePhase::Terminated,
+        &LifecyclePhase::Active
+    ));
 }
 
 #[test]
@@ -306,7 +333,14 @@ fn tool_result_err_constructor() {
 fn act_receipt_chain_push_and_len() {
     let mut chain = ActReceiptChain::new();
     assert!(chain.is_empty());
-    let r = AgentActReceipt::new("did:agent:1", "read", "file://x", json!({}), json!({"ok": true}), 1000);
+    let r = AgentActReceipt::new(
+        "did:agent:1",
+        "read",
+        "file://x",
+        json!({}),
+        json!({"ok": true}),
+        1000,
+    );
     chain.push(r);
     assert_eq!(chain.len(), 1);
     assert!(!chain.is_empty());
@@ -315,8 +349,22 @@ fn act_receipt_chain_push_and_len() {
 #[test]
 fn act_receipt_chain_latest() {
     let mut chain = ActReceiptChain::new();
-    let r1 = AgentActReceipt::new("did:agent:1", "read", "file://x", json!({}), json!({}), 1000);
-    let r2 = AgentActReceipt::new("did:agent:1", "write", "file://y", json!({}), json!({}), 2000);
+    let r1 = AgentActReceipt::new(
+        "did:agent:1",
+        "read",
+        "file://x",
+        json!({}),
+        json!({}),
+        1000,
+    );
+    let r2 = AgentActReceipt::new(
+        "did:agent:1",
+        "write",
+        "file://y",
+        json!({}),
+        json!({}),
+        2000,
+    );
     chain.push(r1);
     chain.push(r2);
     let latest = chain.latest().unwrap();
@@ -327,7 +375,14 @@ fn act_receipt_chain_latest() {
 fn act_receipt_chain_verify_integrity() {
     let mut chain = ActReceiptChain::new();
     for i in 0..5u64 {
-        let r = AgentActReceipt::new("did:agent:1", "act", "res://x", json!({}), json!({}), i * 1000);
+        let r = AgentActReceipt::new(
+            "did:agent:1",
+            "act",
+            "res://x",
+            json!({}),
+            json!({}),
+            i * 1000,
+        );
         chain.push(r);
     }
     assert!(chain.verify_chain(), "chain integrity should pass");
@@ -355,43 +410,71 @@ fn act_receipt_chain_second_has_previous() {
 
 #[test]
 fn pocw_tier_0() {
-    let p = PoCWProof { steps: 10, bb_bound: 21, tape_hash: "abc".into() };
+    let p = PoCWProof {
+        steps: 10,
+        bb_bound: 21,
+        tape_hash: "abc".into(),
+    };
     assert_eq!(p.tier(), 0);
 }
 
 #[test]
 fn pocw_tier_1() {
-    let p = PoCWProof { steps: 21, bb_bound: 21, tape_hash: "abc".into() };
+    let p = PoCWProof {
+        steps: 21,
+        bb_bound: 21,
+        tape_hash: "abc".into(),
+    };
     assert_eq!(p.tier(), 1);
 }
 
 #[test]
 fn pocw_tier_2() {
-    let p = PoCWProof { steps: 200, bb_bound: 107, tape_hash: "abc".into() };
+    let p = PoCWProof {
+        steps: 200,
+        bb_bound: 107,
+        tape_hash: "abc".into(),
+    };
     assert_eq!(p.tier(), 2);
 }
 
 #[test]
 fn pocw_tier_3() {
-    let p = PoCWProof { steps: 47_200_000, bb_bound: 47_176_870, tape_hash: "abc".into() };
+    let p = PoCWProof {
+        steps: 47_200_000,
+        bb_bound: 47_176_870,
+        tape_hash: "abc".into(),
+    };
     assert_eq!(p.tier(), 3);
 }
 
 #[test]
 fn pocw_is_valid_when_steps_gte_bound() {
-    let p = PoCWProof { steps: 21, bb_bound: 21, tape_hash: "hash".into() };
+    let p = PoCWProof {
+        steps: 21,
+        bb_bound: 21,
+        tape_hash: "hash".into(),
+    };
     assert!(p.is_valid());
 }
 
 #[test]
 fn pocw_invalid_when_steps_lt_bound() {
-    let p = PoCWProof { steps: 20, bb_bound: 21, tape_hash: "hash".into() };
+    let p = PoCWProof {
+        steps: 20,
+        bb_bound: 21,
+        tape_hash: "hash".into(),
+    };
     assert!(!p.is_valid());
 }
 
 #[test]
 fn pocw_invalid_when_tape_hash_empty() {
-    let p = PoCWProof { steps: 100, bb_bound: 21, tape_hash: "".into() };
+    let p = PoCWProof {
+        steps: 100,
+        bb_bound: 21,
+        tape_hash: "".into(),
+    };
     assert!(!p.is_valid());
 }
 
@@ -460,7 +543,10 @@ async fn memory_store_delete() {
     store.set(entry).await;
     let deleted = store.delete(&MemoryNamespace::Semantic, "key1").await;
     assert!(deleted);
-    assert!(store.get(&MemoryNamespace::Semantic, "key1").await.is_none());
+    assert!(store
+        .get(&MemoryNamespace::Semantic, "key1")
+        .await
+        .is_none());
 }
 
 #[tokio::test]
@@ -484,9 +570,30 @@ async fn memory_store_len() {
 #[tokio::test]
 async fn memory_store_get_namespace() {
     let store = MemoryStore::new();
-    store.set(MemoryEntry::new(MemoryNamespace::Working, "a".into(), json!(1), 0)).await;
-    store.set(MemoryEntry::new(MemoryNamespace::Working, "b".into(), json!(2), 0)).await;
-    store.set(MemoryEntry::new(MemoryNamespace::Semantic, "c".into(), json!(3), 0)).await;
+    store
+        .set(MemoryEntry::new(
+            MemoryNamespace::Working,
+            "a".into(),
+            json!(1),
+            0,
+        ))
+        .await;
+    store
+        .set(MemoryEntry::new(
+            MemoryNamespace::Working,
+            "b".into(),
+            json!(2),
+            0,
+        ))
+        .await;
+    store
+        .set(MemoryEntry::new(
+            MemoryNamespace::Semantic,
+            "c".into(),
+            json!(3),
+            0,
+        ))
+        .await;
 
     let working = store.get_namespace(&MemoryNamespace::Working).await;
     assert_eq!(working.len(), 2);
@@ -498,7 +605,10 @@ async fn memory_entry_ttl_expiry() {
     let mut entry = MemoryEntry::new(MemoryNamespace::Working, "k".into(), json!("v"), 0);
     entry.ttl_secs = Some(1);
     assert!(entry.is_expired(2000), "entry should be expired at t=2000");
-    assert!(!entry.is_expired(500), "entry should not be expired at t=500");
+    assert!(
+        !entry.is_expired(500),
+        "entry should not be expired at t=500"
+    );
 }
 
 #[tokio::test]
@@ -510,7 +620,14 @@ async fn memory_store_prune_expired() {
         e.ttl_secs = Some(1); // expires after 1 sec
         store.set(e).await;
     }
-    store.set(MemoryEntry::new(MemoryNamespace::Working, "keep".into(), json!("x"), 0)).await;
+    store
+        .set(MemoryEntry::new(
+            MemoryNamespace::Working,
+            "keep".into(),
+            json!("x"),
+            0,
+        ))
+        .await;
 
     let pruned = store.prune_expired(2000).await;
     assert_eq!(pruned, 3);
@@ -531,40 +648,36 @@ fn hook_chain_pre_registration() {
 
 #[test]
 fn hook_chain_post_registration() {
-    let chain = HookChain::new()
-        .post(Box::new(|_, _| Ok(())));
+    let chain = HookChain::new().post(Box::new(|_, _| Ok(())));
     assert_eq!(chain.pre_count(), 0);
     assert_eq!(chain.post_count(), 1);
 }
 
 #[test]
 fn hook_chain_run_pre_success() {
-    let chain = HookChain::new()
-        .pre(Box::new(|tool, _| {
-            assert_eq!(tool, "mytool");
-            Ok(())
-        }));
+    let chain = HookChain::new().pre(Box::new(|tool, _| {
+        assert_eq!(tool, "mytool");
+        Ok(())
+    }));
     let result = chain.run_pre("mytool", &json!({"key": "val"}));
     assert!(result.is_ok());
 }
 
 #[test]
 fn hook_chain_run_post_success() {
-    let chain = HookChain::new()
-        .post(Box::new(|_, _| Ok(())));
+    let chain = HookChain::new().post(Box::new(|_, _| Ok(())));
     assert!(chain.run_post("mytool", &json!({"output": 42})).is_ok());
 }
 
 #[test]
 fn hook_chain_pre_hook_can_block() {
-    let chain = HookChain::new()
-        .pre(Box::new(|tool, _| {
-            if tool == "forbidden" {
-                Err("tool is forbidden".into())
-            } else {
-                Ok(())
-            }
-        }));
+    let chain = HookChain::new().pre(Box::new(|tool, _| {
+        if tool == "forbidden" {
+            Err("tool is forbidden".into())
+        } else {
+            Ok(())
+        }
+    }));
     let blocked = chain.run_pre("forbidden", &json!({}));
     assert!(blocked.is_err());
     assert_eq!(blocked.unwrap_err(), "tool is forbidden");

@@ -1,8 +1,8 @@
 use std::sync::{Arc, RwLock};
 
 use ucx_protocol::{
-    ComputeProvider, Job, Allocation, ComputeReceipt, JobId, JobStatus,
-    ProviderCapability, ProviderTier, TrustLevel, UcxError, WorkloadRequirements,
+    Allocation, ComputeProvider, ComputeReceipt, Job, JobId, JobStatus, ProviderCapability,
+    ProviderTier, TrustLevel, UcxError, WorkloadRequirements,
 };
 
 /// The UCX matching engine.
@@ -13,14 +13,14 @@ use ucx_protocol::{
 ///      forward to the external overflow pool.
 ///   3. If still unmatched → InsufficientCapacity.
 pub struct Broker {
-    native:   RwLock<Vec<Arc<dyn ComputeProvider>>>,
+    native: RwLock<Vec<Arc<dyn ComputeProvider>>>,
     external: RwLock<Vec<Arc<dyn ComputeProvider>>>,
 }
 
 impl Broker {
     pub fn new() -> Self {
         Self {
-            native:   RwLock::new(vec![]),
+            native: RwLock::new(vec![]),
             external: RwLock::new(vec![]),
         }
     }
@@ -87,17 +87,25 @@ impl Broker {
 
     fn find_provider(&self, provider_id: &str) -> Result<Arc<dyn ComputeProvider>, UcxError> {
         for p in self.native.read().unwrap().iter() {
-            if p.id() == provider_id { return Ok(p.clone()); }
+            if p.id() == provider_id {
+                return Ok(p.clone());
+            }
         }
         for p in self.external.read().unwrap().iter() {
-            if p.id() == provider_id { return Ok(p.clone()); }
+            if p.id() == provider_id {
+                return Ok(p.clone());
+            }
         }
-        Err(UcxError::ProviderNotFound { provider_id: provider_id.into() })
+        Err(UcxError::ProviderNotFound {
+            provider_id: provider_id.into(),
+        })
     }
 }
 
 impl Default for Broker {
-    fn default() -> Self { Self::new() }
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 // ── scoring ───────────────────────────────────────────────────────────────────
@@ -162,20 +170,25 @@ fn score_provider(cap: &ProviderCapability, req: &WorkloadRequirements) -> u32 {
     // ── Price (15 pts) ────────────────────────────────────────────────────────
     let price_pts = if let Some(gpu_price) = cap.price_gpu_hour_cents {
         // $0-$0.30/hr = 15 pts, $0.30-$0.60 = 12, $0.60-$1.50 = 8, $1.50+ = 3
-        if gpu_price <= 30 { 15 }
-        else if gpu_price <= 60 { 12 }
-        else if gpu_price <= 150 { 8 }
-        else { 3 }
+        if gpu_price <= 30 {
+            15
+        } else if gpu_price <= 60 {
+            12
+        } else if gpu_price <= 150 {
+            8
+        } else {
+            3
+        }
     } else {
-        10  // CPU-only provider
+        10 // CPU-only provider
     };
     score += price_pts;
 
     // ── Trust (10 pts) ────────────────────────────────────────────────────────
     score += match &cap.trust {
-        TrustLevel::Tee          => 10,
+        TrustLevel::Tee => 10,
         TrustLevel::Confidential => 7,
-        TrustLevel::Standard     => 4,
+        TrustLevel::Standard => 4,
     };
 
     score

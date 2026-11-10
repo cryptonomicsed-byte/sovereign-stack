@@ -1,6 +1,6 @@
 use ucx_protocol::capability::{
-    CpuArch, CpuCapability, GpuCapability, GpuVendor, ProviderCapability,
-    ProviderTier, RuntimeKind, TrustLevel,
+    CpuArch, CpuCapability, GpuCapability, GpuVendor, ProviderCapability, ProviderTier,
+    RuntimeKind, TrustLevel,
 };
 
 /// Probe the local machine and return a best-effort ProviderCapability.
@@ -9,25 +9,25 @@ use ucx_protocol::capability::{
 /// On Linux: reads /proc/cpuinfo, /proc/meminfo, nvidia-smi if available.
 /// On all platforms: falls back to safe defaults if files aren't accessible.
 pub fn discover_capability(provider_id: &str) -> ProviderCapability {
-    let cpu   = discover_cpu();
-    let gpu   = discover_gpu();
-    let ram   = discover_ram_gb();
-    let disk  = discover_disk_gb();
+    let cpu = discover_cpu();
+    let gpu = discover_gpu();
+    let ram = discover_ram_gb();
+    let disk = discover_disk_gb();
     let runtimes = discover_runtimes();
 
     ProviderCapability {
-        provider_id:           provider_id.to_string(),
-        tier:                  ProviderTier::Community,
-        trust:                 TrustLevel::Standard,
+        provider_id: provider_id.to_string(),
+        tier: ProviderTier::Community,
+        trust: TrustLevel::Standard,
         gpu,
         cpu,
-        ram_gb:                ram,
-        disk_gb:               disk,
+        ram_gb: ram,
+        disk_gb: disk,
         runtimes,
-        price_gpu_hour_cents:  None,   // owner sets manually
-        price_cpu_hour_cents:  2,      // $0.02/hr default
-        policy_deny:           vec![],
-        regions:               vec![],
+        price_gpu_hour_cents: None, // owner sets manually
+        price_cpu_hour_cents: 2,    // $0.02/hr default
+        policy_deny: vec![],
+        regions: vec![],
     }
 }
 
@@ -37,19 +37,26 @@ fn discover_cpu() -> CpuCapability {
     #[cfg(target_os = "linux")]
     {
         if let Ok(info) = std::fs::read_to_string("/proc/cpuinfo") {
-            let cores = info.lines()
-                .filter(|l| l.starts_with("processor"))
-                .count() as u32;
-            let freq = info.lines()
+            let cores = info.lines().filter(|l| l.starts_with("processor")).count() as u32;
+            let freq = info
+                .lines()
                 .find(|l| l.starts_with("cpu MHz"))
                 .and_then(|l| l.split(':').nth(1))
                 .and_then(|s| s.trim().parse::<f64>().ok())
                 .map(|f| f as u32);
-            return CpuCapability { cores: cores.max(1), arch, frequency_mhz: freq };
+            return CpuCapability {
+                cores: cores.max(1),
+                arch,
+                frequency_mhz: freq,
+            };
         }
     }
 
-    CpuCapability { cores: num_cpus_fallback(), arch, frequency_mhz: None }
+    CpuCapability {
+        cores: num_cpus_fallback(),
+        arch,
+        frequency_mhz: None,
+    }
 }
 
 fn discover_ram_gb() -> f64 {
@@ -75,7 +82,10 @@ fn discover_disk_gb() -> f64 {
 fn discover_gpu() -> Option<GpuCapability> {
     // Only attempt nvidia-smi discovery; AMD/Intel discovery is a future pass.
     if let Ok(output) = std::process::Command::new("nvidia-smi")
-        .args(["--query-gpu=name,memory.total", "--format=csv,noheader,nounits"])
+        .args([
+            "--query-gpu=name,memory.total",
+            "--format=csv,noheader,nounits",
+        ])
         .output()
     {
         if output.status.success() {
@@ -83,17 +93,17 @@ fn discover_gpu() -> Option<GpuCapability> {
             for line in text.lines().take(1) {
                 let parts: Vec<&str> = line.splitn(2, ',').collect();
                 if parts.len() == 2 {
-                    let model   = parts[0].trim().to_string();
+                    let model = parts[0].trim().to_string();
                     let vram_mb = parts[1].trim().parse::<f64>().unwrap_or(0.0);
                     return Some(GpuCapability {
-                        vendor:  GpuVendor::Nvidia,
+                        vendor: GpuVendor::Nvidia,
                         model,
                         vram_gb: vram_mb / 1024.0,
-                        fp16:    true,
-                        bf16:    true,
-                        cuda:    true,
-                        rocm:    false,
-                        count:   count_nvidia_gpus(),
+                        fp16: true,
+                        bf16: true,
+                        cuda: true,
+                        rocm: false,
+                        count: count_nvidia_gpus(),
                     });
                 }
             }
@@ -128,9 +138,15 @@ fn discover_runtimes() -> Vec<RuntimeKind> {
 }
 
 fn detect_arch() -> CpuArch {
-    if cfg!(target_arch = "x86_64")  { return CpuArch::X86_64; }
-    if cfg!(target_arch = "aarch64") { return CpuArch::Arm64; }
-    if cfg!(target_arch = "riscv64") { return CpuArch::Riscv64; }
+    if cfg!(target_arch = "x86_64") {
+        return CpuArch::X86_64;
+    }
+    if cfg!(target_arch = "aarch64") {
+        return CpuArch::Arm64;
+    }
+    if cfg!(target_arch = "riscv64") {
+        return CpuArch::Riscv64;
+    }
     CpuArch::Other(std::env::consts::ARCH.to_string())
 }
 

@@ -15,13 +15,15 @@
 //!   firmware.update, safety.disable
 
 use serde::{Deserialize, Serialize};
-use serde_json::{Value, json};
+use serde_json::{json, Value};
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use sovereign_types::{SafetyLevel, Timestamp};
-use crate::manifest::{AgentDeviceManifest, VcpCapabilityDecl, VcpSafetyConfig, VcpTransport, VcpDeviceIdentity};
 use crate::command::{VcpCommand, VcpCommandResponse, VcpCommandStatus};
 use crate::error::{VcpError, VcpResult};
+use crate::manifest::{
+    AgentDeviceManifest, VcpCapabilityDecl, VcpDeviceIdentity, VcpSafetyConfig, VcpTransport,
+};
+use sovereign_types::{SafetyLevel, Timestamp};
 
 /// How the Go2 is reached.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -47,39 +49,41 @@ impl Default for Go2ConnectionMode {
 /// Snapshot of Go2 sensor + state data.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Go2Telemetry {
-    pub battery_pct:   f32,    // 0–100
-    pub charging:      bool,
-    pub gait_type:     String, // "walk" | "trot" | "stand" | "sit"
-    pub speed_ms:      f32,    // current forward velocity m/s
-    pub yaw_deg:       f32,    // heading degrees from north
-    pub imu_roll:      f32,
-    pub imu_pitch:     f32,
-    pub imu_yaw:       f32,
-    pub joint_temps:   Vec<f32>, // 12 joints
+    pub battery_pct: f32, // 0–100
+    pub charging: bool,
+    pub gait_type: String, // "walk" | "trot" | "stand" | "sit"
+    pub speed_ms: f32,     // current forward velocity m/s
+    pub yaw_deg: f32,      // heading degrees from north
+    pub imu_roll: f32,
+    pub imu_pitch: f32,
+    pub imu_yaw: f32,
+    pub joint_temps: Vec<f32>, // 12 joints
     pub wifi_rssi_dbm: Option<i16>,
-    pub timestamp_ms:  Timestamp,
+    pub timestamp_ms: Timestamp,
 }
 
 impl Go2Telemetry {
     /// Parse from the Go2 WebSocket state message.
     pub fn from_go2_json(v: &Value) -> Option<Self> {
         let battery = v["sportModeState"]["batteryLevel"].as_f64()? as f32;
-        let gait    = v["sportModeState"]["gaitType"].as_str().unwrap_or("unknown");
-        let vx      = v["sportModeState"]["vx"].as_f64().unwrap_or(0.0) as f32;
+        let gait = v["sportModeState"]["gaitType"]
+            .as_str()
+            .unwrap_or("unknown");
+        let vx = v["sportModeState"]["vx"].as_f64().unwrap_or(0.0) as f32;
         Some(Self {
-            battery_pct:   battery * 100.0,
-            charging:      v["sportModeState"]["charging"].as_bool().unwrap_or(false),
-            gait_type:     gait.into(),
-            speed_ms:      vx.abs(),
-            yaw_deg:       v["sportModeState"]["yawSpeed"].as_f64().unwrap_or(0.0) as f32,
-            imu_roll:      v["imuState"]["rpy"][0].as_f64().unwrap_or(0.0) as f32,
-            imu_pitch:     v["imuState"]["rpy"][1].as_f64().unwrap_or(0.0) as f32,
-            imu_yaw:       v["imuState"]["rpy"][2].as_f64().unwrap_or(0.0) as f32,
-            joint_temps:   (0..12)
+            battery_pct: battery * 100.0,
+            charging: v["sportModeState"]["charging"].as_bool().unwrap_or(false),
+            gait_type: gait.into(),
+            speed_ms: vx.abs(),
+            yaw_deg: v["sportModeState"]["yawSpeed"].as_f64().unwrap_or(0.0) as f32,
+            imu_roll: v["imuState"]["rpy"][0].as_f64().unwrap_or(0.0) as f32,
+            imu_pitch: v["imuState"]["rpy"][1].as_f64().unwrap_or(0.0) as f32,
+            imu_yaw: v["imuState"]["rpy"][2].as_f64().unwrap_or(0.0) as f32,
+            joint_temps: (0..12)
                 .map(|i| v["motorState"][i]["temperature"].as_f64().unwrap_or(0.0) as f32)
                 .collect(),
             wifi_rssi_dbm: v["wifiState"]["rssi"].as_i64().map(|r| r as i16),
-            timestamp_ms:  now_ms(),
+            timestamp_ms: now_ms(),
         })
     }
 
@@ -93,10 +97,14 @@ impl Go2Telemetry {
 #[derive(Debug, Clone, PartialEq)]
 pub enum Go2Action {
     /// Walk forward/backward/strafe: vx, vy, vyaw in m/s
-    Move { vx: f32, vy: f32, vyaw: f32 },
+    Move {
+        vx: f32,
+        vy: f32,
+        vyaw: f32,
+    },
     StandUp,
     SitDown,
-    Damp,           // lowest-power idle (joints go limp)
+    Damp, // lowest-power idle (joints go limp)
     RecoveryStand,
     /// Capture one RGB frame from front camera
     CaptureFrame,
@@ -115,22 +123,26 @@ pub struct Go2Adapter {
 
 impl Go2Adapter {
     pub fn new(device_id: impl Into<String>, connection: Go2ConnectionMode) -> Self {
-        Self { device_id: device_id.into(), connection }
+        Self {
+            device_id: device_id.into(),
+            connection,
+        }
     }
 
     /// Build the canonical Go2 AgentDeviceManifest for VCP registration.
     pub fn manifest(&self, public_key: impl Into<String>) -> AgentDeviceManifest {
         AgentDeviceManifest {
-            device_id:        self.device_id.clone(),
-            manufacturer:     "Unitree".into(),
-            model:            "Go2".into(),
+            device_id: self.device_id.clone(),
+            manufacturer: "Unitree".into(),
+            model: "Go2".into(),
             protocol_version: "vcp/1".into(),
             firmware_version: "1.0.0".into(),
-            dip_identity:     format!("did:device:{}", self.device_id),
+            dip_identity: format!("did:device:{}", self.device_id),
             capabilities: vec![
                 VcpCapabilityDecl {
                     id: "locomotion".into(),
-                    description: "Velocity-control walking. Params: vx, vy, vyaw (m/s), duration_ms.".into(),
+                    description:
+                        "Velocity-control walking. Params: vx, vy, vyaw (m/s), duration_ms.".into(),
                     params: Some(json!({
                         "vx":          {"type": "number", "min": -1.5, "max": 1.5},
                         "vy":          {"type": "number", "min": -0.5, "max": 0.5},
@@ -168,7 +180,9 @@ impl Go2Adapter {
                 VcpCapabilityDecl {
                     id: "sportmode".into(),
                     description: "Switch motion mode: normal | ai | advanced.".into(),
-                    params: Some(json!({"mode": {"type": "string", "enum": ["normal", "ai", "advanced"]}})),
+                    params: Some(
+                        json!({"mode": {"type": "string", "enum": ["normal", "ai", "advanced"]}}),
+                    ),
                     requires_grant: true,
                     safety_level: SafetyLevel::Standard,
                     ungrantable: false,
@@ -183,7 +197,8 @@ impl Go2Adapter {
                 },
                 VcpCapabilityDecl {
                     id: "firmware.update".into(),
-                    description: "Update firmware (UNGRANTABLE — requires physical admin access).".into(),
+                    description: "Update firmware (UNGRANTABLE — requires physical admin access)."
+                        .into(),
                     params: None,
                     requires_grant: true,
                     safety_level: SafetyLevel::Critical,
@@ -199,17 +214,20 @@ impl Go2Adapter {
                 },
             ],
             safety: VcpSafetyConfig {
-                emergency_stop:      true,
-                geofence:            true,
+                emergency_stop: true,
+                geofence: true,
                 collision_avoidance: Some("unitree_obstacle_avoid".into()),
-                max_speed_ms:        Some(1.5),
-                ungrantable:         vec!["firmware.update".into(), "safety.disable".into()],
+                max_speed_ms: Some(1.5),
+                ungrantable: vec!["firmware.update".into(), "safety.disable".into()],
             },
             transport: vec![VcpTransport::Wifi, VcpTransport::Ble, VcpTransport::Usb],
-            identity:  VcpDeviceIdentity { public_key: public_key.into(), cert_chain: None },
-            timestamp:  now_ms(),
+            identity: VcpDeviceIdentity {
+                public_key: public_key.into(),
+                cert_chain: None,
+            },
+            timestamp: now_ms(),
             merkle_root: String::new(),
-            signature:   String::new(),
+            signature: String::new(),
         }
     }
 
@@ -222,23 +240,23 @@ impl Go2Adapter {
     fn parse_action(&self, cmd: &VcpCommand) -> VcpResult<Go2Action> {
         match cmd.capability.as_str() {
             "locomotion" => {
-                let vx   = cmd.params["vx"].as_f64().unwrap_or(0.0) as f32;
-                let vy   = cmd.params["vy"].as_f64().unwrap_or(0.0) as f32;
+                let vx = cmd.params["vx"].as_f64().unwrap_or(0.0) as f32;
+                let vy = cmd.params["vy"].as_f64().unwrap_or(0.0) as f32;
                 let vyaw = cmd.params["vyaw"].as_f64().unwrap_or(0.0) as f32;
                 let action_str = cmd.action.as_str();
                 match action_str {
-                    "stand"    => Ok(Go2Action::StandUp),
-                    "sit"      => Ok(Go2Action::SitDown),
-                    "damp"     => Ok(Go2Action::Damp),
-                    "recover"  => Ok(Go2Action::RecoveryStand),
-                    _          => Ok(Go2Action::Move { vx, vy, vyaw }),
+                    "stand" => Ok(Go2Action::StandUp),
+                    "sit" => Ok(Go2Action::SitDown),
+                    "damp" => Ok(Go2Action::Damp),
+                    "recover" => Ok(Go2Action::RecoveryStand),
+                    _ => Ok(Go2Action::Move { vx, vy, vyaw }),
                 }
             }
-            "camera"         => Ok(Go2Action::CaptureFrame),
-            "lidar"          => Ok(Go2Action::CaptureLidar),
-            "telemetry"      => Ok(Go2Action::PollTelemetry),
+            "camera" => Ok(Go2Action::CaptureFrame),
+            "lidar" => Ok(Go2Action::CaptureLidar),
+            "telemetry" => Ok(Go2Action::PollTelemetry),
             "emergency_stop" => Ok(Go2Action::Damp),
-            "sportmode"      => {
+            "sportmode" => {
                 let mode = cmd.params["mode"].as_str().unwrap_or("normal").to_string();
                 Ok(Go2Action::SetSportMode(mode))
             }
@@ -255,16 +273,16 @@ impl Go2Adapter {
             }),
             Go2Action::StandUp => json!({"api_id": 1004}),
             Go2Action::SitDown => json!({"api_id": 1005}),
-            Go2Action::Damp    => json!({"api_id": 1001}),
+            Go2Action::Damp => json!({"api_id": 1001}),
             Go2Action::RecoveryStand => json!({"api_id": 1006}),
-            Go2Action::CaptureFrame  => json!({"api_id": 3001, "source": "front_rgb"}),
-            Go2Action::CaptureLidar  => json!({"api_id": 3002, "source": "lidar_l1"}),
+            Go2Action::CaptureFrame => json!({"api_id": 3001, "source": "front_rgb"}),
+            Go2Action::CaptureLidar => json!({"api_id": 3002, "source": "lidar_l1"}),
             Go2Action::PollTelemetry => json!({"api_id": 2001}),
             Go2Action::SetSportMode(mode) => {
                 let mode_id: u8 = match mode.as_str() {
-                    "ai"       => 1,
+                    "ai" => 1,
                     "advanced" => 2,
-                    _          => 0,  // normal
+                    _ => 0, // normal
                 };
                 json!({"api_id": 1003, "parameter": mode_id.to_string()})
             }
@@ -274,9 +292,9 @@ impl Go2Adapter {
     /// Parse a Go2 WebSocket response into a VcpCommandResponse.
     pub fn go2_response_to_vcp(
         &self,
-        cmd_id:     &str,
+        cmd_id: &str,
         session_id: &str,
-        go2_resp:   &Value,
+        go2_resp: &Value,
         signing_key: &str,
     ) -> VcpResult<VcpCommandResponse> {
         let code = go2_resp["code"].as_i64().unwrap_or(-1);
@@ -290,17 +308,18 @@ impl Go2Adapter {
         } else {
             None
         };
-        let sig = sovereign_types::crypto::sign(
-            &format!("{}:{}", cmd_id, now_ms()),
-            signing_key,
-        )?;
+        let sig = sovereign_types::crypto::sign(&format!("{}:{}", cmd_id, now_ms()), signing_key)?;
         Ok(VcpCommandResponse {
-            cmd_id:    cmd_id.into(),
+            cmd_id: cmd_id.into(),
             session_id: session_id.into(),
-            device_id:  self.device_id.clone(),
+            device_id: self.device_id.clone(),
             status,
             telemetry,
-            error: if code != 0 { go2_resp["message"].as_str().map(String::from) } else { None },
+            error: if code != 0 {
+                go2_resp["message"].as_str().map(String::from)
+            } else {
+                None
+            },
             timestamp: now_ms(),
             signature: sig,
         })
@@ -329,7 +348,7 @@ mod tests {
         assert!(m.is_grantable("locomotion").is_ok());
         assert!(m.is_grantable("camera").is_ok());
         assert!(m.is_grantable("firmware.update").is_err()); // ungrantable
-        assert!(m.is_grantable("safety.disable").is_err());  // ungrantable
+        assert!(m.is_grantable("safety.disable").is_err()); // ungrantable
     }
 
     #[test]
@@ -342,7 +361,11 @@ mod tests {
     #[test]
     fn move_command_produces_correct_api_id() {
         let a = adapter();
-        let payload = a.action_to_go2_payload(Go2Action::Move { vx: 0.5, vy: 0.0, vyaw: 0.1 });
+        let payload = a.action_to_go2_payload(Go2Action::Move {
+            vx: 0.5,
+            vy: 0.0,
+            vyaw: 0.1,
+        });
         assert_eq!(payload["api_id"], 1008);
     }
 
@@ -351,7 +374,7 @@ mod tests {
         let a = adapter();
         assert_eq!(a.action_to_go2_payload(Go2Action::StandUp)["api_id"], 1004);
         assert_eq!(a.action_to_go2_payload(Go2Action::SitDown)["api_id"], 1005);
-        assert_eq!(a.action_to_go2_payload(Go2Action::Damp)["api_id"],    1001);
+        assert_eq!(a.action_to_go2_payload(Go2Action::Damp)["api_id"], 1001);
     }
 
     #[test]

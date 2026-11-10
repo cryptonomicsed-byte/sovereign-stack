@@ -12,8 +12,8 @@
 //! The 256-step Odù grid uses the same tile_id format as `OduCoordinate`:
 //!   "odu:{x:x}{y:x}" where x = tile_index >> 4, y = tile_index & 0xF
 
-use sha2::{Sha256, Digest};
 use serde::{Deserialize, Serialize};
+use sha2::{Digest, Sha256};
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -164,7 +164,8 @@ mod tests {
         for i in 0..tile_ids.len() {
             for j in (i + 1)..tile_ids.len() {
                 assert_ne!(
-                    tile_ids[i], tile_ids[j],
+                    tile_ids[i],
+                    tile_ids[j],
                     "days {} and {} produced the same tile_id: {}",
                     base_day + i as u32,
                     base_day + j as u32,
@@ -192,18 +193,25 @@ mod tests {
             let id = tile_id_from_index(idx);
             assert!(
                 id.starts_with("odu:"),
-                "tile_id '{}' for index {} does not start with 'odu:'", id, idx
+                "tile_id '{}' for index {} does not start with 'odu:'",
+                id,
+                idx
             );
             let hex_part = id.strip_prefix("odu:").unwrap();
             assert_eq!(
-                hex_part.len(), 2,
-                "tile_id '{}' hex part should be 2 chars, got {}", id, hex_part.len()
+                hex_part.len(),
+                2,
+                "tile_id '{}' hex part should be 2 chars, got {}",
+                id,
+                hex_part.len()
             );
             // Each char must be a valid lowercase hex nibble.
             for ch in hex_part.chars() {
                 assert!(
                     ch.is_ascii_hexdigit(),
-                    "non-hex char '{}' in tile_id '{}'", ch, id
+                    "non-hex char '{}' in tile_id '{}'",
+                    ch,
+                    id
                 );
             }
         }
@@ -212,7 +220,10 @@ mod tests {
     #[test]
     fn oracle_result_tile_id_has_valid_format() {
         let r = CowrieOracle::query(19_600, "temporal");
-        assert!(r.tile_id.starts_with("odu:"), "tile_id must start with 'odu:'");
+        assert!(
+            r.tile_id.starts_with("odu:"),
+            "tile_id must start with 'odu:'"
+        );
         let hex_part = r.tile_id.strip_prefix("odu:").unwrap();
         assert_eq!(hex_part.len(), 2);
         for ch in hex_part.chars() {

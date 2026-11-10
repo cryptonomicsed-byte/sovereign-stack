@@ -17,39 +17,39 @@ use crate::principal::Principal;
 /// tampering.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ActionReceipt {
-    pub receipt_id:    Uuid,
-    pub kind:          ReceiptKind,
+    pub receipt_id: Uuid,
+    pub kind: ReceiptKind,
     /// Sub-type for "custom" kind, or additional qualifier.
-    pub kind_ext:      Option<String>,
+    pub kind_ext: Option<String>,
 
     // ── 5-primitive identity chain ────────────────────────────────────────────
-    pub principal:     Principal,
+    pub principal: Principal,
 
     // ── what happened ─────────────────────────────────────────────────────────
-    pub action:        ActionSpec,
+    pub action: ActionSpec,
 
     // ── evidence ──────────────────────────────────────────────────────────────
-    pub evidence_ids:          Vec<String>,
-    pub witness_attestations:  Vec<WitnessAttestation>,
-    pub throne_evaluations:    Vec<ThroneEvaluation>,
+    pub evidence_ids: Vec<String>,
+    pub witness_attestations: Vec<WitnessAttestation>,
+    pub throne_evaluations: Vec<ThroneEvaluation>,
 
     // ── settlement ────────────────────────────────────────────────────────────
-    pub consensus_receipt:    Option<ConsensusReceipt>,
+    pub consensus_receipt: Option<ConsensusReceipt>,
     pub physical_attestation: Option<PhysicalAttestation>,
     /// Set when Zàngbétò records this receipt on OSOVM.
-    pub zangbeto_anchor:      Option<String>,
+    pub zangbeto_anchor: Option<String>,
     /// Nostr event ID if published.
-    pub nostr_event_id:       Option<String>,
+    pub nostr_event_id: Option<String>,
 
     // ── chain ─────────────────────────────────────────────────────────────────
-    pub timestamp:       i64,           // Unix seconds
-    pub execution_id:    Option<Uuid>,  // links to a batch or job
+    pub timestamp: i64,             // Unix seconds
+    pub execution_id: Option<Uuid>, // links to a batch or job
     /// SHA-256 hex of the previous ActionReceipt from this agent.  None = genesis.
-    pub previous_hash:   Option<String>,
+    pub previous_hash: Option<String>,
 
     // ── auth ──────────────────────────────────────────────────────────────────
     /// Ed25519 signature by principal.agent_id over canonical JSON.
-    pub signature:       String,
+    pub signature: String,
 }
 
 impl ActionReceipt {
@@ -101,13 +101,13 @@ pub enum ReceiptKind {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ActionSpec {
     /// Verb: "submit_job", "join_mesh", "grant_capability", "emit_ase", etc.
-    pub kind:    String,
+    pub kind: String,
     /// The entity acted upon (job ID, agent ID, device ID, resource ID, …)
-    pub target:  String,
+    pub target: String,
     /// Outcome: "success" | "failure" | "partial" | "revoked"
     pub outcome: String,
     /// Kind-specific parameters — preserved verbatim for audit.
-    pub params:  serde_json::Value,
+    pub params: serde_json::Value,
 }
 
 // ── evidence types ────────────────────────────────────────────────────────────
@@ -115,32 +115,32 @@ pub struct ActionSpec {
 /// Reference to an external evidence artefact.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct EvidenceRef {
-    pub id:       String,
-    pub kind:     String,   // "telemetry", "log", "image", "simulation_output", …
-    pub uri:      Option<String>,
-    pub hash:     Option<String>,
+    pub id: String,
+    pub kind: String, // "telemetry", "log", "image", "simulation_output", …
+    pub uri: Option<String>,
+    pub hash: Option<String>,
 }
 
 /// A signed observation from a Witness node.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WitnessAttestation {
-    pub witness_id:  String,
+    pub witness_id: String,
     pub attested_at: DateTime<Utc>,
     pub observation: String,
     pub outcome_hash: String,
-    pub signature:   String,
+    pub signature: String,
 }
 
 /// Independent evaluation from one of the Twelve Thrones.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ThroneEvaluation {
-    pub throne_id:   String,
-    pub model:       String,   // e.g. "claude-sonnet-4-6", "gpt-4o", …
-    pub verdict:     String,   // "confirmed" | "disputed" | "insufficient_evidence"
-    pub confidence:  f64,
-    pub rationale:   String,
+    pub throne_id: String,
+    pub model: String,   // e.g. "claude-sonnet-4-6", "gpt-4o", …
+    pub verdict: String, // "confirmed" | "disputed" | "insufficient_evidence"
+    pub confidence: f64,
+    pub rationale: String,
     pub evaluated_at: DateTime<Utc>,
-    pub signature:   String,
+    pub signature: String,
 }
 
 // ── settlement types ──────────────────────────────────────────────────────────
@@ -148,20 +148,20 @@ pub struct ThroneEvaluation {
 /// Twelve Thrones consensus outcome for this receipt.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ConsensusReceipt {
-    pub quorum:          u8,   // N of 12 thrones that participated
-    pub threshold:       u8,   // minimum required for consensus
-    pub consensus:       bool,
-    pub combined_hash:   String,
-    pub settled_at:      DateTime<Utc>,
+    pub quorum: u8,    // N of 12 thrones that participated
+    pub threshold: u8, // minimum required for consensus
+    pub consensus: bool,
+    pub combined_hash: String,
+    pub settled_at: DateTime<Utc>,
 }
 
 /// Physical world observation that confirms/falsifies the action.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PhysicalAttestation {
-    pub device_id:       String,
-    pub observed_at:     DateTime<Utc>,
-    pub f1_score:        Option<f64>,   // sim-vs-reality quality score
+    pub device_id: String,
+    pub observed_at: DateTime<Utc>,
+    pub f1_score: Option<f64>, // sim-vs-reality quality score
     pub trajectory_hash: Option<String>,
-    pub nostr_kind:      Option<u32>,   // 31020 (capture) or 31030 (scene)
-    pub signature:       String,
+    pub nostr_kind: Option<u32>, // 31020 (capture) or 31030 (scene)
+    pub signature: String,
 }

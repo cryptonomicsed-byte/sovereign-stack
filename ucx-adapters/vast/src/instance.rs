@@ -4,36 +4,35 @@ use std::sync::Mutex;
 use chrono::Utc;
 use serde_json::{json, Value};
 use ucx_protocol::{
-    Allocation, BillingCurrency, BillingRecord, ComputeProvider, ComputeReceipt,
-    CpuArch, CpuCapability, ExternalProviderAdapter, GpuCapability, GpuVendor,
-    Job, JobId, JobStatus, LineItem, Offer, ProviderCapability, ProviderTier,
-    ResourceUsage, RuntimeKind, TrustLevel, UcxError, VerificationProof,
-    WorkloadType,
+    Allocation, BillingCurrency, BillingRecord, ComputeProvider, ComputeReceipt, CpuArch,
+    CpuCapability, ExternalProviderAdapter, GpuCapability, GpuVendor, Job, JobId, JobStatus,
+    LineItem, Offer, ProviderCapability, ProviderTier, ResourceUsage, RuntimeKind, TrustLevel,
+    UcxError, VerificationProof, WorkloadType,
 };
 use uuid::Uuid;
 
 const BASE: &str = "https://console.vast.ai/api/v0";
 
 pub struct VastAdapter {
-    api_key:    String,
+    api_key: String,
     capability: ProviderCapability,
-    jobs:       Mutex<HashMap<JobId, VastJobRecord>>,
+    jobs: Mutex<HashMap<JobId, VastJobRecord>>,
 }
 
 struct VastJobRecord {
-    instance_id:      u64,
-    offer_id:         u64,
-    price_per_hr:     f64,
-    started_at:       chrono::DateTime<Utc>,
-    status:           JobStatus,
+    instance_id: u64,
+    offer_id: u64,
+    price_per_hr: f64,
+    started_at: chrono::DateTime<Utc>,
+    status: JobStatus,
 }
 
 impl VastAdapter {
     pub fn new(api_key: impl Into<String>) -> Self {
         Self {
-            api_key:    api_key.into(),
+            api_key: api_key.into(),
             capability: build_capability(),
-            jobs:       Mutex::new(HashMap::new()),
+            jobs: Mutex::new(HashMap::new()),
         }
     }
 
@@ -82,31 +81,43 @@ impl VastAdapter {
             .header("Authorization", self.auth_header())
             .query(&params)
             .send()
-            .map_err(|e| UcxError::Adapter { adapter: "vast".into(), reason: e.to_string() })?;
-
-        let val: Value = resp.json().unwrap_or(Value::Null);
-        let offers = val["offers"].as_array()
-            .ok_or_else(|| UcxError::Adapter {
+            .map_err(|e| UcxError::Adapter {
                 adapter: "vast".into(),
-                reason: "no offers in response".into(),
+                reason: e.to_string(),
             })?;
 
-        let offer = offers.first()
-            .ok_or_else(|| UcxError::InsufficientCapacity { reason: "no vast.ai offers match job requirements".into() })?;
+        let val: Value = resp.json().unwrap_or(Value::Null);
+        let offers = val["offers"].as_array().ok_or_else(|| UcxError::Adapter {
+            adapter: "vast".into(),
+            reason: "no offers in response".into(),
+        })?;
 
-        let id    = offer["id"].as_u64().unwrap_or(0);
+        let offer = offers
+            .first()
+            .ok_or_else(|| UcxError::InsufficientCapacity {
+                reason: "no vast.ai offers match job requirements".into(),
+            })?;
+
+        let id = offer["id"].as_u64().unwrap_or(0);
         let price = offer["dph_total"].as_f64().unwrap_or(0.5);
         Ok((id, price))
     }
 }
 
 impl ComputeProvider for VastAdapter {
-    fn id(&self)         -> &str               { "vast-ai" }
-    fn capability(&self) -> &ProviderCapability { &self.capability }
+    fn id(&self) -> &str {
+        "vast-ai"
+    }
+    fn capability(&self) -> &ProviderCapability {
+        &self.capability
+    }
 
     fn can_accept(&self, job: &Job) -> bool {
         job.constraints.allow_external
-            && matches!(job.workload, WorkloadType::Training | WorkloadType::Inference | WorkloadType::Rendering)
+            && matches!(
+                job.workload,
+                WorkloadType::Training | WorkloadType::Inference | WorkloadType::Rendering
+            )
     }
 
     fn submit(&self, job: Job) -> Result<Allocation, UcxError> {
@@ -134,7 +145,10 @@ impl ComputeProvider for VastAdapter {
             .header("Authorization", self.auth_header())
             .json(&body)
             .send()
-            .map_err(|e| UcxError::Adapter { adapter: "vast".into(), reason: e.to_string() })?;
+            .map_err(|e| UcxError::Adapter {
+                adapter: "vast".into(),
+                reason: e.to_string(),
+            })?;
 
         let status_code = resp.status();
         let val: Value = resp.json().unwrap_or(Value::Null);
@@ -146,30 +160,31 @@ impl ComputeProvider for VastAdapter {
             });
         }
 
-        let instance_id = val["new_contract"]
-            .as_u64()
-            .unwrap_or(0);
+        let instance_id = val["new_contract"].as_u64().unwrap_or(0);
 
         let price_cents = (price_hr * 100.0) as u64;
 
-        self.jobs.lock().unwrap().insert(job.id, VastJobRecord {
-            instance_id,
-            offer_id,
-            price_per_hr: price_hr,
-            started_at:   Utc::now(),
-            status:       JobStatus::Pending,
-        });
+        self.jobs.lock().unwrap().insert(
+            job.id,
+            VastJobRecord {
+                instance_id,
+                offer_id,
+                price_per_hr: price_hr,
+                started_at: Utc::now(),
+                status: JobStatus::Pending,
+            },
+        );
 
         Ok(Allocation {
-            job_id:       job.id,
-            provider_id:  self.id().to_string(),
+            job_id: job.id,
+            provider_id: self.id().to_string(),
             offer: Offer {
-                job_id:       job.id,
-                provider_id:  self.id().to_string(),
+                job_id: job.id,
+                provider_id: self.id().to_string(),
                 price_cents,
-                eta_secs:     120,
-                expires_at:   Utc::now(),
-                is_external:  true,
+                eta_secs: 120,
+                expires_at: Utc::now(),
+                is_external: true,
             },
             allocated_at: Utc::now(),
             status: JobStatus::Pending,
@@ -178,8 +193,9 @@ impl ComputeProvider for VastAdapter {
 
     fn status(&self, job_id: JobId) -> Result<JobStatus, UcxError> {
         let record = self.jobs.lock().unwrap();
-        let rec = record.get(&job_id)
-            .ok_or(UcxError::JobNotFound { job_id: job_id.to_string() })?;
+        let rec = record.get(&job_id).ok_or(UcxError::JobNotFound {
+            job_id: job_id.to_string(),
+        })?;
         let instance_id = rec.instance_id;
         drop(record);
 
@@ -189,7 +205,10 @@ impl ComputeProvider for VastAdapter {
             .get(&url)
             .header("Authorization", self.auth_header())
             .send()
-            .map_err(|e| UcxError::Adapter { adapter: "vast".into(), reason: e.to_string() })?;
+            .map_err(|e| UcxError::Adapter {
+                adapter: "vast".into(),
+                reason: e.to_string(),
+            })?;
 
         let val: Value = resp.json().unwrap_or(Value::Null);
         let actual_status = val["instances"]
@@ -199,11 +218,11 @@ impl ComputeProvider for VastAdapter {
             .unwrap_or("unknown");
 
         let ucx_status = match actual_status {
-            "running"   => JobStatus::Running,
-            "stopped"   | "exited"    => JobStatus::Completed,
-            "failed"    | "error"     => JobStatus::Failed,
-            "cancelled"               => JobStatus::Cancelled,
-            _                         => JobStatus::Pending,
+            "running" => JobStatus::Running,
+            "stopped" | "exited" => JobStatus::Completed,
+            "failed" | "error" => JobStatus::Failed,
+            "cancelled" => JobStatus::Cancelled,
+            _ => JobStatus::Pending,
         };
 
         let mut record = self.jobs.lock().unwrap();
@@ -216,14 +235,17 @@ impl ComputeProvider for VastAdapter {
 
     fn receipt(&self, job_id: JobId) -> Result<ComputeReceipt, UcxError> {
         let record = self.jobs.lock().unwrap();
-        let rec = record.get(&job_id)
-            .ok_or(UcxError::JobNotFound { job_id: job_id.to_string() })?;
+        let rec = record.get(&job_id).ok_or(UcxError::JobNotFound {
+            job_id: job_id.to_string(),
+        })?;
         if rec.status != JobStatus::Completed {
-            return Err(UcxError::JobNotFound { job_id: job_id.to_string() });
+            return Err(UcxError::JobNotFound {
+                job_id: job_id.to_string(),
+            });
         }
-        let instance_id  = rec.instance_id;
+        let instance_id = rec.instance_id;
         let price_per_hr = rec.price_per_hr;
-        let started_at   = rec.started_at;
+        let started_at = rec.started_at;
         drop(record);
 
         let elapsed_hrs = (Utc::now() - started_at).num_seconds() as f64 / 3600.0;
@@ -231,27 +253,27 @@ impl ComputeProvider for VastAdapter {
 
         Ok(ComputeReceipt {
             job_id,
-            provider_id:  self.id().to_string(),
+            provider_id: self.id().to_string(),
             completed_at: Utc::now(),
             resources: ResourceUsage {
-                gpu_seconds:    elapsed_hrs * 3600.0,
-                cpu_seconds:    0.0,
+                gpu_seconds: elapsed_hrs * 3600.0,
+                cpu_seconds: 0.0,
                 ram_gb_seconds: 0.0,
-                storage_gb:     0.0,
-                egress_gb:      0.0,
+                storage_gb: 0.0,
+                egress_gb: 0.0,
             },
             billing: BillingRecord {
                 amount_cents,
-                currency:   BillingCurrency::Usd,
+                currency: BillingCurrency::Usd,
                 line_items: vec![LineItem {
                     label: format!("vast instance {instance_id}"),
                     cents: amount_cents,
                 }],
             },
             verification: VerificationProof {
-                artifact_hash:       Some(instance_id.to_string()),
+                artifact_hash: Some(instance_id.to_string()),
                 runtime_attestation: Some("vast.ai".into()),
-                execution_hash:      None,
+                execution_hash: None,
             },
             zangbeto_anchor: None,
         })
@@ -259,8 +281,9 @@ impl ComputeProvider for VastAdapter {
 
     fn cancel(&self, job_id: JobId) -> Result<(), UcxError> {
         let record = self.jobs.lock().unwrap();
-        let rec = record.get(&job_id)
-            .ok_or(UcxError::JobNotFound { job_id: job_id.to_string() })?;
+        let rec = record.get(&job_id).ok_or(UcxError::JobNotFound {
+            job_id: job_id.to_string(),
+        })?;
         let instance_id = rec.instance_id;
         drop(record);
 
@@ -270,14 +293,19 @@ impl ComputeProvider for VastAdapter {
             .delete(&url)
             .header("Authorization", self.auth_header())
             .send()
-            .map_err(|e| UcxError::Adapter { adapter: "vast".into(), reason: e.to_string() })?;
+            .map_err(|e| UcxError::Adapter {
+                adapter: "vast".into(),
+                reason: e.to_string(),
+            })?;
 
         Ok(())
     }
 }
 
 impl ExternalProviderAdapter for VastAdapter {
-    fn network_name(&self) -> &str { "vast.ai" }
+    fn network_name(&self) -> &str {
+        "vast.ai"
+    }
 
     fn is_available(&self) -> bool {
         let client = reqwest::blocking::Client::new();
@@ -301,33 +329,33 @@ impl ExternalProviderAdapter for VastAdapter {
     }
 
     fn translate_receipt(&self, raw: Value) -> Result<ComputeReceipt, UcxError> {
-        let instance_id  = raw["instance_id"].as_u64().unwrap_or(0);
+        let instance_id = raw["instance_id"].as_u64().unwrap_or(0);
         let amount_cents = raw["amount_cents"].as_u64().unwrap_or(0);
-        let gpu_secs     = raw["gpu_seconds"].as_f64().unwrap_or(0.0);
+        let gpu_secs = raw["gpu_seconds"].as_f64().unwrap_or(0.0);
 
         Ok(ComputeReceipt {
-            job_id:       Uuid::new_v4(),
-            provider_id:  self.id().to_string(),
+            job_id: Uuid::new_v4(),
+            provider_id: self.id().to_string(),
             completed_at: Utc::now(),
             resources: ResourceUsage {
-                gpu_seconds:    gpu_secs,
-                cpu_seconds:    0.0,
+                gpu_seconds: gpu_secs,
+                cpu_seconds: 0.0,
                 ram_gb_seconds: 0.0,
-                storage_gb:     0.0,
-                egress_gb:      0.0,
+                storage_gb: 0.0,
+                egress_gb: 0.0,
             },
             billing: BillingRecord {
                 amount_cents,
-                currency:   BillingCurrency::Usd,
+                currency: BillingCurrency::Usd,
                 line_items: vec![LineItem {
                     label: format!("vast instance {instance_id}"),
                     cents: amount_cents,
                 }],
             },
             verification: VerificationProof {
-                artifact_hash:       Some(instance_id.to_string()),
+                artifact_hash: Some(instance_id.to_string()),
                 runtime_attestation: Some("vast.ai".into()),
-                execution_hash:      None,
+                execution_hash: None,
             },
             zangbeto_anchor: None,
         })
@@ -337,25 +365,29 @@ impl ExternalProviderAdapter for VastAdapter {
 fn build_capability() -> ProviderCapability {
     ProviderCapability {
         provider_id: "vast-ai".into(),
-        tier:        ProviderTier::Community,
-        trust:       TrustLevel::Standard,
+        tier: ProviderTier::Community,
+        trust: TrustLevel::Standard,
         gpu: Some(GpuCapability {
-            vendor:  GpuVendor::Nvidia,
-            model:   "RTX 3090/4090/A100 (offer-matched)".into(),
+            vendor: GpuVendor::Nvidia,
+            model: "RTX 3090/4090/A100 (offer-matched)".into(),
             vram_gb: 24.0,
-            fp16:    true,
-            bf16:    true,
-            cuda:    true,
-            rocm:    false,
-            count:   1,
+            fp16: true,
+            bf16: true,
+            cuda: true,
+            rocm: false,
+            count: 1,
         }),
-        cpu: CpuCapability { cores: 8, arch: CpuArch::X86_64, frequency_mhz: None },
-        ram_gb:               32.0,
-        disk_gb:              200.0,
-        runtimes:             vec![RuntimeKind::Oci],
-        price_gpu_hour_cents: Some(30),  // Vast.ai starts ~$0.20-0.30/hr
+        cpu: CpuCapability {
+            cores: 8,
+            arch: CpuArch::X86_64,
+            frequency_mhz: None,
+        },
+        ram_gb: 32.0,
+        disk_gb: 200.0,
+        runtimes: vec![RuntimeKind::Oci],
+        price_gpu_hour_cents: Some(30), // Vast.ai starts ~$0.20-0.30/hr
         price_cpu_hour_cents: 1,
-        policy_deny:          vec![],
-        regions:              vec!["global".into()],
+        policy_deny: vec![],
+        regions: vec!["global".into()],
     }
 }

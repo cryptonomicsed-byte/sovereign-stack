@@ -26,13 +26,18 @@ pub struct OduCoordinate {
 impl OduCoordinate {
     /// Construct a coordinate, clamping to [0, 15].
     pub fn new(x: u8, y: u8) -> Self {
-        Self { x: x.min(15), y: y.min(15) }
+        Self {
+            x: x.min(15),
+            y: y.min(15),
+        }
     }
 
     /// Parse from tile_id string "odu:XY" where X, Y are hex nibbles.
     pub fn from_tile_id(tile_id: &str) -> Option<Self> {
         let hex = tile_id.strip_prefix("odu:")?;
-        if hex.len() != 2 { return None; }
+        if hex.len() != 2 {
+            return None;
+        }
         let x = u8::from_str_radix(&hex[..1], 16).ok()?;
         let y = u8::from_str_radix(&hex[1..], 16).ok()?;
         Some(Self { x, y })
@@ -47,14 +52,14 @@ impl OduCoordinate {
         let lat = lat.clamp(-90.0, 90.0);
         let lon = lon.clamp(-180.0, 180.0);
         let x = ((lon + 180.0) / 360.0 * 16.0).floor() as u8;
-        let y = ((lat + 90.0)  / 180.0 * 16.0).floor() as u8;
+        let y = ((lat + 90.0) / 180.0 * 16.0).floor() as u8;
         Self::new(x.min(15), y.min(15))
     }
 
     /// Return the WGS84 bounding box for this L2 tile.
     pub fn to_bounds(&self) -> OduBounds {
-        const LON_STEP: f64 = 360.0 / 16.0;  // 22.5°
-        const LAT_STEP: f64 = 180.0 / 16.0;  // 11.25°
+        const LON_STEP: f64 = 360.0 / 16.0; // 22.5°
+        const LAT_STEP: f64 = 180.0 / 16.0; // 11.25°
         OduBounds::new(
             self.y as f64 * LAT_STEP - 90.0,
             (self.y as f64 + 1.0) * LAT_STEP - 90.0,
@@ -76,10 +81,18 @@ impl OduCoordinate {
     /// Neighbors (cardinal directions), clamped to grid bounds.
     pub fn neighbors(&self) -> Vec<OduCoordinate> {
         let mut out = Vec::with_capacity(4);
-        if self.x > 0  { out.push(Self::new(self.x - 1, self.y)); }
-        if self.x < 15 { out.push(Self::new(self.x + 1, self.y)); }
-        if self.y > 0  { out.push(Self::new(self.x, self.y - 1)); }
-        if self.y < 15 { out.push(Self::new(self.x, self.y + 1)); }
+        if self.x > 0 {
+            out.push(Self::new(self.x - 1, self.y));
+        }
+        if self.x < 15 {
+            out.push(Self::new(self.x + 1, self.y));
+        }
+        if self.y > 0 {
+            out.push(Self::new(self.x, self.y - 1));
+        }
+        if self.y < 15 {
+            out.push(Self::new(self.x, self.y + 1));
+        }
         out
     }
 }
@@ -93,20 +106,25 @@ impl std::fmt::Display for OduCoordinate {
 /// A single Odù tile with optional geographic bounds.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct OduTile {
-    pub tile_id:    String,
+    pub tile_id: String,
     pub coordinate: OduCoordinate,
     /// Optional geographic bounds (WGS84 decimal degrees).
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub bounds:     Option<OduBounds>,
+    pub bounds: Option<OduBounds>,
     /// Human label — defaults to tile_id if not set.
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub label:      Option<String>,
+    pub label: Option<String>,
 }
 
 impl OduTile {
     pub fn new(x: u8, y: u8) -> Self {
         let coord = OduCoordinate::new(x, y);
-        Self { tile_id: coord.tile_id(), coordinate: coord, bounds: None, label: None }
+        Self {
+            tile_id: coord.tile_id(),
+            coordinate: coord,
+            bounds: None,
+            label: None,
+        }
     }
 
     pub fn with_bounds(mut self, bounds: OduBounds) -> Self {
@@ -131,12 +149,16 @@ pub struct OduBounds {
 
 impl OduBounds {
     pub fn new(min_lat: f64, max_lat: f64, min_lon: f64, max_lon: f64) -> Self {
-        Self { min_lat, max_lat, min_lon, max_lon }
+        Self {
+            min_lat,
+            max_lat,
+            min_lon,
+            max_lon,
+        }
     }
 
     pub fn contains(&self, lat: f64, lon: f64) -> bool {
-        lat >= self.min_lat && lat <= self.max_lat &&
-        lon >= self.min_lon && lon <= self.max_lon
+        lat >= self.min_lat && lat <= self.max_lat && lon >= self.min_lon && lon <= self.max_lon
     }
 }
 

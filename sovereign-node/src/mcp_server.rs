@@ -16,52 +16,62 @@
 //! This server is mounted at /mcp alongside the existing REST API.
 //! Both are served by the same axum listener.
 
-use axum::{extract::State, Json, response::IntoResponse, http::StatusCode};
+use axum::{extract::State, http::StatusCode, response::IntoResponse, Json};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use tracing::info;
 use uuid::Uuid;
 
-use dip::{DipEnvelope, DipKind, DipAddress, address::DipNetwork};
+use dip::{address::DipNetwork, DipAddress, DipEnvelope, DipKind};
 use sovereign_types::IdentityChain;
 
-use crate::node::NodeState;
 use crate::jobs::{Job, JobStatus};
+use crate::node::NodeState;
 
 // ── MCP wire types ─────────────────────────────────────────────────────────
 
 #[derive(Debug, Deserialize)]
 pub struct McpRequest {
     pub jsonrpc: String,
-    pub id:      Value,
-    pub method:  String,
-    pub params:  Option<Value>,
+    pub id: Value,
+    pub method: String,
+    pub params: Option<Value>,
 }
 
 #[derive(Debug, Serialize)]
 pub struct McpResponse {
     pub jsonrpc: String,
-    pub id:      Value,
+    pub id: Value,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub result:  Option<Value>,
+    pub result: Option<Value>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub error:   Option<McpError>,
+    pub error: Option<McpError>,
 }
 
 #[derive(Debug, Serialize)]
 pub struct McpError {
-    pub code:    i32,
+    pub code: i32,
     pub message: String,
 }
 
 impl McpResponse {
     fn ok(id: Value, result: Value) -> Self {
-        Self { jsonrpc: "2.0".into(), id, result: Some(result), error: None }
+        Self {
+            jsonrpc: "2.0".into(),
+            id,
+            result: Some(result),
+            error: None,
+        }
     }
     fn err(id: Value, code: i32, message: impl Into<String>) -> Self {
         Self {
-            jsonrpc: "2.0".into(), id, result: None,
-            error: Some(McpError { code, message: message.into() }),
+            jsonrpc: "2.0".into(),
+            id,
+            result: None,
+            error: Some(McpError {
+                code,
+                message: message.into(),
+            }),
         }
     }
 }
@@ -79,14 +89,14 @@ pub async fn handle_mcp(
     }
 
     let result = match req.method.as_str() {
-        "tools/list"  => handle_tools_list(),
-        "tools/call"  => handle_tools_call(&state, req.params.unwrap_or(Value::Null)).await,
+        "tools/list" => handle_tools_list(),
+        "tools/call" => handle_tools_call(&state, req.params.unwrap_or(Value::Null)).await,
         other => Err(format!("method not found: {other}")),
     };
 
     let resp = match result {
         Ok(val) => McpResponse::ok(req.id, val),
-        Err(e)  => McpResponse::err(req.id, -32601, e),
+        Err(e) => McpResponse::err(req.id, -32601, e),
     };
 
     (StatusCode::OK, Json(serde_json::to_value(resp).unwrap()))
@@ -238,7 +248,8 @@ fn handle_tools_list() -> Result<Value, String> {
 }
 
 async fn handle_tools_call(state: &NodeState, params: Value) -> Result<Value, String> {
-    let name = params.get("name")
+    let name = params
+        .get("name")
         .and_then(|v| v.as_str())
         .ok_or("missing tool name")?;
     let args = params.get("arguments").cloned().unwrap_or(Value::Null);
@@ -246,18 +257,18 @@ async fn handle_tools_call(state: &NodeState, params: Value) -> Result<Value, St
     info!(tool = name, "MCP tool call");
 
     match name {
-        "vcp_nearby_devices"       => tool_nearby_devices(state).await,
-        "vcp_connect"              => tool_connect(state, &args).await,
-        "vcp_capture"              => tool_capture(state, &args).await,
-        "sovereign_status"         => tool_status(state).await,
-        "sovereign_job_status"     => tool_job_status(state, &args).await,
-        "dip_send"                 => tool_dip_send(state, &args),
-        "vcp_body_session_open"    => tool_body_session_open(state, &args).await,
+        "vcp_nearby_devices" => tool_nearby_devices(state).await,
+        "vcp_connect" => tool_connect(state, &args).await,
+        "vcp_capture" => tool_capture(state, &args).await,
+        "sovereign_status" => tool_status(state).await,
+        "sovereign_job_status" => tool_job_status(state, &args).await,
+        "dip_send" => tool_dip_send(state, &args),
+        "vcp_body_session_open" => tool_body_session_open(state, &args).await,
         "vcp_body_session_command" => tool_body_session_command(state, &args).await,
-        "vcp_body_session_close"   => tool_body_session_close(state, &args).await,
-        "sovereign_timeline"       => tool_timeline(state, &args).await,
-        "sovereign_timeline_diff"  => tool_timeline_diff(state, &args).await,
-        "sovereign_ip_root"        => tool_ip_root(state),
+        "vcp_body_session_close" => tool_body_session_close(state, &args).await,
+        "sovereign_timeline" => tool_timeline(state, &args).await,
+        "sovereign_timeline_diff" => tool_timeline_diff(state, &args).await,
+        "sovereign_ip_root" => tool_ip_root(state),
         other => Err(format!("unknown tool: {other}")),
     }
 }
@@ -274,7 +285,8 @@ async fn tool_nearby_devices(state: &NodeState) -> Result<Value, String> {
 }
 
 async fn tool_connect(state: &NodeState, args: &Value) -> Result<Value, String> {
-    let device_id = args.get("device_id")
+    let device_id = args
+        .get("device_id")
         .and_then(|v| v.as_str())
         .ok_or("missing device_id")?;
 
@@ -299,24 +311,30 @@ async fn tool_connect(state: &NodeState, args: &Value) -> Result<Value, String> 
 }
 
 async fn tool_capture(state: &NodeState, args: &Value) -> Result<Value, String> {
-    let device_id = args.get("device_id")
+    let device_id = args
+        .get("device_id")
         .and_then(|v| v.as_str())
         .ok_or("missing device_id")?;
 
-    let device = state.registry.get(device_id).await
+    let device = state
+        .registry
+        .get(device_id)
+        .await
         .ok_or_else(|| format!("device not found: {device_id}"))?;
 
-    let job_id  = format!("job:{}", Uuid::new_v4());
-    let job     = Job::new(job_id.clone(), device_id.to_string());
+    let job_id = format!("job:{}", Uuid::new_v4());
+    let job = Job::new(job_id.clone(), device_id.to_string());
     state.job_store.insert(job).await;
 
     info!(job_id = %job_id, device_id = %device_id, source = "mcp", "capture job queued via MCP");
 
-    let task_job   = job_id.clone();
-    let dev_id     = device.device_id.clone();
-    let model      = device.model.clone();
+    let task_job = job_id.clone();
+    let dev_id = device.device_id.clone();
+    let model = device.model.clone();
     tokio::spawn(crate::node::run_capture_job(
-        task_job, dev_id, model,
+        task_job,
+        dev_id,
+        model,
         state.identity.clone(),
         state.config.clone(),
         state.job_store.clone(),
@@ -335,15 +353,21 @@ async fn tool_capture(state: &NodeState, args: &Value) -> Result<Value, String> 
 }
 
 async fn tool_status(state: &NodeState) -> Result<Value, String> {
-    let now          = std::time::SystemTime::now()
+    let now = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
         .unwrap_or_default()
         .as_millis() as u64;
-    let uptime_secs  = (now - state.started_at) / 1000;
+    let uptime_secs = (now - state.started_at) / 1000;
     let device_count = state.registry.count().await;
-    let jobs         = state.job_store.all().await;
-    let running      = jobs.iter().filter(|j| matches!(j.status, JobStatus::Running)).count();
-    let completed    = jobs.iter().filter(|j| matches!(j.status, JobStatus::Completed { .. })).count();
+    let jobs = state.job_store.all().await;
+    let running = jobs
+        .iter()
+        .filter(|j| matches!(j.status, JobStatus::Running))
+        .count();
+    let completed = jobs
+        .iter()
+        .filter(|j| matches!(j.status, JobStatus::Completed { .. }))
+        .count();
 
     let result = json!({
         "node":          state.config.node.name,
@@ -359,7 +383,8 @@ async fn tool_status(state: &NodeState) -> Result<Value, String> {
 }
 
 async fn tool_job_status(state: &NodeState, args: &Value) -> Result<Value, String> {
-    let job_id = args.get("job_id")
+    let job_id = args
+        .get("job_id")
         .and_then(|v| v.as_str())
         .ok_or("missing job_id")?;
 
@@ -373,37 +398,40 @@ async fn tool_job_status(state: &NodeState, args: &Value) -> Result<Value, Strin
 }
 
 fn tool_dip_send(state: &NodeState, args: &Value) -> Result<Value, String> {
-    let dest_did = args.get("destination_did")
+    let dest_did = args
+        .get("destination_did")
         .and_then(|v| v.as_str())
         .ok_or("missing destination_did")?;
-    let network_str = args.get("network")
+    let network_str = args
+        .get("network")
         .and_then(|v| v.as_str())
         .unwrap_or("vantage");
-    let payload = args.get("payload")
-        .cloned()
-        .unwrap_or(Value::Null);
+    let payload = args.get("payload").cloned().unwrap_or(Value::Null);
 
     let network = match network_str {
-        "nostr"       => DipNetwork::Nostr,
-        "meshtastic"  => DipNetwork::Meshtastic,
-        _             => DipNetwork::Vantage,
+        "nostr" => DipNetwork::Nostr,
+        "meshtastic" => DipNetwork::Meshtastic,
+        _ => DipNetwork::Vantage,
     };
 
     let origin = DipAddress::vantage(&state.identity.did);
-    let dest   = DipAddress {
+    let dest = DipAddress {
         network,
         address: dest_did.into(),
-        did:     Some(dest_did.into()),
+        did: Some(dest_did.into()),
     };
     let chain = IdentityChain::new(state.identity.did.clone(), state.identity.did.clone());
 
     let envelope = DipEnvelope::build(
-        origin, dest, chain,
+        origin,
+        dest,
+        chain,
         DipKind::Message,
         payload,
         300,
         &state.identity.private_key,
-    ).map_err(|e| e.to_string())?;
+    )
+    .map_err(|e| e.to_string())?;
 
     info!(
         msg_id = %envelope.message_id,
@@ -429,7 +457,8 @@ fn tool_dip_send(state: &NodeState, args: &Value) -> Result<Value, String> {
 // P2 migration: body session management delegated to Vantage.
 
 async fn tool_body_session_open(_state: &NodeState, args: &Value) -> Result<Value, String> {
-    let device_id = args.get("device_id")
+    let device_id = args
+        .get("device_id")
         .and_then(|v| v.as_str())
         .ok_or("missing device_id")?;
 
@@ -444,7 +473,8 @@ async fn tool_body_session_open(_state: &NodeState, args: &Value) -> Result<Valu
 // P2 migration: body session management delegated to Vantage.
 
 async fn tool_body_session_command(_state: &NodeState, args: &Value) -> Result<Value, String> {
-    let session_id = args.get("session_id")
+    let session_id = args
+        .get("session_id")
         .and_then(|v| v.as_str())
         .ok_or("missing session_id")?;
 
@@ -459,7 +489,8 @@ async fn tool_body_session_command(_state: &NodeState, args: &Value) -> Result<V
 // P2 migration: body session management delegated to Vantage.
 
 async fn tool_body_session_close(_state: &NodeState, args: &Value) -> Result<Value, String> {
-    let session_id = args.get("session_id")
+    let session_id = args
+        .get("session_id")
         .and_then(|v| v.as_str())
         .ok_or("missing session_id")?;
 
@@ -473,7 +504,8 @@ async fn tool_body_session_close(_state: &NodeState, args: &Value) -> Result<Val
 // ── sovereign_timeline ────────────────────────────────────────────────────────
 
 async fn tool_timeline(_state: &NodeState, args: &Value) -> Result<Value, String> {
-    let twin_id = args.get("twin_id")
+    let twin_id = args
+        .get("twin_id")
         .and_then(|v| v.as_str())
         .ok_or("missing twin_id")?;
     // Timeline store migrated to Vantage — query via Vantage API
@@ -485,7 +517,8 @@ async fn tool_timeline(_state: &NodeState, args: &Value) -> Result<Value, String
 // ── sovereign_timeline_diff ───────────────────────────────────────────────────
 
 async fn tool_timeline_diff(_state: &NodeState, args: &Value) -> Result<Value, String> {
-    let twin_id = args.get("twin_id")
+    let twin_id = args
+        .get("twin_id")
         .and_then(|v| v.as_str())
         .ok_or("missing twin_id")?;
     // Timeline store migrated to Vantage — diff via Vantage API
